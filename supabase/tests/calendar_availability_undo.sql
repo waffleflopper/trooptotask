@@ -214,6 +214,11 @@ SELECT is(pg_temp.remove(ARRAY['713']), 1, 'the Alpha operator removes a status 
 SELECT pg_temp.act_as('2');
 UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('202') WHERE id = pg_temp.id('402');
 SELECT pg_temp.act_as('3');
+SELECT throws_ok(format($$ INSERT INTO public.availability_entries (id, organization_id, personnel_id, status_type_id,
+  start_date, end_date, set_for_tasking_id) VALUES (%L, %L, %L, %L, '2031-09-01', '2031-09-02', %L) $$,
+  pg_temp.id('713'), pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), pg_temp.id('402')),
+  '42501', 'Tasking is unavailable for this Organization',
+  'while its undo record waits, a direct add of the removed status cannot test which hidden Tasking it named');
 SELECT is(pg_temp.restore(ARRAY['713'], ARRAY['501']), ARRAY['713'], 'the status restores');
 SELECT is(pg_temp.link('713'), pg_temp.id('402'),
   'it keeps its link to a Tasking the operator cannot see, which the server held');

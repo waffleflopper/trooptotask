@@ -2007,7 +2007,7 @@ BEGIN
     SELECT 1 FROM calendar_private.availability_undo u
     WHERE u.actor_id = auth.uid() AND u.entry_id = NEW.id AND u.organization_id = NEW.organization_id
       AND u.personnel_id = NEW.personnel_id AND u.set_for_tasking_id = NEW.set_for_tasking_id
-      AND u.expires_at > pg_catalog.now()
+      AND u.restoring
   ) THEN
     IF NOT EXISTS (SELECT 1 FROM public.calendar_taskings t
       WHERE t.organization_id = NEW.organization_id AND t.id = NEW.set_for_tasking_id
@@ -12034,6 +12034,9 @@ BEGIN
   FOR SHARE;
 
   -- The Tasking check reads the caller's undo records, so they stay until the insert is done.
+  UPDATE calendar_private.availability_undo u SET restoring = true
+  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids);
+
   RETURN QUERY
   WITH claim AS (
     SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
@@ -14711,7 +14714,8 @@ CREATE TABLE calendar_private.availability_undo (
     note text,
     created_at timestamp with time zone NOT NULL,
     set_for_tasking_id uuid,
-    expires_at timestamp with time zone NOT NULL
+    expires_at timestamp with time zone NOT NULL,
+    restoring boolean DEFAULT false NOT NULL
 );
 
 

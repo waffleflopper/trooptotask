@@ -14,6 +14,8 @@ CREATE TABLE calendar_private.availability_undo (
   created_at timestamptz NOT NULL,
   set_for_tasking_id uuid,
   expires_at timestamptz NOT NULL,
+  -- Set only inside a restore call, which deletes the record before it returns, so no other request ever sees it.
+  restoring boolean NOT NULL DEFAULT false,
   PRIMARY KEY (actor_id, entry_id)
 );
 CREATE INDEX availability_undo_expires_idx ON calendar_private.availability_undo (expires_at);
@@ -75,8 +77,8 @@ ALTER FUNCTION public.delete_availability_entries(uuid, uuid[]) OWNER TO postgre
 REVOKE ALL ON FUNCTION public.delete_availability_entries(uuid, uuid[]) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_availability_entries(uuid, uuid[]) TO authenticated;
 
--- A write may name a Tasking the writer cannot see only when it puts back the writer's own removal with the link the
--- server held. Every other write still needs a visible Tasking.
+-- Only a restore call may name a Tasking the writer cannot see, and only with the link its record holds. Every
+-- other write still needs a visible Tasking.
 CREATE OR REPLACE FUNCTION calendar_private.check_availability_tasking() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
@@ -85,7 +87,7 @@ BEGIN
     SELECT 1 FROM calendar_private.availability_undo u
     WHERE u.actor_id = auth.uid() AND u.entry_id = NEW.id AND u.organization_id = NEW.organization_id
       AND u.personnel_id = NEW.personnel_id AND u.set_for_tasking_id = NEW.set_for_tasking_id
-      AND u.expires_at > pg_catalog.now()
+      AND u.restoring
   ) THEN
     IF NOT EXISTS (SELECT 1 FROM public.calendar_taskings t
       WHERE t.organization_id = NEW.organization_id AND t.id = NEW.set_for_tasking_id
@@ -150,6 +152,9 @@ BEGIN
   FOR SHARE;
 
   -- The Tasking check reads the caller's undo records, so they stay until the insert is done.
+  UPDATE calendar_private.availability_undo u SET restoring = true
+  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids);
+
   RETURN QUERY
   WITH claim AS (
     SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)

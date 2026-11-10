@@ -27,7 +27,7 @@
 	} from '../personnelTrainingRequests';
 	import type { PersonnelTraining, TrainingCompletionHistoryEntry } from '../training.types';
 	import type { PersonnelTrainingItem } from '../utils/personnelTrainingItems';
-	import { calculateExpirationDate } from '../utils/trainingStatus';
+	import { calculateExpirationDate, trainingExpirationDate } from '../utils/trainingStatus';
 
 	let {
 		orgId,
@@ -86,18 +86,24 @@
 			: []
 	);
 	const historyEntries = $derived(
-		recorded.map(
-			({ kind, record }): ReadinessHistoryEntry => ({
+		recorded.map(({ kind, record }): ReadinessHistoryEntry => {
+			const expires = item
+				? trainingExpirationDate(record, {
+						expirationDateOnly: item.expirationDateOnly,
+						expirationMonths: item.cycleMonths
+					})
+				: null;
+			return {
 				id: `${kind}:${record.id}`,
 				label: datesExpiration
-					? `Expires ${record.expirationDate ? formatDayMonthYear(record.expirationDate) : '—'}`
+					? `Expires ${expires ? formatDayMonthYear(expires) : '—'}`
 					: `${record.completionDate ? formatDayMonthYear(record.completionDate) : '—'} → ${
-							record.expirationDate ? formatDayMonthYear(record.expirationDate) : 'does not expire'
+							expires ? formatDayMonthYear(expires) : item?.cycleMonths == null ? 'does not expire' : '—'
 						}`,
 				detail: record.notes,
 				certificate: trainingCertificateLink(orgId, kind, record.id, record.certificateUrl)
-			})
-		)
+			};
+		})
 	);
 	const dirty = $derived(draft.mode === 'correct' || date !== initialDate() || notes.trim() !== '' || !!certificate);
 
@@ -210,7 +216,7 @@
 			standing={item
 				? describeReadinessStanding({
 						status: item.status,
-						expirationDate: item.completion?.expirationDate ?? null,
+						expirationDate: item.expirationDate,
 						daysUntilExpiration: item.daysUntilExpiration
 					})
 				: undefined}

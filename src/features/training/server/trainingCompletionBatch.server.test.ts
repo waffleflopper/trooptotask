@@ -114,7 +114,7 @@ describe('importTrainingRecords', () => {
 		);
 	});
 
-	it('calculates expiration date from training type expiration_months', async () => {
+	it('stores no expiration date for a type with expiration_months, which is derived when read', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: 6 });
@@ -129,7 +129,7 @@ describe('importTrainingRecords', () => {
 		expect(result.inserted[0]).toEqual(
 			expect.objectContaining({
 				completionDate: '2025-06-01',
-				expirationDate: '2025-12-01'
+				expirationDate: null
 			})
 		);
 	});
@@ -333,14 +333,14 @@ describe('importTrainingRecords', () => {
 					personnelId: PERSON_1,
 					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2025-06-01',
-					expirationDate: '2026-06-01',
+					expirationDate: null,
 					notes: 'new notes'
 				}),
 				expect.objectContaining({
 					personnelId: PERSON_2,
 					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2025-07-01',
-					expirationDate: '2026-07-01',
+					expirationDate: null,
 					notes: null
 				})
 			])
@@ -351,7 +351,7 @@ describe('importTrainingRecords', () => {
 			expect.objectContaining({
 				personnelId: PERSON_1,
 				completionDate: '2025-06-01',
-				expirationDate: '2026-06-01',
+				expirationDate: null,
 				notes: 'new notes'
 			})
 		);
@@ -365,6 +365,32 @@ describe('importTrainingRecords', () => {
 		);
 
 		expect(result.errors).toHaveLength(0);
+	});
+
+	it('keeps an old stored expiration date when a batch records the same completion again', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_months: 12 });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: RECORD,
+				organization_id: 'test-org',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2024-01-01',
+				expiration_date: '2027-01-01'
+			}
+		]);
+
+		await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2024-01-01', status: 'completed' }
+			]
+		});
+
+		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
+			{ id: RECORD, completionDate: '2024-01-01', expirationDate: '2027-01-01' }
+		]);
 	});
 
 	it('deduplicates repeated completed records before the bulk upsert', async () => {
@@ -403,7 +429,7 @@ describe('importTrainingRecords', () => {
 				personnel_id: PERSON_1,
 				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-07-01',
-				expiration_date: '2026-07-01',
+				expiration_date: null,
 				notes: 'latest row wins'
 			})
 		]);
@@ -696,7 +722,7 @@ describe('batch acknowledged effects', () => {
 				id: RETAINED_RECORD,
 				certificateUrl: 'keep-certificate',
 				completionDate: '2026-03-01',
-				expirationDate: '2027-03-01',
+				expirationDate: null,
 				notes: null
 			}
 		]);

@@ -8,6 +8,8 @@ definitions.
 
 - `catalog`: create, edit, order, archive, restore and delete Training types while preserving their IDs and retained
   completion references on ordinary edits.
+- `catalog-months`: a type's `Good for` months decide every completion's expiry when read, so changing them moves
+  every existing completion of that type at once. Only a `Date on the card` type keeps a stored expiry.
 - `catalog-archive`: `Archive type` in the type sheet is the cleanup for a type with records. Its records stay. The type
   leaves the matrix columns, saved view pickers, record pickers and readiness counts, and still shows on reports. A
   collapsed `ARCHIVED N` section on Manage Types lists archived types with `N RECORDS`, `Restore <name>` and
@@ -114,6 +116,18 @@ Focus View orders Targeted before Required and omits Optional.
    types remain visible and block saving until corrected. With `$V network arm-hold 2 training-types`, change a field
    and choose `Save changes`: every field, `Delete type`, `Cancel` and `Save changes` are disabled, Escape does not
    close the sheet, and `network release` closes it with the saved value read back.
+
+   Months change (`catalog-months`): as `trainingConfigure`, POST `api/training-types` with a unique marker,
+   `expirationMonths:36`, `warningDaysYellow:60` and `warningDaysOrange:30`, then POST
+   `api/personnel-trainings/completions` for Able completed 20 months before `dates.ui` and Baker completed 11 months
+   before it. Both responses return `expirationDate: null`. The matrix reads both cells `Current`. Open the type in
+   Manage Types, set `Good for` to `12` and `Save changes`; the row reads `Every 12 months`. Choose `Back to matrix`
+   without reloading: the column reads `12 MO`, Able reads `Expired <N>d ago` and Baker `<N>d left`, each counted from
+   completion plus 12 months. The header's expired count and `Due soon` follow, Able's popover reads
+   `Expired <completion + 12 months> · <N> days ago`, and Due soon lists Baker with `Expires <completion + 12 months>`.
+   Reload at 390x844 and require the same cells. Reports' Affected soldiers shows the same expiration dates. Archive the
+   temporary type afterwards. On 2026-11-10 with completions 2025-03-10 and 2025-12-20 the cells read `Expired 245d
+ago` and `40d left`.
 
    Order regression: with at least 31 types in the disposable Organization, drag the last type above the first. Exactly
    one PUT to `api/training-types/order` sends the full `trainingTypeIds` and the previous `expectedTrainingTypeIds`.

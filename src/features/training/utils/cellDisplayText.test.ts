@@ -42,7 +42,7 @@ function makeTraining(overrides: Partial<PersonnelTraining> = {}): PersonnelTrai
 		personnelId: person.id,
 		trainingTypeId: 'tt-1',
 		completionDate: '2026-06-15',
-		expirationDate: '2027-06-15',
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null,
 		...overrides
@@ -56,6 +56,12 @@ function cellText(type: TrainingType, training: PersonnelTraining | undefined, a
 describe('getCellDisplayText', () => {
 	it('shows the month a current record lapses', () => {
 		expect(cellText(makeType(), makeTraining(), '2026-10-25')).toBe('Jun ’27');
+	});
+
+	it('shows the lapse month from the type months now, not a date stored under older months', () => {
+		const training = makeTraining({ completionDate: '2026-06-15', expirationDate: '2029-06-15' });
+		expect(cellText(makeType({ expirationMonths: 12 }), training, '2026-10-25')).toBe('Jun ’27');
+		expect(cellText(makeType({ expirationMonths: 36 }), training, '2026-10-25')).toBe('Jun ’29');
 	});
 
 	it('shows the completion month for a type that never expires', () => {
@@ -79,12 +85,12 @@ describe('getCellDisplayText', () => {
 
 	it('shows days left for the first and final warning windows', () => {
 		const type = makeType();
-		expect(cellText(type, makeTraining({ expirationDate: '2026-12-08' }), '2026-10-25')).toBe('44d');
-		expect(cellText(type, makeTraining({ expirationDate: '2026-11-06' }), '2026-10-25')).toBe('12d');
+		expect(cellText(type, makeTraining({ completionDate: '2025-12-08' }), '2026-10-25')).toBe('44d');
+		expect(cellText(type, makeTraining({ completionDate: '2025-11-06' }), '2026-10-25')).toBe('12d');
 	});
 
 	it('shows Expired once the expiration date has passed', () => {
-		expect(cellText(makeType(), makeTraining({ expirationDate: '2026-08-04' }), '2026-10-25')).toBe('Expired');
+		expect(cellText(makeType(), makeTraining({ completionDate: '2025-08-04' }), '2026-10-25')).toBe('Expired');
 	});
 
 	it('shows No record when a required type has no record', () => {
@@ -110,8 +116,8 @@ describe('getCellStatusLabel', () => {
 	});
 
 	it('keeps the status wording for a record', () => {
-		expect(spoken(makeType(), makeTraining({ expirationDate: '2026-08-04' }))).toBe('Expired 82d ago');
-		expect(spoken(makeType(), makeTraining({ expirationDate: '2026-12-08' }))).toBe('44d left');
+		expect(spoken(makeType(), makeTraining({ completionDate: '2025-08-04' }))).toBe('Expired 82d ago');
+		expect(spoken(makeType(), makeTraining({ completionDate: '2025-12-08' }))).toBe('44d left');
 	});
 });
 
@@ -136,23 +142,23 @@ describe('renewalMode', () => {
 
 describe('getStatusLine', () => {
 	function line(type: TrainingType, training: PersonnelTraining | undefined, asOf: string) {
-		return getStatusLine(getTrainingStatus(training, type, person, asOf), training, type);
+		return getStatusLine(getTrainingStatus(training, type, person, asOf));
 	}
 
 	it.each([
 		{
 			name: 'expired',
-			training: makeTraining({ expirationDate: '2026-08-04' }),
+			training: makeTraining({ completionDate: '2025-08-04' }),
 			expected: { tone: 'danger', text: 'Expired 4 Aug 2026 · 82 days ago' }
 		},
 		{
 			name: 'expiring',
-			training: makeTraining({ expirationDate: '2026-11-11' }),
+			training: makeTraining({ completionDate: '2025-11-11' }),
 			expected: { tone: 'warning', text: 'Expires 11 Nov 2026 · 17 days left' }
 		},
 		{
 			name: 'current',
-			training: makeTraining({ expirationDate: '2027-06-15' }),
+			training: makeTraining({ completionDate: '2026-06-15' }),
 			expected: { tone: 'muted', text: 'Current until 15 Jun 2027' }
 		},
 		{ name: 'no record', training: undefined, expected: { tone: 'danger', text: 'No record' } }

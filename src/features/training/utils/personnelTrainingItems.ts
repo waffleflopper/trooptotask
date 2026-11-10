@@ -23,6 +23,8 @@ export interface PersonnelTrainingItem<C extends TrainingCompletionFacts = Perso
 	name: string;
 	status: ReadinessItemStatus;
 	daysUntilExpiration: number | null;
+	/** The effective expiration date, derived from the type's current months; see `getTrainingStatus`. */
+	expirationDate: string | null;
 	cycleMonths: number | null;
 	expirationDateOnly: boolean;
 	canBeExempted: boolean;
@@ -98,6 +100,7 @@ export function buildPersonnelTrainingReadiness<C extends TrainingCompletionFact
 			name: type.name,
 			status: ITEM_STATUS[info.status] ?? 'missing',
 			daysUntilExpiration: info.daysUntilExpiration,
+			expirationDate: info.expirationDate,
 			cycleMonths: type.expirationMonths,
 			expirationDateOnly: type.expirationDateOnly,
 			canBeExempted: type.canBeExempted,

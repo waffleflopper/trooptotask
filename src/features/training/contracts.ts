@@ -45,6 +45,7 @@ export type {
 /** Matches the `training_types.color` column default and the seeded value, so a type saved without a color renders gray. */
 export const DEFAULT_TRAINING_TYPE_COLOR = '#6b7280';
 export { isTrainingApplicable } from './utils/applicability';
+export { trainingExpirationDate } from './utils/trainingStatus';
 export { bandFor as trainingReadinessBand } from './utils/trainingBriefing';
 export type {
 	PersonnelTrainingItem,
@@ -349,7 +350,8 @@ export type TrainingRankApplicabilityReference = {
 export interface TrainingCatalogPersistence {
 	listTypes(): Promise<SavedTrainingType[]>;
 	listViews(): Promise<SavedTrainingView[]>;
-	listTypeLabels(): Promise<Array<Pick<TrainingType, 'id' | 'name'>>>;
+	/** Each type's name and the rule that dates its expiry, so a reader can label and date a completion from one read. */
+	listTypeLabels(): Promise<Array<Pick<TrainingType, 'id' | 'name' | 'expirationMonths' | 'expirationDateOnly'>>>;
 	listRankApplicabilityReferences(): Promise<TrainingRankApplicabilityReference[]>;
 	findTypeByName(name: string): Promise<SavedTrainingType | null>;
 	findTypeTiming(id: string): Promise<TrainingTypeTiming | null>;
@@ -385,8 +387,11 @@ export type TrainingCompletedUpsert = Pick<
 	completionDate?: string | null;
 	updatedAt: string;
 };
-export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'>;
-export type TrainingCompletionPairReference = Pick<PersonnelTraining, 'id' | 'personnelId' | 'trainingTypeId'>;
+export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId' | 'completionDate'>;
+export type TrainingCompletionPairReference = Pick<
+	PersonnelTraining,
+	'id' | 'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate'
+>;
 export type PersonnelTrainingExportFact = Pick<
 	PersonnelTraining,
 	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'

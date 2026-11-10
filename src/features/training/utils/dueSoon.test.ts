@@ -34,13 +34,14 @@ function type(id: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	};
 }
 
-function record(personnelId: string, trainingTypeId: string, expirationDate: string): PersonnelTraining {
+/** A completion of a 12-month type, dated so that it expires on `expires`. */
+function record(personnelId: string, trainingTypeId: string, expires: string): PersonnelTraining {
 	return {
 		id: `${personnelId}-${trainingTypeId}`,
 		personnelId,
 		trainingTypeId,
-		completionDate: '2025-11-01',
-		expirationDate,
+		completionDate: `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`,
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null
 	};

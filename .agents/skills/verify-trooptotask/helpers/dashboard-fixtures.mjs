@@ -10,6 +10,9 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 		value.setDate(value.getDate() + offset);
 		return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 	};
+	// Required and Targeted renew every 12 months, so a completion one year before a date expires on that date.
+	const completedYearBefore = (offset) =>
+		`${Number(date(offset).slice(0, 4)) - 1}${date(offset).slice(4).replace('-02-29', '-02-28')}`;
 	const loss = randomUUID();
 	const archived = randomUUID();
 	const packet = randomUUID();
@@ -57,24 +60,24 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					organization_id: ids.orgA,
 					personnel_id: ids.personA,
 					training_type_id: ids.trainingTargeted,
-					completion_date: date(-400),
-					expiration_date: date(-10)
+					completion_date: completedYearBefore(-10),
+					expiration_date: null
 				},
 				{
 					id: randomUUID(),
 					organization_id: ids.orgA,
 					personnel_id: ids.personB,
 					training_type_id: ids.trainingRequired,
-					completion_date: date(-400),
-					expiration_date: date(-5)
+					completion_date: completedYearBefore(-5),
+					expiration_date: null
 				},
 				{
 					id: randomUUID(),
 					organization_id: ids.orgA,
 					personnel_id: ids.personUnassigned,
 					training_type_id: ids.trainingRequired,
-					completion_date: date(-340),
-					expiration_date: date(20)
+					completion_date: completedYearBefore(20),
+					expiration_date: null
 				}
 			]
 		],

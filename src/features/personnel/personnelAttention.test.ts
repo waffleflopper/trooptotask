@@ -12,27 +12,30 @@ const sources: AttentionInput = {
 					name: 'CPR / BLS',
 					status: 'expired',
 					daysUntilExpiration: -12,
+					expirationDate: '2026-09-24',
 					cycleMonths: 24,
 					applicability: { kind: 'all' },
-					completion: { completionDate: '2024-09-24', expirationDate: '2026-09-24' }
+					completion: { completionDate: '2024-09-24' }
 				},
 				{
 					typeId: 'sharp',
 					name: 'SHARP',
 					status: 'expiring',
 					daysUntilExpiration: 21,
+					expirationDate: '2026-10-27',
 					cycleMonths: 12,
 					applicability: { kind: 'all' },
-					completion: { completionDate: '2025-10-27', expirationDate: '2026-10-27' }
+					completion: { completionDate: '2025-10-27' }
 				},
 				{
 					typeId: 'hipaa',
 					name: 'HIPAA',
 					status: 'current',
 					daysUntilExpiration: 200,
+					expirationDate: '2027-04-24',
 					cycleMonths: 12,
 					applicability: { kind: 'all' },
-					completion: { completionDate: '2026-04-24', expirationDate: '2027-04-24' }
+					completion: { completionDate: '2026-04-24' }
 				}
 			]
 		}
@@ -149,6 +152,7 @@ describe('buildPersonnelAttention', () => {
 							name: 'SHARP annual training',
 							status: 'missing',
 							daysUntilExpiration: null,
+							expirationDate: null,
 							cycleMonths: 12,
 							applicability: { kind: 'mos', mos: '68W' },
 							completion: null

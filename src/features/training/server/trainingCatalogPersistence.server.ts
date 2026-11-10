@@ -69,18 +69,29 @@ export function createSupabaseTrainingCatalogPersistence(
 			return (result.data ?? []).map(toTrainingView);
 		},
 		async listTypeLabels() {
-			const result = await selectAllSupabaseRows<{ id: string; name: string }>(async (from, to) => {
+			type LabelRow = {
+				id: string;
+				name: string;
+				expiration_months: number | null;
+				expiration_date_only: boolean | null;
+			};
+			const result = await selectAllSupabaseRows<LabelRow>(async (from, to) => {
 				const { data, error } = await client
 					.from('training_types')
-					.select('id, name')
+					.select('id, name, expiration_months, expiration_date_only')
 					.eq('organization_id', orgId)
 					.order('id', { ascending: true })
 					.range(from, to)
-					.returns<{ id: string; name: string }[]>();
+					.returns<LabelRow[]>();
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map(({ id, name }) => ({ id, name }));
+			return (result.data ?? []).map((row) => ({
+				id: row.id,
+				name: row.name,
+				expirationMonths: row.expiration_months ?? null,
+				expirationDateOnly: row.expiration_date_only ?? false
+			}));
 		},
 		async listRankApplicabilityReferences() {
 			const result = await selectAllSupabaseRows<{ applies_to_ranks?: unknown; excluded_ranks?: unknown }>(

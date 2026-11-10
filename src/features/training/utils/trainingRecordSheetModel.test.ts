@@ -67,7 +67,7 @@ describe('buildTrainingRecordSheet', () => {
 	const records = [
 		record('current-a', '2026-10-06', '2027-10-06'),
 		record('expired', '2025-08-04', '2026-08-04'),
-		record('soon-far', '2025-12-25', '2026-12-10'),
+		record('soon-far', '2025-12-10', '2026-12-10'),
 		record('soon-near', '2025-11-11', '2026-11-11'),
 		record('current-b', '2026-10-08', '2027-10-08')
 	];

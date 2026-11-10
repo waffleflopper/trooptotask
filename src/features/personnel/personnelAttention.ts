@@ -36,7 +36,7 @@ function requiredFor(applicability: TrainingItem['applicability']): string {
 }
 
 function trainingDetail(item: TrainingItem): string {
-	const expires = item.completion?.expirationDate;
+	const expires = item.expirationDate;
 	const completed = item.completion?.completionDate;
 	if (item.status === 'missing') return `Required for ${requiredFor(item.applicability)} · no completion on record`;
 	if (item.status === 'expired' && expires) {
@@ -66,7 +66,7 @@ function trainingItems(input: AttentionInput['training']): AttentionItem[] {
 				id: item.typeId,
 				title: item.name,
 				detail: trainingDetail(item),
-				dueDate: item.completion?.expirationDate ?? null,
+				dueDate: item.expirationDate,
 				daysUntilDue: item.daysUntilExpiration,
 				target: { tab: 'readiness', item: { kind: 'training', id: item.typeId } }
 			}

@@ -41,13 +41,14 @@ const cpr: TrainingType = {
 	archivedAt: null
 };
 
-function record(personnelId: string, expirationDate: string, trainingTypeId = 'cpr'): PersonnelTraining {
+/** A completion of a 12-month type, dated so that it expires on `expires`. */
+function record(personnelId: string, expires: string, trainingTypeId = 'cpr'): PersonnelTraining {
 	return {
 		id: `${personnelId}-${trainingTypeId}`,
 		personnelId,
 		trainingTypeId,
-		completionDate: '2025-11-01',
-		expirationDate,
+		completionDate: `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`,
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null
 	};

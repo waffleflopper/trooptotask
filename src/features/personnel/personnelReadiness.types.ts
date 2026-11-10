@@ -29,13 +29,14 @@ export interface AttentionInput {
 			name: string;
 			status: ReadinessItemStatus;
 			daysUntilExpiration: number | null;
+			expirationDate: string | null;
 			cycleMonths: number | null;
 			applicability:
 				| { kind: 'all' }
 				| { kind: 'mos'; mos: string }
 				| { kind: 'role'; role: string }
 				| { kind: 'rank'; rank: string };
-			completion: { completionDate: string | null; expirationDate: string | null } | null;
+			completion: { completionDate: string | null } | null;
 		}>;
 	}>;
 	criticalTasks: ReadinessSourceResult<{

@@ -56,6 +56,11 @@ function record(
 	};
 }
 
+/** The completion that expires on `expires` under a 12-month type. */
+function yearBefore(expires: string): string {
+	return `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`;
+}
+
 function addDays(date: string, days: number): string {
 	const next = new Date(`${date}T00:00:00Z`);
 	next.setUTCDate(next.getUTCDate() + days);
@@ -89,7 +94,7 @@ async function expiryColors(daysFromExport: number[], typeOverrides: Partial<Tra
 		personnel: people,
 		trainingTypes: [type('annual', 'Annual', 0, typeOverrides)],
 		trainings: daysFromExport.map((days, index) =>
-			record(`p${index}`, 'annual', '2020-01-01', addDays(EXPORT_DATE, days))
+			record(`p${index}`, 'annual', yearBefore(addDays(EXPORT_DATE, days)), null)
 		)
 	});
 	return daysFromExport.map((_, index) => cellColors(sheet, `D${index + 3}`).fill);
@@ -237,9 +242,9 @@ describe('Training matrix workbook', () => {
 			],
 			trainings: [
 				record('avery', 'current', '2026-01-01', '2027-01-01'),
-				record('avery', 'yellow', '2026-01-01', '2026-07-20'),
-				record('avery', 'orange', '2026-01-01', '2026-06-20'),
-				record('avery', 'expired', '2025-01-01', '2026-06-01')
+				record('avery', 'yellow', '2025-07-20', null),
+				record('avery', 'orange', '2025-06-20', null),
+				record('avery', 'expired', '2025-06-01', null)
 			]
 		});
 		expect(sheet.getRow(3).values).toEqual([
@@ -248,9 +253,9 @@ describe('Training matrix workbook', () => {
 			'SPC',
 			'Alpha',
 			'2026-01-01',
-			'2026-01-01',
-			'2026-01-01',
-			'2025-01-01',
+			'2025-07-20',
+			'2025-06-20',
+			'2025-06-01',
 			'missing',
 			'not required',
 			'exempt'
@@ -299,13 +304,13 @@ describe('Training matrix workbook', () => {
 		]);
 	});
 
-	it('colors by the stored expiration date, not the exported completion date', async () => {
+	it('colors by the completion date and the type months, ignoring a stored expiration date', async () => {
 		const sheet = await exportSheet({
 			personnel: [person('avery', 'Able', 'Avery')],
 			trainingTypes: [type('annual', 'Annual', 0)],
 			trainings: [record('avery', 'annual', '2020-01-01', '2027-06-15')]
 		});
-		expect([sheet.getCell('D3').value, cellColors(sheet, 'D3').fill]).toEqual(['2020-01-01', 'FFDCFCE7']);
+		expect([sheet.getCell('D3').value, cellColors(sheet, 'D3').fill]).toEqual(['2020-01-01', 'FFFEE2E2']);
 	});
 
 	it('writes fixed styles only, with no conditional formatting or formulas', async () => {

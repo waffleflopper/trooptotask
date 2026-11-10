@@ -73,8 +73,10 @@ const matrixProps = {
 	goalPercent: 90
 };
 
-function record(overrides: Partial<PersonnelTraining> = {}): PersonnelTraining {
-	return { ...persistedTraining, completionDate: '2026-06-15', expirationDate: '2027-06-15', ...overrides };
+/** A completion of the 12-month type. `expirationDate` names the day it lapses, which the matrix derives from the completion. */
+function record({ expirationDate = '2027-06-15', ...overrides }: Partial<PersonnelTraining> = {}): PersonnelTraining {
+	const completionDate = `${Number(expirationDate?.slice(0, 4)) - 1}${expirationDate?.slice(4)}`;
+	return { ...persistedTraining, completionDate, expirationDate: null, ...overrides };
 }
 
 afterEach(() => {
@@ -659,7 +661,7 @@ describe('TrainingMatrix recording popover', () => {
 			personnelId: 'person-1',
 			trainingTypeId: 'type-1',
 			completionDate: '2026-10-25',
-			expirationDate: '2027-10-25',
+			expirationDate: null,
 			notes: null
 		});
 		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
@@ -720,7 +722,7 @@ describe('TrainingMatrix recording popover', () => {
 			personnelId: 'person-1',
 			trainingTypeId: 'type-1',
 			completionDate: '2026-10-20',
-			expirationDate: '2027-10-20',
+			expirationDate: null,
 			notes: 'Range card'
 		});
 	});

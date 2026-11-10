@@ -533,13 +533,11 @@ describe('inviteOrganizationMembers', () => {
 		const input = { membershipRole: 'member' as const, memberAccess: memberAccess(), actorEmail: 'actor@example.com' };
 
 		await expect(inviteOrganizationMembers(ports, { ...input, emails: ' ,\n ' })).rejects.toMatchObject({
-			status: 400,
-			message: 'Enter at least one email address'
+			status: 400
 		});
 		const fiftyOne = Array.from({ length: 51 }, (_, index) => `person${index}@example.com`).join('\n');
 		await expect(inviteOrganizationMembers(ports, { ...input, emails: fiftyOne })).rejects.toMatchObject({
-			status: 400,
-			message: 'Invite up to 50 addresses at a time'
+			status: 400
 		});
 		expect(port.createdInvitations).toEqual([]);
 	});

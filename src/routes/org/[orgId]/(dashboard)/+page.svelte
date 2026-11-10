@@ -22,7 +22,7 @@
 		type DashboardWorkspaceResult
 	} from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
-	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, normalizeDeferredError, observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	type DashboardRouteData = Omit<PageData, 'summary'> & {
@@ -32,7 +32,7 @@
 	let { data }: { data: DashboardRouteData } = $props();
 
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
-	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
+	let latestSummary = $state<{ orgId: string; request: number; summary: DashboardPageSummaryData } | null>(null);
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const taskingsSource = new DashboardTaskingsSource();
@@ -96,19 +96,20 @@
 		}
 
 		if (!isPromiseLike(streamed)) {
-			latestSummary = { orgId: summaryOrgId, summary: streamed };
+			latestSummary = { orgId: summaryOrgId, request, summary: streamed };
 			return;
 		}
 
 		void observeDeferred(streamed, {
 			fallbackMessage: 'Failed to load dashboard summary',
 			onResolve: (summary) => {
-				latestSummary = { orgId: summaryOrgId, summary };
+				latestSummary = { orgId: summaryOrgId, request, summary };
 			},
 			onReject: (error) => {
 				if (latestSummary?.orgId !== summaryOrgId) summaryError = error;
 			},
-			isCancelled: () => cancelled || request !== summaryRequest
+			// A refresh that is still pending or has failed must not drop this stream; one that landed has newer numbers.
+			isCancelled: () => cancelled || (latestSummary?.request ?? 0) > request
 		});
 
 		return () => {
@@ -155,16 +156,18 @@
 		const workspace = streamedWorkspace;
 		const request = ++summaryRequest;
 		const savedBefore = saveNumber;
+		const current = () => request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace;
 		try {
 			const response = await fetch(`/org/${savedIn}/api/dashboard/summary`, { cache: 'no-store' });
-			if (!response.ok) return;
+			if (!response.ok) throw new Error(`Dashboard summary refresh returned ${response.status}`);
 			const summary: DashboardPageSummaryData = await response.json();
-			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace) {
-				latestSummary = { orgId: savedIn, summary };
-				recordOverlay = retireTrainingCompletions(recordOverlay, savedBefore);
-			}
-		} catch {
-			return;
+			if (!current()) return;
+			latestSummary = { orgId: savedIn, request, summary };
+			recordOverlay = retireTrainingCompletions(recordOverlay, savedBefore);
+		} catch (error) {
+			// The last numbers outlive a failed refresh; with none yet, the columns say they could not load.
+			if (current() && latestSummary?.orgId !== savedIn)
+				summaryError = normalizeDeferredError(error, 'Failed to refresh dashboard summary');
 		}
 	}
 

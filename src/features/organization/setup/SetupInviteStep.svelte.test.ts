@@ -55,12 +55,16 @@ const team = (overrides: Partial<SetupTeamData> = {}): SetupTeamData => ({
 
 let flow!: SetupFlow;
 
-function renderStep(data: Promise<SetupTeamData>, unitFacts = facts()) {
+function renderStep(
+	data: Promise<SetupTeamData>,
+	unitFacts = facts(),
+	disabledFeatures: SetupFlowSource['disabledFeatures'] = []
+) {
 	pageData.setupTeam = data;
 	const source: SetupFlowSource = {
 		orgUrlSegment: 'alpha',
 		isOwner: true,
-		disabledFeatures: [],
+		disabledFeatures,
 		setupState: { branch: null, answers: {}, finishedAt: null, prompts: {} },
 		setupFacts: Promise.resolve(unitFacts),
 		stepKey: 'invite',
@@ -231,6 +235,18 @@ describe('Invite your team step', () => {
 		await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
 		expect(sendButton()).toBeNull();
 		expect(document.querySelector('textarea[name="emails"]')).toBeNull();
+	});
+
+	it('leaves areas the unit has turned off out of the preset table', async () => {
+		renderStep(Promise.resolve(team()), facts(), ['training']);
+		await emailField();
+
+		const table = screen.getByRole('table');
+		const areas = within(table)
+			.getAllByRole('row')
+			.slice(1)
+			.map((row) => within(row).getAllByRole('cell')[0].textContent?.trim());
+		expect(areas).toEqual(['Calendar', 'Personnel', 'Critical tasks', 'Onboarding', 'Evaluations']);
 	});
 
 	it('reserves the form region while its data loads', () => {

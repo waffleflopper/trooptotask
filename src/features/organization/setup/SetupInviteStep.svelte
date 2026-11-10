@@ -3,6 +3,7 @@
 	import Mail from '@lucide/svelte/icons/mail';
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { disabledFeatureLanes, FEATURE_KEYS } from '$lib/access/featureSwitches';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -25,7 +26,7 @@
 		members: [],
 		groups: ready?.groups ?? [],
 		isOwner: ready?.isOwner ?? false,
-		offLanes: []
+		offLanes: disabledFeatureLanes(FEATURE_KEYS.filter((feature) => flow.isFeatureOff(feature)))
 	}));
 
 	let emailsInput = $state<HTMLTextAreaElement | null>(null);

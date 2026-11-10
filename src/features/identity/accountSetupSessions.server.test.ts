@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ACCOUNT_SETUP_SESSION_COOKIE,
 	createAccountSetupSession,
@@ -22,8 +22,8 @@ function makeCookieJar() {
 
 describe('Account Setup sessions', () => {
 	beforeEach(() => {
-		process.env.ACCOUNT_SETUP_SESSION_SECRET = 'test-account-setup-session-secret';
-		delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+		vi.stubEnv('ACCOUNT_SETUP_SESSION_SECRET', 'test-account-setup-session-secret');
+		vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', undefined);
 	});
 
 	it('round-trips a signed setup session through the HTTP-only cookie value', () => {
@@ -89,8 +89,9 @@ describe('Account Setup sessions', () => {
 	});
 
 	it('does not accept Supabase service role key as a setup session signing fallback', () => {
-		delete process.env.ACCOUNT_SETUP_SESSION_SECRET;
-		process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key-must-not-sign-setup-sessions';
+		vi.stubEnv('ACCOUNT_SETUP_SESSION_SECRET', undefined);
+		const serviceRoleKey = 'service-role-key-must-not-sign-setup-sessions';
+		vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', serviceRoleKey);
 		const jar = makeCookieJar();
 		const payload = Buffer.from(
 			JSON.stringify({
@@ -101,9 +102,7 @@ describe('Account Setup sessions', () => {
 			}),
 			'utf8'
 		).toString('base64url');
-		const serviceRoleSignature = createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY)
-			.update(payload)
-			.digest('base64url');
+		const serviceRoleSignature = createHmac('sha256', serviceRoleKey).update(payload).digest('base64url');
 		jar.values.set(ACCOUNT_SETUP_SESSION_COOKIE, `${payload}.${serviceRoleSignature}`);
 
 		expect(readAccountSetupSessionCookie(jar.cookies, new Date('2026-05-18T12:01:00.000Z'))).toBeNull();

@@ -43,9 +43,9 @@ CREATE TRIGGER forget_deleted_personnel_undo AFTER DELETE ON public.personnel
 REFERENCING OLD TABLE AS deleted_personnel
 FOR EACH STATEMENT EXECUTE FUNCTION calendar_private.forget_deleted_personnel_undo();
 
--- Every add, and every edit that can move a status, holds its Person's import lock until commit, so a restore that
--- takes the same lock sees each of them finished. Locking the Person row instead would also block every insert that
--- references the Person, in any table.
+-- Every add holds its Person's import lock until commit, so a restore that takes the same lock sees each of them
+-- finished. Locking the Person row instead would also block every insert that references the Person, in any table.
+-- An edit does not take it: an UPDATE trigger runs after the row is locked, and import locks rows after this lock.
 CREATE FUNCTION calendar_private.lock_availability_person() RETURNS trigger
 LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
@@ -57,8 +57,7 @@ $$;
 ALTER FUNCTION calendar_private.lock_availability_person() OWNER TO postgres;
 REVOKE ALL ON FUNCTION calendar_private.lock_availability_person() FROM PUBLIC, anon, authenticated, service_role;
 CREATE TRIGGER lock_availability_person
-BEFORE INSERT OR UPDATE OF organization_id, personnel_id, status_type_id, start_date, end_date
-ON public.availability_entries
+BEFORE INSERT ON public.availability_entries
 FOR EACH ROW EXECUTE FUNCTION calendar_private.lock_availability_person();
 
 -- Row level security no longer applies to this function, so the can_edit_availability_record filter below is the
@@ -183,12 +182,17 @@ BEGIN
   ORDER BY p.id
   FOR KEY SHARE;
 
-  -- The lock every add, edit and import of the Person takes, in the order import and a sorted bulk add take it. The
-  -- next statement takes a fresh snapshot that sees every one of them that held it.
+  -- The lock every add and import of the Person takes, in the order import and a sorted bulk add take it.
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
   FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
     ORDER BY c.personnel_id) AS claimed;
+  -- An edit locks the entry it moves, so waiting on the Person's entries waits out every open edit. The next
+  -- statement then takes a fresh snapshot that sees each add, edit and import that finished.
+  PERFORM 1 FROM public.availability_entries a
+  WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
+  ORDER BY a.id
+  FOR SHARE;
 
   DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
 

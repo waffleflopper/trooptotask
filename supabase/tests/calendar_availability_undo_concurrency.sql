@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(22);
+SELECT plan(25);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -225,6 +225,29 @@ SELECT is((SELECT kept FROM dblink('undo_fixture', $query$
   SELECT count(*)::integer FROM calendar_private.availability_undo
   WHERE entry_id='7a5a0000-0000-4000-8000-000000000505'
 $query$) AS result(kept integer)), 0, 'the purge removed the record the delete skipped');
+
+SELECT pg_temp.act('undo_writer');
+SELECT * FROM dblink('undo_writer', $$
+  SELECT 1 FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000504' FOR UPDATE
+$$) AS locked(one integer);
+SELECT pg_temp.act('undo_restorer');
+SELECT dblink_send_query('undo_restorer', $call$
+  SELECT public.import_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    '[{"personnel_id":"7a5a0000-0000-4000-8000-000000000301","status_type_id":"7a5a0000-0000-4000-8000-000000000402",
+       "start_date":"2030-08-01","end_date":"2030-08-02","overlap":"replace",
+       "replaces":[{"id":"7a5a0000-0000-4000-8000-000000000504","status_type_id":"7a5a0000-0000-4000-8000-000000000402",
+         "start_date":"2030-08-01","end_date":"2030-08-01","note":null}]}]')
+$call$);
+SELECT ok(pg_temp.restorer_waits(), 'an import replacing a status waits for an open edit of it');
+SELECT is(dblink_exec('undo_writer', $$
+  UPDATE public.availability_entries SET start_date='2030-07-31', end_date='2030-08-01'
+  WHERE id='7a5a0000-0000-4000-8000-000000000504'
+$$), 'UPDATE 1', 'the edit finishes without waiting on the import''s Person lock');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT saved FROM dblink_get_result('undo_restorer') AS result(saved jsonb)),
+  '{"inserted":0,"deleted":0,"stale":[0]}'::jsonb, 'the import then sees the edit and refuses its stale row');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(saved jsonb);
+SELECT dblink_exec('undo_restorer','COMMIT');
 
 SELECT dblink_exec('undo_fixture', $cleanup$
   DELETE FROM public.organizations WHERE id='7a5a0000-0000-4000-8000-000000000101';

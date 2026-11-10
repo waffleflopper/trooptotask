@@ -65,7 +65,17 @@ export const onboardingKinds = {
 		batch: { verb: 'Reordered', one: 'onboarding step list', many: 'onboarding step lists' }
 	}),
 	'onboarding.started': packetKind('Started'),
-	'onboarding.cancelled': packetKind('Cancelled'),
+	'onboarding.cancelled': auditKind({
+		writer: 'database',
+		entry: packet.extend({
+			details: z.object({ template: z.string().nullable(), reason: z.literal('archived').optional() })
+		}),
+		sentence: ({ subject, details }) =>
+			`Cancelled onboarding for ${subject}${onTemplate(details.template)}${
+				details.reason === 'archived' ? ' because they were archived' : ''
+			}`,
+		batch: { verb: 'Cancelled', one: 'onboarding for a person', many: 'onboardings for people' }
+	}),
 	'onboarding.reopened': packetKind('Reopened'),
 	'onboarding.completed': auditKind({
 		writer: 'database',

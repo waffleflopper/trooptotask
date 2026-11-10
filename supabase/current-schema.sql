@@ -1161,6 +1161,8 @@ BEGIN
     v_details := v_details || pg_catalog.jsonb_build_object('incomplete',
       (SELECT pg_catalog.count(*) FROM public.onboarding_step_progress progress
         WHERE progress.onboarding_id = NEW.id AND progress.active AND NOT progress.completed));
+  ELSIF v_kind = 'onboarding.cancelled' AND NEW.cancellation_reason IS NOT NULL THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('reason', NEW.cancellation_reason);
   ELSIF v_kind = 'onboarding.template_switched' THEN
     v_details := v_details || pg_catalog.jsonb_build_object('previousTemplate',
       (SELECT item.name FROM public.onboarding_templates item
@@ -2871,6 +2873,25 @@ $$;
 ALTER FUNCTION onboarding_private.admitted_member_training_is_off(p_organization_id uuid) OWNER TO postgres;
 
 --
+-- Name: clear_onboarding_cancellation_reason(); Type: FUNCTION; Schema: onboarding_private; Owner: postgres
+--
+
+CREATE FUNCTION onboarding_private.clear_onboarding_cancellation_reason() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.status IS DISTINCT FROM 'cancelled' THEN
+    NEW.cancellation_reason := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION onboarding_private.clear_onboarding_cancellation_reason() OWNER TO postgres;
+
+--
 -- Name: onboarding_parent_scope_matches(uuid, uuid); Type: FUNCTION; Schema: onboarding_private; Owner: postgres
 --
 
@@ -2949,6 +2970,35 @@ $$;
 
 
 ALTER FUNCTION onboarding_private.onboarding_template_reference_matches(p_organization_id uuid, p_template_id uuid) OWNER TO postgres;
+
+--
+-- Name: require_active_onboarding_person(); Type: FUNCTION; Schema: onboarding_private; Owner: postgres
+--
+
+CREATE FUNCTION onboarding_private.require_active_onboarding_person() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.status = 'in_progress' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'in_progress') THEN
+    PERFORM 1 FROM public.personnel AS person
+    WHERE person.organization_id = NEW.organization_id AND person.id = NEW.personnel_id
+    FOR KEY SHARE;
+    -- A key-share lock can return the version from before a committed archive, so a new statement reads the archive.
+    IF EXISTS (
+      SELECT 1 FROM public.personnel AS person
+      WHERE person.organization_id = NEW.organization_id AND person.id = NEW.personnel_id
+        AND person.archived_at IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'This person is archived. Restore them before onboarding them.' USING ERRCODE = '55000';
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION onboarding_private.require_active_onboarding_person() OWNER TO postgres;
 
 --
 -- Name: require_template_configuration(uuid); Type: FUNCTION; Schema: onboarding_private; Owner: postgres
@@ -3034,6 +3084,15 @@ CREATE FUNCTION organization_private.archive_locked_personnel(p_organization_id 
     SET search_path TO ''
     AS $$
 BEGIN
+  -- FOR UPDATE waits for a start, reopen or artifact insert that key-share locked
+  -- the Person, so the cascade below sees and closes the work it wrote.
+  PERFORM 1 FROM (
+    SELECT person.id FROM public.personnel AS person
+    WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
+    ORDER BY person.id
+    FOR UPDATE
+  ) AS locked;
+
   UPDATE public.personnel AS person SET archived_at = p_archived_at
   WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
     AND person.archived_at IS NULL;
@@ -3058,6 +3117,13 @@ BEGIN
   WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
     AND child.organization_id = person.organization_id AND child.personnel_id = person.id
     AND child.archived_at IS NULL;
+  -- Restore leaves these cancelled. A leader reopens a packet deliberately.
+  UPDATE public.personnel_onboardings AS packet
+  SET status = 'cancelled', cancelled_at = person.archived_at, completed_at = NULL, cancellation_reason = 'archived'
+  FROM public.personnel AS person
+  WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
+    AND packet.organization_id = person.organization_id AND packet.personnel_id = person.id
+    AND packet.status = 'in_progress';
 END;
 $$;
 
@@ -3413,6 +3479,25 @@ $$;
 
 
 ALTER FUNCTION organization_private.keep_artifact_identity() OWNER TO postgres;
+
+--
+-- Name: keep_follow_up_archive_time(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.keep_follow_up_archive_time() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF OLD.archived_at IS NOT NULL AND NEW.archived_at IS NOT NULL THEN
+    NEW.archived_at := OLD.archived_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.keep_follow_up_archive_time() OWNER TO postgres;
 
 --
 -- Name: lane_feature(text); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -7527,23 +7612,63 @@ CREATE FUNCTION public.delete_expired_personnel(p_org_id uuid, p_candidate_ids u
     SET search_path TO ''
     AS $$
 DECLARE
-  v_deleted integer;
+  v_ids uuid[];
+  v_request_ids uuid[];
+  v_request_people uuid[];
 BEGIN
   IF p_org_id IS NULL OR p_candidate_ids IS NULL OR p_cutoff IS NULL THEN
     RAISE EXCEPTION 'Organization, candidate IDs and cutoff are required' USING ERRCODE = '22023';
   END IF;
 
+  -- Training and rating approvals delete their record before approving its request, and archive approval
+  -- locks its request before the Person. The purge takes records, then requests, then People.
+  PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
+    WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
+    ORDER BY record.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT record.id FROM public.rating_scheme_entries AS record
+    WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY record.id FOR UPDATE) AS locked;
+
+  SELECT coalesce(pg_catalog.array_agg(pending.id), '{}'), coalesce(pg_catalog.array_agg(pending.person_id), '{}')
+  INTO v_request_ids, v_request_people FROM (
+    SELECT request.id, target.person_id FROM public.deletion_requests AS request
+    CROSS JOIN LATERAL (SELECT CASE request.resource_type
+      WHEN 'personnel' THEN request.resource_id
+      WHEN 'counseling_record' THEN (SELECT record.personnel_id FROM public.counseling_records AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+      WHEN 'personnel_training' THEN (SELECT record.personnel_id FROM public.personnel_trainings AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+      WHEN 'rating_scheme_entry' THEN (SELECT record.rated_person_id FROM public.rating_scheme_entries AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+    END AS person_id) AS target
+    WHERE request.organization_id = p_org_id AND request.status = 'pending'
+      AND target.person_id = ANY (p_candidate_ids)
+    ORDER BY request.id
+    FOR UPDATE OF request
+  ) AS pending;
+
+  SELECT coalesce(pg_catalog.array_agg(expired.id), '{}') INTO v_ids FROM (
+    SELECT person.id FROM public.personnel AS person
+    WHERE person.organization_id = p_org_id
+      AND person.id = ANY (p_candidate_ids)
+      AND person.archived_at IS NOT NULL
+      AND person.archived_at < p_cutoff
+      AND NOT EXISTS (
+        SELECT 1 FROM public.calendar_tasking_participants AS p
+        WHERE p.organization_id = person.organization_id AND p.personnel_id = person.id
+      )
+    ORDER BY person.id
+    FOR UPDATE
+  ) AS expired;
+
+  UPDATE public.deletion_requests AS request SET status = 'cancelled'
+  FROM ROWS FROM (pg_catalog.unnest(v_request_ids), pg_catalog.unnest(v_request_people)) AS pending(id, person_id)
+  WHERE request.organization_id = p_org_id AND request.id = pending.id AND request.status = 'pending'
+    AND pending.person_id = ANY (v_ids);
+
   DELETE FROM public.personnel AS person
-  WHERE person.organization_id = p_org_id
-    AND person.id = ANY (p_candidate_ids)
-    AND person.archived_at IS NOT NULL
-    AND person.archived_at < p_cutoff
-    AND NOT EXISTS (
-      SELECT 1 FROM public.calendar_tasking_participants AS p
-      WHERE p.organization_id = person.organization_id AND p.personnel_id = person.id
-    );
-  GET DIAGNOSTICS v_deleted = ROW_COUNT;
-  RETURN v_deleted;
+  WHERE person.organization_id = p_org_id AND person.id = ANY (v_ids);
+  RETURN pg_catalog.cardinality(v_ids);
 END;
 $$;
 
@@ -8564,6 +8689,43 @@ BEGIN
   END IF;
   IF p_actor IS NULL OR p_organization_id IS NULL OR pg_catalog.jsonb_typeof(p_rows) IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
+  END IF;
+  -- Locking the People in id order orders these inserts against an archive, so a new artifact is either
+  -- refused or archived by the cascade. The document storage cap locks the Person FOR UPDATE, so documents
+  -- take that lock here rather than upgrade a key-share lock another upload also holds.
+  IF p_table = 'personnel_documents' THEN
+    PERFORM 1 FROM (
+      SELECT person.id FROM public.personnel AS person
+      WHERE person.organization_id = p_organization_id
+        AND person.id IN (
+          SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
+          WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
+        )
+      ORDER BY person.id
+      FOR UPDATE
+    ) AS locked;
+  ELSE
+    PERFORM 1 FROM (
+      SELECT person.id FROM public.personnel AS person
+      WHERE person.organization_id = p_organization_id
+        AND person.id IN (
+          SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
+          WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
+        )
+      ORDER BY person.id
+      FOR KEY SHARE
+    ) AS locked;
+  END IF;
+  -- A key-share lock can return the version from before a committed archive, so a new statement reads the archive.
+  IF EXISTS (
+    SELECT 1 FROM public.personnel AS person
+    WHERE person.organization_id = p_organization_id AND person.archived_at IS NOT NULL
+      AND person.id IN (
+        SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
+        WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
+      )
+  ) THEN
+    RAISE EXCEPTION 'This person is archived. Restore them before adding records.' USING ERRCODE = '55000';
   END IF;
   PERFORM pg_catalog.set_config('request.jwt.claim.sub', p_actor::text, true);
   FOR v_row IN SELECT value FROM pg_catalog.jsonb_array_elements(p_rows) LOOP
@@ -15510,6 +15672,8 @@ CREATE TABLE public.personnel_onboardings (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     template_id uuid,
     cancelled_at timestamp with time zone,
+    cancellation_reason text,
+    CONSTRAINT personnel_onboardings_cancellation_reason_check CHECK (((cancellation_reason IS NULL) OR ((status = 'cancelled'::text) AND (cancellation_reason = 'archived'::text)))),
     CONSTRAINT personnel_onboardings_status_check CHECK ((status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'cancelled'::text])))
 );
 
@@ -18161,6 +18325,13 @@ CREATE TRIGGER check_availability_tasking BEFORE INSERT OR UPDATE OF set_for_tas
 
 
 --
+-- Name: personnel_onboardings clear_onboarding_cancellation_reason; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER clear_onboarding_cancellation_reason BEFORE UPDATE OF status ON public.personnel_onboardings FOR EACH ROW EXECUTE FUNCTION onboarding_private.clear_onboarding_cancellation_reason();
+
+
+--
 -- Name: daily_assignments daily_assignments_source; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18350,6 +18521,13 @@ CREATE TRIGGER keep_artifact_identity BEFORE UPDATE OF id ON public.personnel_do
 
 
 --
+-- Name: personnel_follow_ups keep_follow_up_archive_time; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER keep_follow_up_archive_time BEFORE UPDATE OF archived_at ON public.personnel_follow_ups FOR EACH ROW EXECUTE FUNCTION organization_private.keep_follow_up_archive_time();
+
+
+--
 -- Name: personnel_training_history keep_training_certificate_identity; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18466,6 +18644,13 @@ CREATE TRIGGER require_access_scope_groups_in_organization BEFORE INSERT OR UPDA
 --
 
 CREATE TRIGGER require_access_scope_groups_in_organization BEFORE INSERT OR UPDATE OF organization_id, access_scope_group_ids ON public.organization_memberships FOR EACH ROW EXECUTE FUNCTION organization_private.require_access_scope_groups_in_organization();
+
+
+--
+-- Name: personnel_onboardings require_active_onboarding_person; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER require_active_onboarding_person AFTER INSERT OR UPDATE OF status ON public.personnel_onboardings FOR EACH ROW EXECUTE FUNCTION onboarding_private.require_active_onboarding_person();
 
 
 --
@@ -22250,6 +22435,13 @@ GRANT ALL ON FUNCTION onboarding_private.admitted_member_training_is_off(p_organ
 
 
 --
+-- Name: FUNCTION clear_onboarding_cancellation_reason(); Type: ACL; Schema: onboarding_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION onboarding_private.clear_onboarding_cancellation_reason() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION onboarding_parent_scope_matches(p_organization_id uuid, p_onboarding_id uuid); Type: ACL; Schema: onboarding_private; Owner: postgres
 --
 
@@ -22283,6 +22475,13 @@ GRANT ALL ON FUNCTION onboarding_private.onboarding_step_references_match(p_orga
 REVOKE ALL ON FUNCTION onboarding_private.onboarding_template_reference_matches(p_organization_id uuid, p_template_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION onboarding_private.onboarding_template_reference_matches(p_organization_id uuid, p_template_id uuid) TO authenticated;
 GRANT ALL ON FUNCTION onboarding_private.onboarding_template_reference_matches(p_organization_id uuid, p_template_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION require_active_onboarding_person(); Type: ACL; Schema: onboarding_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION onboarding_private.require_active_onboarding_person() FROM PUBLIC;
 
 
 --
@@ -22424,6 +22623,13 @@ REVOKE ALL ON FUNCTION organization_private.guard_sign_in_roster() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION organization_private.keep_artifact_identity() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION keep_follow_up_archive_time(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.keep_follow_up_archive_time() FROM PUBLIC;
 
 
 --

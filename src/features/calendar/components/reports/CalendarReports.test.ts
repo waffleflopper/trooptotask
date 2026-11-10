@@ -143,6 +143,8 @@ describe('CalendarReports Availability lens', () => {
 
 describe('CalendarReports lenses', () => {
 	it('links each lens tab through the address, and a lens that looks back opens on its own default span', () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 10, 3, 12));
 		renderReports('?start=2026-11-10&days=60');
 		const tabs = within(screen.getByRole('navigation', { name: 'Report lenses' }));
 

@@ -241,15 +241,6 @@ export function createInMemoryOnboardingWorkflowPersistence(
 			const latest = rows.find((row) => row.status !== 'cancelled');
 			return latest ? toPacket(latest) : null;
 		},
-		async listIncompleteActiveStepIds(onboardingId) {
-			return (
-				await store.findMany<{ id: string }>('onboarding_step_progress', orgId, {
-					onboarding_id: onboardingId,
-					active: true,
-					completed: false
-				})
-			).map((row) => row.id);
-		},
 		async saveCheckboxCompletion(stepId, completed) {
 			const row = await saveProgress(stepId, { completed });
 			return {

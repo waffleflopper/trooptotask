@@ -16,23 +16,35 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 			command: { kind: 'cancel', at: '2026-10-01T12:00:00.123Z' } as OnboardingLifecycleTransition,
 			expectedStatus: 'in_progress',
 			patch: { status: 'cancelled', cancelled_at: '2026-10-01T12:00:00.123Z', completed_at: null },
+			select: ['id', 'status', 'cancelled_at', 'completed_at'],
+			stepFilters: {},
 			saved: { id: 'packet-1', status: 'cancelled', cancelled_at: '2026-10-01T12:00:00.123+00:00', completed_at: null }
 		},
 		{
 			command: { kind: 'complete', at: '2026-10-01' } as OnboardingLifecycleTransition,
 			expectedStatus: 'in_progress',
 			patch: { status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
-			saved: { id: 'packet-1', status: 'completed', cancelled_at: null, completed_at: '2026-10-01' }
+			select: ['id', 'status', 'cancelled_at', 'completed_at', 'incomplete:onboarding_step_progress(count)'],
+			stepFilters: { 'incomplete.active': 'eq.true', 'incomplete.completed': 'eq.false' },
+			saved: {
+				id: 'packet-1',
+				status: 'completed',
+				cancelled_at: null,
+				completed_at: '2026-10-01',
+				incomplete: [{ count: 1001 }]
+			}
 		},
 		{
 			command: { kind: 'reopen' } as OnboardingLifecycleTransition,
 			expectedStatus: 'cancelled',
 			patch: { status: 'in_progress', cancelled_at: null, completed_at: null },
+			select: ['id', 'status', 'cancelled_at', 'completed_at'],
+			stepFilters: {},
 			saved: { id: 'packet-1', status: 'in_progress', cancelled_at: null, completed_at: null }
 		}
 	])(
 		'qualifies $command.kind by the saved status and adopts the database dates',
-		async ({ command, expectedStatus, patch, saved }) => {
+		async ({ command, expectedStatus, patch, select, stepFilters, saved }) => {
 			const port = createSupabaseOnboardingLifecycleTransitionPort(
 				client(async (input, init) => {
 					const url = new URL(String(input));
@@ -42,8 +54,9 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 					expect(url.searchParams.get('organization_id')).toBe('eq.org-a');
 					expect(url.searchParams.get('id')).toBe('eq.packet-1');
 					expect(url.searchParams.get('status')).toBe(`eq.${expectedStatus}`);
-					expect(new Set(url.searchParams.get('select')?.split(','))).toEqual(
-						new Set(['id', 'status', 'cancelled_at', 'completed_at'])
+					expect(new Set(url.searchParams.get('select')?.split(','))).toEqual(new Set(select));
+					expect(Object.fromEntries([...url.searchParams].filter(([name]) => name.startsWith('incomplete.')))).toEqual(
+						stepFilters
 					);
 					expect(JSON.parse(String(init?.body))).toEqual(patch);
 					return Response.json([saved]);
@@ -87,6 +100,39 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 		await expect(port.transition('org-a', 'packet-1', { kind: 'complete', at: '2026-09-01' })).rejects.toMatchObject({
 			status: 400,
 			message: 'Onboarding completion date must be the current day'
+		});
+	});
+
+	it('maps an archived Person refusal to 409 with its message', async () => {
+		const message = 'This person is archived. Restore them before onboarding them.';
+		const port = createSupabaseOnboardingLifecycleTransitionPort(
+			client(async () => Response.json({ code: '55000', message, details: null, hint: null }, { status: 400 }))
+		);
+
+		await expect(port.transition('org-a', 'packet-1', { kind: 'reopen' })).rejects.toMatchObject({
+			status: 409,
+			message
+		});
+	});
+
+	it('maps a reopen that collides with another active packet to 409', async () => {
+		const port = createSupabaseOnboardingLifecycleTransitionPort(
+			client(async () =>
+				Response.json(
+					{
+						code: '23505',
+						message: 'duplicate key value violates unique constraint "personnel_onboardings_active_idx"',
+						details: null,
+						hint: null
+					},
+					{ status: 409 }
+				)
+			)
+		);
+
+		await expect(port.transition('org-a', 'packet-1', { kind: 'reopen' })).rejects.toMatchObject({
+			status: 409,
+			message: 'This person already has an active onboarding'
 		});
 	});
 

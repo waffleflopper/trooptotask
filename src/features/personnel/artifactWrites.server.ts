@@ -20,6 +20,8 @@ import type { FileCleanup } from '$features/organization/contracts';
 import type { PersonnelArtifactWritePort, PersonnelArtifactWriter } from './contracts';
 import { fail } from '$lib/errors';
 
+const ARCHIVED_PERSON_MESSAGE = 'This person is archived. Restore them before adding records.';
+
 type ArtifactTable = 'counseling_records' | 'personnel_documents' | 'personnel_follow_ups' | 'leader_notes';
 const COUNSELING_RECORDS_SELECT =
 	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,conducted_by,file_path,created_at,archived_at,archived_by';
@@ -133,7 +135,10 @@ function artifactCommands(admin: SupabaseClient, actor: { orgId: string; userId:
 				p_table: table,
 				p_rows: rows as Json
 			});
-			if (error) throw new Error(error.message);
+			if (error) {
+				if (error.code === '55000') fail(409, error.message);
+				throw new Error(error.message);
+			}
 			return (data ?? []) as ArtifactRow[];
 		},
 		async update(table: ArtifactTable, personnelId: string, id: string, patch: ArtifactRow): Promise<ArtifactRow> {
@@ -171,7 +176,7 @@ export function createSupabasePersonnelArtifactWritePort(
 		async forPerson(actor, personnelId): Promise<PersonnelArtifactWriter> {
 			const { data: person, error } = await requestClient
 				.from('personnel')
-				.select('group_id')
+				.select('group_id,archived_at')
 				.eq('organization_id', actor.orgId)
 				.eq('id', personnelId)
 				.maybeSingle();
@@ -187,8 +192,13 @@ export function createSupabasePersonnelArtifactWritePort(
 			);
 			const admin = getAdminClient();
 			const commands = artifactCommands(admin, actor);
+			// The insert command refuses an archived Person too; this answers before a file is uploaded.
+			const requireActivePerson = () => {
+				if (person.archived_at) fail(409, ARCHIVED_PERSON_MESSAGE);
+			};
 			const insertOne = async (table: ArtifactTable, values: ArtifactRow) => {
 				assertArtifactInsert(values);
+				requireActivePerson();
 				const [row] = await commands.insert(table, [{ ...values, personnel_id: personnelId }]);
 				if (!row) throw new Error('Personnel artifact insert returned no row');
 				return row;
@@ -356,6 +366,7 @@ export function createSupabasePersonnelArtifactWritePort(
 				},
 				async uploadFile(kind, path, file) {
 					if (!(file instanceof File)) fail(400, 'An artifact file is required');
+					requireActivePerson();
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);
 					const registration = await registerOrganizationFileUpload(admin, {
 						orgId: actor.orgId,

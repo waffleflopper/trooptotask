@@ -110,7 +110,6 @@ export interface OnboardingWorkflowPersistence {
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
 	/** The Person's most recently started packet that was not cancelled. */
 	findLatestPacketForPersonnel(personnelId: string): Promise<PersonnelOnboarding | null>;
-	listIncompleteActiveStepIds(onboardingId: string): Promise<string[]>;
 	saveCheckboxCompletion(stepId: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	savePaperworkProgress(stepId: string, currentStage: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	/** In-progress packets per template, counted among the packets the requester may see. Templates without packets map to 0. */

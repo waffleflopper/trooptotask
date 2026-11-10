@@ -136,8 +136,12 @@ CREATE FUNCTION public.restore_availability_entries(
 )
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = ''
+-- Bounds every wait inside the call, well under the one-second deadlock check. Reset when the call returns.
+SET lock_timeout = '50ms'
 AS $$
 #variable_conflict use_column
+DECLARE
+  restored_entries public.availability_entries[];
 BEGIN
   IF auth.uid() IS NULL
     OR p_organization_id IS NULL
@@ -155,56 +159,85 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
   END IF;
 
-  -- Claims the caller's unexpired records before any other lock, so a restore waits only on a record it will use
-  -- and holds nothing else meanwhile. An expired one is left to a removal's purge. The Tasking
-  -- check reads the claim, so the records stay until the insert is done.
-  UPDATE calendar_private.availability_undo u SET restoring = true
-  WHERE (u.actor_id, u.entry_id) IN (
-    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
-    WHERE x.actor_id = auth.uid() AND x.organization_id = p_organization_id AND x.entry_id = ANY(p_ids)
-      AND x.expires_at > pg_catalog.now()
-    ORDER BY x.entry_id
-    FOR UPDATE OF x);
-
-  -- Every other lock is taken without waiting, all or none, so a restore never waits while it holds one and cannot
-  -- join a deadlock, whatever order other writers lock in. A busy lock rolls the attempt back, releasing the rest.
-  FOR attempt IN 1..100 LOOP
+  -- Each attempt is the whole restore. A lock wait past the timeout rolls the attempt back, releasing every lock it
+  -- took, and the restore tries again. It never holds a lock while waiting long enough to complete a deadlock,
+  -- whatever order other writers lock in.
+  FOR attempt IN 1..50 LOOP
     BEGIN
-      -- Every row the insert and its audit entry reference, so neither waits once the restore holds these. A
-      -- Tasking deleted first is not locked and its status comes back unlinked.
-      PERFORM 1 FROM public.organizations o WHERE o.id = p_organization_id FOR KEY SHARE NOWAIT;
-      PERFORM 1 FROM auth.users a WHERE a.id = auth.uid() FOR KEY SHARE NOWAIT;
+      -- The caller's unexpired records; an expired one is left to a removal's purge. The Tasking check reads the
+      -- claim.
+      UPDATE calendar_private.availability_undo u SET restoring = true
+      WHERE (u.actor_id, u.entry_id) IN (
+        SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
+        WHERE x.actor_id = auth.uid() AND x.organization_id = p_organization_id AND x.entry_id = ANY(p_ids)
+          AND x.expires_at > pg_catalog.now()
+        FOR UPDATE OF x);
+      -- A Tasking deleted while this waits is gone from the insert's next snapshot, so its status comes back
+      -- unlinked instead of failing the insert's foreign key check.
       PERFORM 1 FROM public.calendar_taskings t
       WHERE t.organization_id = p_organization_id AND t.id IN (
         SELECT u.set_for_tasking_id FROM calendar_private.availability_undo u
         WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
           AND u.restoring)
-      FOR KEY SHARE NOWAIT;
+      FOR KEY SHARE;
+      -- The deferred status type check runs at commit, after this call's timeout has been reset.
       PERFORM 1 FROM public.status_types st
       WHERE st.organization_id = p_organization_id AND st.id IN (
         SELECT u.status_type_id FROM calendar_private.availability_undo u
         WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
           AND u.restoring)
-      FOR KEY SHARE NOWAIT;
-      -- An add holds its Person's key-share lock until it commits, so an attempt fails while any add is open.
+      FOR KEY SHARE;
+      -- An add, or an edit that moves a status to the Person, holds the Person's key-share lock until it commits.
       PERFORM 1 FROM public.personnel p
       WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
-      FOR UPDATE NOWAIT;
+      FOR UPDATE;
       -- An import holds this lock from before its overlap check until it commits.
-      IF EXISTS (SELECT 1 FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
-          ORDER BY c.personnel_id) AS claimed
-        WHERE NOT pg_catalog.pg_try_advisory_xact_lock(
-          pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861)))
-      THEN
-        RAISE EXCEPTION 'Calendar availability is busy' USING ERRCODE = '55P03';
-      END IF;
+      PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
+      FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)) AS claimed;
       -- An edit holds its entry's row lock until it commits.
       PERFORM 1 FROM public.availability_entries a
       WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
-      FOR SHARE NOWAIT;
+      FOR SHARE;
+
+      -- A new statement, so its snapshot sees every add, edit and import that held those locks.
+      WITH claim AS (
+        SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
+      ), restorable AS (
+        SELECT u.* FROM calendar_private.availability_undo u
+        WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+          AND u.restoring
+          AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
+          AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
+          AND EXISTS (SELECT 1 FROM public.status_types s
+            WHERE s.organization_id = u.organization_id AND s.id = u.status_type_id)
+          AND NOT EXISTS (
+            SELECT 1 FROM public.availability_entries a
+            WHERE a.organization_id = u.organization_id AND a.personnel_id = u.personnel_id
+              AND a.status_type_id = u.status_type_id
+              AND a.start_date <= u.end_date AND a.end_date >= u.start_date
+          )
+      ), restored AS (
+        INSERT INTO public.availability_entries AS e (id, organization_id, personnel_id, status_type_id, start_date,
+          end_date, note, created_at, set_for_tasking_id)
+        SELECT r.entry_id, r.organization_id, r.personnel_id, r.status_type_id, r.start_date, r.end_date, r.note,
+          r.created_at,
+          -- The link survives while its Tasking exists, even one this caller cannot see; the caller never reads it.
+          (SELECT t.id FROM public.calendar_taskings t
+            WHERE t.organization_id = r.organization_id AND t.id = r.set_for_tasking_id)
+        FROM restorable r
+        ON CONFLICT (id) DO NOTHING
+        RETURNING e
+      )
+      SELECT pg_catalog.array_agg(restored.e) INTO restored_entries FROM restored;
+
+      -- An Undo is one-shot: a claimed record goes whether or not the entry came back.
+      DELETE FROM calendar_private.availability_undo u
+      WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+        AND u.restoring;
       EXIT;
     EXCEPTION WHEN lock_not_available THEN
-      IF attempt = 100 THEN
+      IF attempt = 50 THEN
         RAISE EXCEPTION 'Calendar availability is busy' USING ERRCODE = '55P03';
       END IF;
       PERFORM pg_catalog.pg_sleep(0.05);
@@ -212,43 +245,9 @@ BEGIN
   END LOOP;
 
   RETURN QUERY
-  WITH claim AS (
-    SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
-  ), restorable AS (
-    SELECT u.* FROM calendar_private.availability_undo u
-    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
-      AND u.restoring
-      AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
-      AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
-      AND EXISTS (SELECT 1 FROM public.status_types s
-        WHERE s.organization_id = u.organization_id AND s.id = u.status_type_id)
-      AND NOT EXISTS (
-        SELECT 1 FROM public.availability_entries a
-        WHERE a.organization_id = u.organization_id AND a.personnel_id = u.personnel_id
-          AND a.status_type_id = u.status_type_id
-          AND a.start_date <= u.end_date AND a.end_date >= u.start_date
-      )
-  ), restored AS (
-    INSERT INTO public.availability_entries AS e (id, organization_id, personnel_id, status_type_id, start_date,
-      end_date, note, created_at, set_for_tasking_id)
-    SELECT r.entry_id, r.organization_id, r.personnel_id, r.status_type_id, r.start_date, r.end_date, r.note,
-      r.created_at,
-      -- The link survives while its Tasking exists, even one this caller cannot see; the caller never reads it.
-      (SELECT t.id FROM public.calendar_taskings t
-        WHERE t.organization_id = r.organization_id AND t.id = r.set_for_tasking_id)
-    FROM restorable r
-    ON CONFLICT (id) DO NOTHING
-    RETURNING e.id, e.organization_id, e.personnel_id, e.status_type_id, e.start_date, e.end_date, e.note,
-      e.created_at
-  )
-  SELECT restored.id, restored.organization_id, restored.personnel_id, restored.status_type_id,
-    restored.start_date, restored.end_date, restored.note, restored.created_at
-  FROM restored;
-
-  -- An Undo is one-shot: a claimed record goes whether or not the entry came back.
-  DELETE FROM calendar_private.availability_undo u
-  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
-    AND u.restoring;
+  SELECT entry.id, entry.organization_id, entry.personnel_id, entry.status_type_id, entry.start_date, entry.end_date,
+    entry.note, entry.created_at
+  FROM pg_catalog.unnest(restored_entries) AS entry;
 END;
 $$;
 ALTER FUNCTION public.restore_availability_entries(uuid, uuid[], uuid[]) OWNER TO postgres;

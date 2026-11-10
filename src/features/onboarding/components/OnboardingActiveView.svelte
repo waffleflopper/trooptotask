@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { page } from '$app/state';
+	import { tick } from 'svelte';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS, STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
 	import { groupFilterMatcher } from '$features/personnel/contracts';
@@ -11,7 +10,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import { writeAddress } from '$lib/utils/addressWriter';
+	import { takeOneTimeParam } from '$lib/utils/addressWriter';
 	import {
 		WorkspaceToolbar,
 		type ToolbarItem,
@@ -47,7 +46,7 @@
 	let search = $state('');
 	let groupId = $state(ALL_GROUPS);
 	// `?packet=<id>` opens that packet, as a link from the Dashboard; an id no longer in processing selects nothing.
-	let selectedId = $state<string | null>(page.url.searchParams.get('packet'));
+	let selectedId = $state<string | null>(takeOneTimeParam('packet'));
 	let view = $state<View>('list');
 
 	const active = $derived(ctx.filteredOnboardings);
@@ -93,11 +92,6 @@
 				) ?? null)
 			: null
 	);
-
-	// The param is dropped once read, so a reload does not reopen a packet the viewer closed.
-	onMount(() => {
-		void writeAddress({ url: (url) => url.searchParams.delete('packet') });
-	});
 
 	function personMeta(onboarding: PersonnelOnboarding): string {
 		return [ctx.getPersonGroupName(onboarding.personnelId), ctx.getPerson(onboarding.personnelId)?.mos]

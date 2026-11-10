@@ -3,7 +3,8 @@ import {
 	DEFAULT_TRAINING_BRIEFING_INPUT,
 	parseTrainingBriefingReportInput,
 	serializeTrainingBriefingDetailInput,
-	serializeTrainingBriefingReportInput
+	serializeTrainingBriefingReportInput,
+	writeTrainingBriefingReportInput
 } from './briefingReportInput';
 
 const parse = (query: string) => parseTrainingBriefingReportInput(new URLSearchParams(query));
@@ -43,6 +44,16 @@ describe('Training briefing URL input', () => {
 
 		expect(params.toString()).toBe(query);
 		expect(parse(params.toString())).toEqual(parse(query));
+	});
+
+	it('rewrites only its own params and keeps any other, such as an open Help guide', () => {
+		const params = new URLSearchParams('help=view-training-reports&group=g1&mos=68W&mos=11B&horizon=30&tab=x');
+
+		writeTrainingBriefingReportInput(params, { ...DEFAULT_TRAINING_BRIEFING_INPUT, mos: ['13F'], rowsBy: 'mos' });
+		expect(params.toString()).toBe('help=view-training-reports&tab=x&mos=13F&rowsBy=mos');
+
+		writeTrainingBriefingReportInput(params, DEFAULT_TRAINING_BRIEFING_INPUT);
+		expect(params.toString()).toBe('help=view-training-reports&tab=x');
 	});
 
 	it('names a Total cell without a row and keeps an empty row key for a blank MOS row', () => {

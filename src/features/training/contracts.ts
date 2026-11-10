@@ -20,7 +20,8 @@ export {
 	TRAINING_BRIEFING_HORIZONS,
 	parseTrainingBriefingReportInput,
 	serializeTrainingBriefingDetailInput,
-	serializeTrainingBriefingReportInput
+	serializeTrainingBriefingReportInput,
+	writeTrainingBriefingReportInput
 } from './utils/briefingReportInput';
 export type {
 	TrainingBriefingDetailInput,

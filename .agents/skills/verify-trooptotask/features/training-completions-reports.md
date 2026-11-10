@@ -309,7 +309,8 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
    the selected outline on that cell and a status line naming its count of affected requirements; choose Alpha ×
    Targeted and require `row=<alpha group>`. Use `Filter by group` for Alpha then Bravo: Alpha's Bottom line is 100% and
    names Alpha as the scope, Bravo's is 0%; each change updates the address bar without a page navigation, and a reload
-   of that URL restores the same briefing. Use `Clear filters` between independent cases. Use `Filter by MOS`,
+   of that URL restores the same briefing. A change rewrites only the report's own params, so an open Help guide keeps
+   its `help` param ([Help recipe](help-guides.md), step 18). Use `Clear filters` between independent cases. Use `Filter by MOS`,
    `Filter by duty role`, `Filter by training type`, `Filter by view` (Focus View orders Targeted before Required and
    hides Optional) and `Filter by rank` (SPC retains all three A People because this fixture has no second rank),
    recording the expected Person/column set before each change. Change `Forecast horizon` to 30 and 180 days and

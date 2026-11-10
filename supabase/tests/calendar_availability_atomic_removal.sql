@@ -2,9 +2,9 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-SELECT ok(NOT (SELECT prosecdef FROM pg_proc WHERE oid =
+SELECT ok((SELECT prosecdef FROM pg_proc WHERE oid =
   'public.delete_availability_entries(uuid,uuid[])'::regprocedure),
-  'availability removal uses the caller permissions');
+  'availability removal runs as its owner so it can keep the undo record');
 SELECT ok(has_function_privilege('authenticated',
   'public.delete_availability_entries(uuid,uuid[])', 'EXECUTE'),
   'authenticated members can reach availability removal');
@@ -129,6 +129,10 @@ SELECT results_eq(
   $$ SELECT id,to_jsonb(r) FROM public.availability_entries r WHERE id::text LIKE 'e6100000-%' ORDER BY id $$,
   $$ SELECT id,row_data FROM removal_original_rows WHERE id <> 'e6100000-0000-4000-8000-000000000501' ORDER BY id $$,
   'subset deletion preserves every other saved row exactly');
+SELECT results_eq(
+  $$ SELECT entry_id FROM calendar_private.availability_undo WHERE entry_id::text LIKE 'e6100000-%' $$,
+  $$ VALUES ('e6100000-0000-4000-8000-000000000501'::uuid) $$,
+  'only the row the scoped operator deleted left an undo record');
 
 UPDATE public.organization_memberships SET capability_overrides='{"calendar":"view","personnel":"none"}'
 WHERE organization_id='e6100000-0000-4000-8000-000000000101' AND user_id='e6100000-0000-4000-8000-000000000002';

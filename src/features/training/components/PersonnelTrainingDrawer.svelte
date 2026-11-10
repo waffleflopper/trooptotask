@@ -98,7 +98,7 @@
 				label: datesExpiration
 					? `Expires ${expires ? formatDayMonthYear(expires) : '—'}`
 					: `${record.completionDate ? formatDayMonthYear(record.completionDate) : '—'} → ${
-							expires ? formatDayMonthYear(expires) : 'does not expire'
+							expires ? formatDayMonthYear(expires) : item?.cycleMonths == null ? 'does not expire' : '—'
 						}`,
 				detail: record.notes,
 				certificate: trainingCertificateLink(orgId, kind, record.id, record.certificateUrl)

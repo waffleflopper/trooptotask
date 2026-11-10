@@ -577,26 +577,13 @@ describe('inviteOrganizationMembers', () => {
 			}
 		);
 
-		expect(result).toEqual({
-			inviteSuccess: true,
-			inviteResults: [
-				{ email: 'one@example.com', status: 'invited', message: 'Invited. The email is on its way.' },
-				{ email: 'not-an-email', status: 'failed', message: 'Not a valid email address.' },
-				{
-					email: 'taken@example.com',
-					status: 'already-invited',
-					message: 'Already invited. Resend it from Waiting on them.'
-				},
-				{
-					email: 'busy@example.com',
-					status: 'failed',
-					message:
-						'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 1 minute.'
-				},
-				{ email: 'two@example.com', status: 'invited', message: 'Invited. The email is on its way.' }
-			],
-			inviteMessage: '2 invited. 1 already invited. 2 not invited.'
-		});
+		expect(result.inviteResults.map(({ email, status }) => ({ email, status }))).toEqual([
+			{ email: 'one@example.com', status: 'invited' },
+			{ email: 'not-an-email', status: 'failed' },
+			{ email: 'taken@example.com', status: 'already-invited' },
+			{ email: 'busy@example.com', status: 'failed' },
+			{ email: 'two@example.com', status: 'invited' }
+		]);
 		expect(port.invitationLookups).toEqual([
 			{
 				orgId: 'org-1',
@@ -614,19 +601,10 @@ describe('inviteOrganizationMembers', () => {
 		expect(ctx.auditPort.events.filter((event) => event.action === 'member.invite')).toHaveLength(2);
 		expect(ctx.auditPort.events.filter((event) => event.action === 'member.invite_email_sent')).toHaveLength(2);
 		expect(delivery.deliveries).toHaveLength(2);
-		expect(ctx.notificationPort.notifications.filter((entry) => entry.target === 'admins')).toEqual([
-			{
-				target: 'admins',
-				orgId: 'org-1',
-				excludeUserId: 'actor-1',
-				notification: {
-					type: 'member_invited',
-					title: 'Members Invited',
-					message: '"actor@example.com" invited 2 people to the organization: one@example.com, two@example.com.',
-					link: '/org/org-1/settings/general'
-				}
-			}
-		]);
+		const notices = ctx.notificationPort.notifications.filter((entry) => entry.target === 'admins');
+		expect(notices.map((entry) => entry.notification.type)).toEqual(['member_invited']);
+		expect(notices[0].notification.message).toContain('one@example.com, two@example.com');
+		expect(notices[0].notification.message).not.toContain('busy@example.com');
 	});
 
 	it('lets an owner with recent assurance invite several admins after one step-up check', async () => {

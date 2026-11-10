@@ -27,8 +27,9 @@ roster.
   both rows stay frozen. Each training cell has a fixed fill and font from its status on that date: current green
   `FFDCFCE7`/`FF166534`, yellow `FFFEF9C3`/`FF854D0E`, orange `FFFFEDD5`/`FF9A3412`, expired red `FFFEE2E2`/`FF991B1B`,
   missing gray `FFF3F4F6`/`FF4B5563`, not required white `FFFFFFFF`/`FF6B7280`, exempt blue `FFE0F2FE`/`FF075985`.
-  Defaults: day -1 expired, days 0-30 orange, 31-60 yellow, 61 current; a stored expiration date decides, not the
-  exported completion date. The sheet has no conditional-formatting rules or formulas.
+  Defaults: day -1 expired, days 0-30 orange, 31-60 yellow, 61 current; the expiration date decides, not the exported
+  completion date. It is the completion date plus the type's current months, or the stored card date for an
+  expiration-only type. The sheet has no conditional-formatting rules or formulas.
 - `report-export`: the downloaded workbook has the sheets Summary, Forecast, Hot spots, Focus and Requirements for the
   briefing on screen; Requirements lists every affected requirement of the filtered briefing with status labels and
   saved dates.
@@ -367,7 +368,7 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
    requirements retain their separate meaning. As a Personnel reader without Training access, inspect the same readiness
    route to establish that Training facts do not leak through the card. In the authorized detail view arm workbook
    capture, choose Export records and inspect its `Training Records` sheet for type labels, Completed Date, Expiration
-   Date and Notes; preserve the same dated rows as a separate Person export, not a report workbook. Open the
+   Date (completion plus the type's current months, or the card date for an expiration-only type) and Notes; preserve the same dated rows as a separate Person export, not a report workbook. Open the
    Organization Dashboard with Training read authority and inspect the visible expired/warning identities and any saved
    summary response. Preserve its retained currency meaning without demanding the report's 50% readiness. An Expired
    or Due soon row's `Record class` saves one completion per checked Person through the same `POST api/personnel-trainings/batch` as
@@ -443,7 +444,8 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
     capture and `network arm-observe` for the selected JSON/Excel endpoint, and use the visible Export JSON/Export Excel
     buttons. Preserve actual artifacts, filename/status and exact Training sections/sheets: stored IDs,
     Organization/Person/type references, timestamps, null dates/Notes/URL, catalog/view fields and saved dated values
-    survive. No B facts appear in A. A denied member receives no successful export. Preserve
+    survive. The JSON keeps the stored `expiration_date`; the Excel Training Records and Training History sheets show
+    the derived expiration date. No B facts appear in A. A denied member receives no successful export. Preserve
     Personnel-without-Training's empty Training sheet versus authorized exact dated rows; no privileged bypass is
     permitted.
 

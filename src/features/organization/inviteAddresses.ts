@@ -11,8 +11,15 @@ export type InviteAddressResult =
  * breaks separate addresses. A mail client's `Name <address>` keeps only the address.
  */
 export function parseInviteAddresses(text: string): string[] {
-	const addresses = text.replace(/"[^"]*"/g, ' ').replace(/(?<=^|[\s,;])(?:[^\s,;<>@]+[ \t]+)*<([^<>]*)>/g, ' $1 ');
-	return [...new Set(addresses.split(/[\s,;<>]+/).flatMap((part) => (part ? [part.toLowerCase()] : [])))];
+	const addresses = text
+		.replace(/"[^"]*"/g, ' ')
+		.split(/[,;\n]/)
+		.flatMap((entry) => {
+			const bracketed = [...entry.matchAll(/<([^<>]*)>/g)].map((match) => match[1]);
+			const loose = entry.replace(/<[^<>]*>/g, ' ').split(/[\s<>]+/);
+			return bracketed.length > 0 ? [...loose.filter((word) => word.includes('@')), ...bracketed] : loose;
+		});
+	return [...new Set(addresses.flatMap((part) => (part.trim() ? [part.trim().toLowerCase()] : [])))];
 }
 
 /** The addresses an admin still has to act on: the ones no invitation covers yet. */

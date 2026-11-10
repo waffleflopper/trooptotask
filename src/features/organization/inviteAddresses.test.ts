@@ -11,15 +11,15 @@ describe('parseInviteAddresses', () => {
 	it('takes the addresses out of a recipient list copied from a mail client', () => {
 		expect(
 			parseInviteAddresses(
-				'Jane Doe <jane@example.com>; "Smith, John" <john@example.com>, <kim@example.com>\nnot-an-email lee@example.com Lee Park <park@example.com>'
+				'Jane Doe <jane@example.com>; "Smith, John" <john@example.com>, <kim@example.com>\nlee@example.com Lee Park <park@example.com>\nnot-an-email'
 			)
 		).toEqual([
 			'jane@example.com',
 			'john@example.com',
 			'kim@example.com',
-			'not-an-email',
 			'lee@example.com',
-			'park@example.com'
+			'park@example.com',
+			'not-an-email'
 		]);
 	});
 

@@ -25,8 +25,8 @@ with a confirmed action.
 As `orgOwner`, open `Settings` → `Members`. Under `Members`, the `Members` table lists everyone with no paging (the
 member cell is the row header); each row shows the member's Access lane (role or preset, plus an amber
 `+<n> area changes`) and Groups lane (amber `No groups` when empty). Choose `Manage` on a non-owner row; the owner's row
-has no `Manage`: an owner sees a dash (`No actions`) there, and an admin sees `Add name` or `Edit name`, which opens a
-sheet with only the `Name` section (see Member name). The sheet is 560 px wide, titled with the member's email over a
+has no `Manage`. It shows `Add name` or `Edit name` when the owner's account has no name, which opens a sheet with only
+the `Name` section (see Member name), and a dash (`No actions`) when it does. The sheet is 560 px wide, titled with the member's email over a
 summary line (`Operator · HQ PLT · 2 area changes`) and a 2px rule. Each section is one row with its title on the left
 and its control on the right: `Role` and `Preset` as radio groups, `Area by area` with the sentence
 `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`,

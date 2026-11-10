@@ -14,6 +14,7 @@ export default mergeConfig(
 	defineConfig({
 		test: {
 			environment: 'node',
+			setupFiles: ['src/lib/test-support/restoreFileGlobals.ts'],
 			maxWorkers: Math.max(1, Math.floor(availableParallelism() / 2)),
 			// Shuffled file order surfaces a file that leaks state into the shared graph; a failure prints the seed to replay.
 			sequence: { shuffle: { files: true, tests: false } },

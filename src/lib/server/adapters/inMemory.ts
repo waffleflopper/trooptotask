@@ -327,10 +327,9 @@ function createTestCalendarPersistence(
 				findReference: unavailableCalendarPersistence,
 				create: unavailableCalendarPersistence,
 				update: unavailableCalendarPersistence,
-				delete: unavailableCalendarPersistence,
 				createMany: unavailableCalendarPersistence,
 				deleteUnchanged: unavailableCalendarPersistence,
-				restoreMany: unavailableCalendarPersistence,
+				restoreRemoved: unavailableCalendarPersistence,
 				insertReplacing: unavailableCalendarPersistence,
 				findPersonnelIds: unavailableCalendarPersistence,
 				deleteIds: unavailableCalendarPersistence
@@ -1037,7 +1036,33 @@ function createInMemoryCalendarAvailabilityRemovalPort(
 			});
 			return [...new Set(rows.map((row) => row.personnel_id))];
 		},
-		deleteIds: (ids) => store.deleteManyByIds('availability_entries', orgId, ids)
+		// Stands in for the database's private undo record: the rows a removal deleted, keyed by their own id.
+		async deleteIds(ids) {
+			const removed = await store.findMany<Record<string, unknown> & { id: string }>(
+				'availability_entries',
+				orgId,
+				undefined,
+				{ inFilters: { id: ids } }
+			);
+			const deleted = await store.deleteManyByIds(
+				'availability_entries',
+				orgId,
+				removed.map((row) => row.id)
+			);
+			if (removed.length) {
+				await rawStore.deleteManyByIds(
+					'availability_undo',
+					orgId,
+					removed.map((row) => row.id)
+				);
+				await rawStore.insertMany(
+					'availability_undo',
+					orgId,
+					removed.map((row) => ({ ...row }))
+				);
+			}
+			return deleted;
+		}
 	};
 }
 

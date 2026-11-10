@@ -7,6 +7,7 @@ import {
 	STATUS_TYPE_HAS_ENTRIES_MESSAGE
 } from './calendarCatalogPersistence.server';
 import { sameIdList } from './utils/idList';
+import { rangesOverlap } from './utils/availabilityMutation';
 import { lastDayOf } from './utils/da6View';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
@@ -581,9 +582,6 @@ export function createInMemoryCalendarAvailabilityPersistence(
 				)
 			);
 		},
-		delete(id) {
-			return store.delete('availability_entries', orgId, id);
-		},
 		createMany,
 		async deleteUnchanged(entries) {
 			if (entries.length === 0) return [];
@@ -609,31 +607,34 @@ export function createInMemoryCalendarAvailabilityPersistence(
 			if (unchanged.length) await store.deleteManyByIds('availability_entries', orgId, unchanged);
 			return unchanged;
 		},
-		async restoreMany(entries) {
-			const existing = new Set(
-				(
-					await store.findMany<{ id: string }>('availability_entries', orgId, undefined, {
-						inFilters: { id: entries.map((entry) => entry.id) },
-						select: 'id'
-					})
-				).map((row) => row.id)
+		async restoreRemoved(entries) {
+			if (entries.length === 0) return [];
+			const claimed = new Map(entries.map((entry) => [entry.id, entry.personnelId]));
+			const records = await store.findMany<AvailabilityRow>('availability_undo', orgId, undefined, {
+				inFilters: { id: [...claimed.keys()] }
+			});
+			await store.deleteManyByIds(
+				'availability_undo',
+				orgId,
+				records.map((record) => record.id)
 			);
-			const fresh = entries.filter((entry) => !existing.has(entry.id));
-			if (fresh.length === 0) return [];
-			return (
-				await store.insertMany<AvailabilityRow>(
-					'availability_entries',
-					orgId,
-					fresh.map((entry) => ({
-						id: entry.id,
-						personnel_id: entry.personnelId,
-						status_type_id: entry.statusTypeId,
-						start_date: entry.startDate,
-						end_date: entry.endDate,
-						note: entry.note ?? null
-					}))
-				)
-			).map((row) => row.id);
+			const claims = records.filter((record) => claimed.get(record.id) === record.personnel_id);
+			if (claims.length === 0) return [];
+			const saved = await store.findMany<AvailabilityRow>('availability_entries', orgId, undefined, {
+				inFilters: { personnel_id: [...new Set(claims.map((record) => record.personnel_id))] }
+			});
+			const restorable = claims.filter(
+				(record) =>
+					!saved.some(
+						(row) =>
+							row.id === record.id ||
+							(row.personnel_id === record.personnel_id &&
+								row.status_type_id === record.status_type_id &&
+								rangesOverlap(row.start_date, row.end_date, record.start_date, record.end_date))
+					)
+			);
+			if (restorable.length === 0) return [];
+			return (await store.insertMany<AvailabilityRow>('availability_entries', orgId, restorable)).map(toAvailability);
 		},
 		async insertReplacing(entries) {
 			const saved = await store.findMany<AvailabilityRow>('availability_entries', orgId);

@@ -50,7 +50,7 @@ describe('undoAvailabilityChange: remove (undo of an add)', () => {
 			remove: [entry(ENTRY_1), entry(ENTRY_2, { personnelId: PERSON_B })]
 		});
 
-		expect(result).toEqual({ removedIds: [ENTRY_1, ENTRY_2], restoredIds: [], changedIds: [] });
+		expect(result).toEqual({ removedIds: [ENTRY_1, ENTRY_2], restored: [], changedIds: [] });
 		expect(await stored(ctx)).toEqual([row(ENTRY_3)]);
 	});
 
@@ -65,7 +65,7 @@ describe('undoAvailabilityChange: remove (undo of an add)', () => {
 			remove: [entry(ENTRY_1), entry(ENTRY_2), entry(ENTRY_3)]
 		});
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [], changedIds: [ENTRY_1, ENTRY_2, ENTRY_3] });
+		expect(result).toEqual({ removedIds: [], restored: [], changedIds: [ENTRY_1, ENTRY_2, ENTRY_3] });
 		expect(await stored(ctx)).toEqual([
 			row(ENTRY_1, { note: 'Edited by a colleague' }),
 			row(ENTRY_2, { end_date: '2026-11-20' })
@@ -78,7 +78,7 @@ describe('undoAvailabilityChange: remove (undo of an add)', () => {
 
 		const result = await undoAvailabilityChange(ctx, { remove: [entry(ENTRY_1)] });
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [], changedIds: [ENTRY_1] });
+		expect(result).toEqual({ removedIds: [], restored: [], changedIds: [ENTRY_1] });
 		expect(await stored(ctx)).toEqual([row(ENTRY_1, { personnel_id: PERSON_B })]);
 	});
 
@@ -88,35 +88,89 @@ describe('undoAvailabilityChange: remove (undo of an add)', () => {
 
 		const result = await undoAvailabilityChange(ctx, { remove: [entry(ENTRY_1), entry(ENTRY_2)] });
 
-		expect(result).toEqual({ removedIds: [ENTRY_1], restoredIds: [], changedIds: [ENTRY_2] });
+		expect(result).toEqual({ removedIds: [ENTRY_1], restored: [], changedIds: [ENTRY_2] });
 		expect(await stored(ctx)).toEqual([row(ENTRY_2, { status_type_id: TDY })]);
 	});
 });
 
 describe('undoAvailabilityChange: restore (undo of a removal)', () => {
-	it('saves each removed entry again under its own id with its note', async () => {
+	const claim = (id: string, personnelId = PERSON_A) => ({ id, personnelId });
+	const remove = (ctx: ReturnType<typeof context>, ...ids: string[]) => ctx.calendarAvailability.deleteIds(ids);
+
+	it('puts back each removed entry under its own id with the values the removal deleted', async () => {
 		const ctx = context();
+		ctx.store.seed('availability_entries', [
+			row(ENTRY_1, { note: 'Edited by a colleague', end_date: '2026-11-14' }),
+			row(ENTRY_2, { personnel_id: PERSON_B, status_type_id: TDY })
+		]);
+		await remove(ctx, ENTRY_1, ENTRY_2);
 
-		const result = await undoAvailabilityChange(ctx, {
-			restore: [entry(ENTRY_1, { note: 'Block leave' }), entry(ENTRY_2, { personnelId: PERSON_B, statusTypeId: TDY })]
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1), claim(ENTRY_2, PERSON_B)] });
+
+		expect(result).toEqual({
+			removedIds: [],
+			restored: [
+				{
+					id: ENTRY_1,
+					organization_id: 'test-org',
+					personnelId: PERSON_A,
+					statusTypeId: LEAVE,
+					startDate: '2026-11-10',
+					endDate: '2026-11-14',
+					note: 'Edited by a colleague'
+				},
+				{
+					id: ENTRY_2,
+					organization_id: 'test-org',
+					personnelId: PERSON_B,
+					statusTypeId: TDY,
+					startDate: '2026-11-10',
+					endDate: '2026-11-12',
+					note: null
+				}
+			],
+			changedIds: []
 		});
-
-		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_1, ENTRY_2], changedIds: [] });
 		expect(await stored(ctx)).toEqual([
-			row(ENTRY_1, { note: 'Block leave' }),
+			row(ENTRY_1, { note: 'Edited by a colleague', end_date: '2026-11-14' }),
 			row(ENTRY_2, { personnel_id: PERSON_B, status_type_id: TDY })
 		]);
 	});
 
+	it('restores a removal once', async () => {
+		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1)]);
+		await remove(ctx, ENTRY_1);
+
+		const first = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1)] });
+		const second = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1)] });
+
+		expect(first.restored.map(({ id }) => id)).toEqual([ENTRY_1]);
+		expect(second).toEqual({ removedIds: [], restored: [], changedIds: [ENTRY_1] });
+		expect(await stored(ctx)).toEqual([row(ENTRY_1)]);
+	});
+
+	it('reports an entry that was never removed and one claimed under another Person', async () => {
+		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1), row(ENTRY_2)]);
+		await remove(ctx, ENTRY_2);
+
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1), claim(ENTRY_2, PERSON_B)] });
+
+		expect(result).toEqual({ removedIds: [], restored: [], changedIds: [ENTRY_1, ENTRY_2] });
+		expect(await stored(ctx)).toEqual([row(ENTRY_1)]);
+	});
+
 	it('skips an entry whose id exists again and leaves that row untouched', async () => {
 		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1), row(ENTRY_2, { status_type_id: TDY })]);
+		await remove(ctx, ENTRY_1, ENTRY_2);
 		ctx.store.seed('availability_entries', [row(ENTRY_1, { start_date: '2026-12-01', end_date: '2026-12-02' })]);
 
-		const result = await undoAvailabilityChange(ctx, {
-			restore: [entry(ENTRY_1), entry(ENTRY_2, { statusTypeId: TDY })]
-		});
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1), claim(ENTRY_2)] });
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_2], changedIds: [ENTRY_1] });
+		expect(result.restored.map(({ id }) => id)).toEqual([ENTRY_2]);
+		expect(result.changedIds).toEqual([ENTRY_1]);
 		expect(await stored(ctx)).toEqual([
 			row(ENTRY_1, { start_date: '2026-12-01', end_date: '2026-12-02' }),
 			row(ENTRY_2, { status_type_id: TDY })
@@ -125,36 +179,42 @@ describe('undoAvailabilityChange: restore (undo of a removal)', () => {
 
 	it('skips an entry when the Person now has the same status over overlapping dates', async () => {
 		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1)]);
+		await remove(ctx, ENTRY_1);
 		ctx.store.seed('availability_entries', [row(ENTRY_3, { start_date: '2026-11-12', end_date: '2026-11-15' })]);
 
-		const result = await undoAvailabilityChange(ctx, { restore: [entry(ENTRY_1)] });
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1)] });
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [], changedIds: [ENTRY_1] });
+		expect(result).toEqual({ removedIds: [], restored: [], changedIds: [ENTRY_1] });
 		expect(await stored(ctx)).toEqual([row(ENTRY_3, { start_date: '2026-11-12', end_date: '2026-11-15' })]);
 	});
 
 	it('restores beside a different status, another Person, or dates that only touch a neighbour', async () => {
 		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1)]);
+		await remove(ctx, ENTRY_1);
 		ctx.store.seed('availability_entries', [
 			row(ENTRY_3, { status_type_id: TDY }),
 			row('00000000-0000-4000-8000-000000000024', { personnel_id: PERSON_B }),
 			row('00000000-0000-4000-8000-000000000025', { start_date: '2026-11-13', end_date: '2026-11-14' })
 		]);
 
-		const result = await undoAvailabilityChange(ctx, { restore: [entry(ENTRY_1)] });
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1)] });
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_1], changedIds: [] });
+		expect(result.restored.map(({ id }) => id)).toEqual([ENTRY_1]);
+		expect(result.changedIds).toEqual([]);
 	});
 
 	it('restores one Person’s entry when only another Person in the same batch has the status again', async () => {
 		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1), row(ENTRY_2, { personnel_id: PERSON_B })]);
+		await remove(ctx, ENTRY_1, ENTRY_2);
 		ctx.store.seed('availability_entries', [row(ENTRY_3)]);
 
-		const result = await undoAvailabilityChange(ctx, {
-			restore: [entry(ENTRY_1), entry(ENTRY_2, { personnelId: PERSON_B })]
-		});
+		const result = await undoAvailabilityChange(ctx, { restore: [claim(ENTRY_1), claim(ENTRY_2, PERSON_B)] });
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_2], changedIds: [ENTRY_1] });
+		expect(result.restored.map(({ id }) => id)).toEqual([ENTRY_2]);
+		expect(result.changedIds).toEqual([ENTRY_1]);
 	});
 });
 
@@ -180,7 +240,7 @@ describe('undoAvailabilityChange: access and input', () => {
 		await expect(
 			undoAvailabilityChange(ctx, {
 				remove: [entry(ENTRY_1, { personnelId: PERSON_B })],
-				restore: [entry(ENTRY_2)]
+				restore: [{ id: ENTRY_2, personnelId: PERSON_A }]
 			})
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.rawStore.findMany('availability_entries', 'test-org')).toEqual([
@@ -191,18 +251,25 @@ describe('undoAvailabilityChange: access and input', () => {
 	it('reports an entry of a Person who is gone instead of failing the rest', async () => {
 		const ctx = context();
 		const GONE = '00000000-0000-4000-8000-000000000099';
+		ctx.store.seed('availability_entries', [row(ENTRY_1), row(ENTRY_2, { personnel_id: GONE })]);
+		await ctx.calendarAvailability.deleteIds([ENTRY_1, ENTRY_2]);
 
 		const result = await undoAvailabilityChange(ctx, {
-			restore: [entry(ENTRY_1), entry(ENTRY_2, { personnelId: GONE })]
+			restore: [
+				{ id: ENTRY_1, personnelId: PERSON_A },
+				{ id: ENTRY_2, personnelId: GONE }
+			]
 		});
 
-		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_1], changedIds: [ENTRY_2] });
+		expect(result.restored.map(({ id }) => id)).toEqual([ENTRY_1]);
+		expect(result.changedIds).toEqual([ENTRY_2]);
 	});
 
 	it.each([
 		['nothing to undo', {}],
-		['a repeated id', { remove: [entry(ENTRY_1)], restore: [entry(ENTRY_1)] }],
-		['an end before the start', { restore: [entry(ENTRY_1, { startDate: '2026-11-12', endDate: '2026-11-10' })] }],
+		['a repeated id', { remove: [entry(ENTRY_1)], restore: [{ id: ENTRY_1, personnelId: PERSON_A }] }],
+		['an end before the start', { remove: [entry(ENTRY_1, { startDate: '2026-11-12', endDate: '2026-11-10' })] }],
+		['entry values in place of a restore claim', { restore: [entry(ENTRY_1)] }],
 		[
 			'more than 500 entries',
 			{ remove: Array.from({ length: 501 }, (_, i) => entry(`00000000-0000-4000-9000-${String(i).padStart(12, '0')}`)) }

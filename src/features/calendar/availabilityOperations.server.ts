@@ -51,5 +51,6 @@ export async function updateAvailability(ctx: CalendarAvailabilityPorts, input: 
 
 export async function deleteAvailability(ctx: CalendarAvailabilityPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, await policyResourceForRecord(ctx, id));
-	await ctx.calendarAvailability.delete(id);
+	// The same removal Bulk status uses, so a single remove also keeps the server's undo record.
+	await ctx.calendarAvailability.deleteIds([id]);
 }

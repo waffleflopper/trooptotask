@@ -88,6 +88,71 @@ describe('Calendar ordinary availability persistence', () => {
 		expect(rows).toEqual([original[1]]);
 	});
 
+	it('restores removals in one Organization-bound call and returns the rows the database put back', async () => {
+		const calls: unknown[] = [];
+		let reply: () => Response = () =>
+			Response.json([
+				{
+					id: 'entry-a',
+					organization_id: 'org-a',
+					personnel_id: 'person-a',
+					status_type_id: 'status-a',
+					start_date: '2026-10-02',
+					end_date: '2026-10-05',
+					note: 'Edited by someone else',
+					created_at: '2026-01-02T03:04:05.123456Z'
+				}
+			]);
+		const client = createClient('http://calendar-restore.invalid', 'synthetic-ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					if (new URL(request.url).pathname !== '/rest/v1/rpc/restore_availability_entries')
+						throw new Error('Unexpected restore transport');
+					calls.push(await request.json());
+					return reply();
+				}
+			}
+		});
+		const port = persistence(client);
+
+		expect(
+			await port.restoreRemoved([
+				{ id: 'entry-a', personnelId: 'person-a' },
+				{ id: 'entry-b', personnelId: 'person-b' }
+			])
+		).toEqual([
+			{
+				id: 'entry-a',
+				organization_id: 'org-a',
+				created_at: '2026-01-02T03:04:05.123456Z',
+				personnelId: 'person-a',
+				statusTypeId: 'status-a',
+				startDate: '2026-10-02',
+				endDate: '2026-10-05',
+				note: 'Edited by someone else'
+			}
+		]);
+		expect(calls).toEqual([
+			{ p_organization_id: 'org-a', p_ids: ['entry-a', 'entry-b'], p_personnel_ids: ['person-a', 'person-b'] }
+		]);
+
+		expect(await port.restoreRemoved([])).toEqual([]);
+		expect(calls).toHaveLength(1);
+
+		reply = () => Response.json({ code: '42501', message: 'Private provider detail' }, { status: 403 });
+		await expect(port.restoreRemoved([{ id: 'entry-a', personnelId: 'person-a' }])).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+		reply = () => Response.json({ code: '22023', message: 'Private provider detail' }, { status: 400 });
+		await expect(port.restoreRemoved([{ id: 'entry-a', personnelId: 'person-a' }])).rejects.toMatchObject({
+			status: 400,
+			message: 'Provide between 1 and 500 availability IDs'
+		});
+	});
+
 	it('sends an import as one Organization-bound transaction and trusts only a matching acknowledgment', async () => {
 		const calls: unknown[] = [];
 		let reply: () => Response = () => Response.json({ inserted: 1, deleted: 2, stale: [1] });
@@ -409,10 +474,7 @@ describe('Calendar ordinary availability persistence', () => {
 				note: 'Batch'
 			}
 		]);
-		await port.delete('saved-1');
-		await port.delete('saved-2');
-		await port.delete('saved-2');
-		expect(state.rows.availability_entries).toEqual([{ ...SAVED, id: 'foreign', organization_id: 'org-b' }]);
+		expect(state.rows.availability_entries).toContainEqual({ ...SAVED, id: 'foreign', organization_id: 'org-b' });
 		state.requests.length = 0;
 		expect(await port.createMany([])).toEqual([]);
 		expect(state.requests).toEqual([]);

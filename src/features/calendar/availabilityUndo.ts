@@ -6,7 +6,7 @@ import { toastStore, type ToastAction } from '$lib/stores/toast.svelte';
 /** How long a success toast offers Undo. */
 export const AVAILABILITY_UNDO_MS = 10_000;
 
-/** What an action wrote: undo deletes the added entries, or saves the removed ones again. */
+/** What an action wrote: undo deletes the added entries, or has the server put the removed ones back. */
 export type AvailabilityUndoChange =
 	| { remove: readonly AvailabilityEntry[] }
 	| { restore: readonly AvailabilityEntry[] };
@@ -21,29 +21,57 @@ export interface AvailabilityUndoScope {
 
 interface UndoReply {
 	removedIds: string[];
-	restoredIds: string[];
+	restored: AvailabilityEntry[];
 	changedIds: string[];
 }
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : `${count} ${many}`);
 
-function replyOf(value: unknown): UndoReply {
-	const reply = value as Partial<UndoReply> | null;
-	const ids = (list: unknown): list is string[] => Array.isArray(list) && list.every((id) => typeof id === 'string');
-	if (!reply || !ids(reply.removedIds) || !ids(reply.restoredIds) || !ids(reply.changedIds))
-		throw new Error('Undo could not be confirmed');
-	return { removedIds: reply.removedIds, restoredIds: reply.restoredIds, changedIds: reply.changedIds };
+const isText = (value: unknown): value is string => typeof value === 'string';
+
+function entryOf(value: unknown): AvailabilityEntry | null {
+	const entry = value as Partial<Record<keyof AvailabilityEntry, unknown>> | null;
+	if (
+		!entry ||
+		!isText(entry.id) ||
+		!isText(entry.personnelId) ||
+		!isText(entry.statusTypeId) ||
+		!isText(entry.startDate) ||
+		!isText(entry.endDate) ||
+		!(entry.note === undefined || entry.note === null || isText(entry.note))
+	)
+		return null;
+	return {
+		id: entry.id,
+		personnelId: entry.personnelId,
+		statusTypeId: entry.statusTypeId,
+		startDate: entry.startDate,
+		endDate: entry.endDate,
+		note: entry.note ?? null
+	};
 }
 
-const wire = (entries: readonly AvailabilityEntry[]) =>
-	entries.map(({ id, personnelId, statusTypeId, startDate, endDate, note }) => ({
-		id,
-		personnelId,
-		statusTypeId,
-		startDate,
-		endDate,
-		note: note ?? null
-	}));
+function replyOf(value: unknown): UndoReply {
+	const reply = value as Partial<Record<keyof UndoReply, unknown>> | null;
+	const ids = (list: unknown): list is string[] => Array.isArray(list) && list.every(isText);
+	const restored = Array.isArray(reply?.restored) ? reply.restored.map(entryOf) : null;
+	if (!reply || !ids(reply.removedIds) || !ids(reply.changedIds) || !restored || restored.includes(null))
+		throw new Error('Undo could not be confirmed');
+	return { removedIds: reply.removedIds, restored: restored as AvailabilityEntry[], changedIds: reply.changedIds };
+}
+
+/** An add's Undo names the values it must still find; a removal's Undo names only the entry, for the server's record. */
+const wire = (change: AvailabilityUndoChange) =>
+	'restore' in change
+		? change.restore.map(({ id, personnelId }) => ({ id, personnelId }))
+		: change.remove.map(({ id, personnelId, statusTypeId, startDate, endDate, note }) => ({
+				id,
+				personnelId,
+				statusTypeId,
+				startDate,
+				endDate,
+				note: note ?? null
+			}));
 
 /** The toast action for a status change: takes back exactly the rows it wrote, only while the caller is still here. */
 export function availabilityUndoAction(change: AvailabilityUndoChange, scope: AvailabilityUndoScope): ToastAction {
@@ -58,11 +86,10 @@ export function availabilityUndoAction(change: AvailabilityUndoChange, scope: Av
 }
 
 async function undoAvailability(change: AvailabilityUndoChange, scope: AvailabilityUndoScope, here: () => boolean) {
-	const restore = 'restore' in change ? change.restore : [];
 	const key = 'restore' in change ? 'restore' : 'remove';
-	const entries = wire('restore' in change ? change.restore : change.remove);
+	const entries = wire(change);
 	const removedIds: string[] = [];
-	const restoredIds: string[] = [];
+	const restored: AvailabilityEntry[] = [];
 	const changedIds: string[] = [];
 	let failure: unknown = null;
 	for (let start = 0; start < entries.length; start += AVAILABILITY_BATCH_LIMIT) {
@@ -76,7 +103,7 @@ async function undoAvailability(change: AvailabilityUndoChange, scope: Availabil
 			if (!response.ok) throw await buildRequestError(response, 'POST', 'availability/undo');
 			const reply = replyOf(await response.json());
 			removedIds.push(...reply.removedIds);
-			restoredIds.push(...reply.restoredIds);
+			restored.push(...reply.restored);
 			changedIds.push(...reply.changedIds);
 		} catch (error) {
 			failure = error;
@@ -86,14 +113,13 @@ async function undoAvailability(change: AvailabilityUndoChange, scope: Availabil
 	if (!here()) return;
 	if (availabilityStore.orgId === scope.orgId) {
 		const removed = new Set(removedIds);
-		const restored = new Set(restoredIds);
 		if (removed.size) availabilityStore.removeLocalWhere((entry) => removed.has(entry.id));
-		if (restored.size) availabilityStore.appendLocal(restore.filter((entry) => restored.has(entry.id)));
+		if (restored.length) availabilityStore.appendLocal(restored);
 	}
 	// A failed request may still have applied part of its batch on the server, so the Calendar rereads either way.
-	if (failure || removedIds.length || restoredIds.length) scope.onUndone?.();
+	if (failure || removedIds.length || restored.length) scope.onUndone?.();
 	if (failure) {
-		const done = removedIds.length + restoredIds.length;
+		const done = removedIds.length + restored.length;
 		toastStore.error(
 			'Undo did not go through',
 			undefined,
@@ -114,9 +140,9 @@ async function undoAvailability(change: AvailabilityUndoChange, scope: Availabil
 			undefined,
 			changed
 		);
-	else if (restoredIds.length)
+	else if (restored.length)
 		toastStore.success(
-			plural(restoredIds.length, 'The removed status is back', 'removed statuses are back'),
+			plural(restored.length, 'The removed status is back', 'removed statuses are back'),
 			undefined,
 			undefined,
 			changed

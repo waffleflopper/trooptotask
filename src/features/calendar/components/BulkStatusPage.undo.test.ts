@@ -61,7 +61,7 @@ describe('Undo offered by Bulk Status', () => {
 		saves.length = 0;
 		vi.mocked(invalidate).mockClear();
 		fetchMock.mockReset();
-		fetchMock.mockResolvedValue(Response.json({ removedIds: [], restoredIds: ['entry-1'], changedIds: [] }));
+		fetchMock.mockResolvedValue(Response.json({ removedIds: [], restored: [removedEntry], changedIds: [] }));
 		vi.stubGlobal('fetch', fetchMock);
 		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=remove');
 	});
@@ -80,7 +80,9 @@ describe('Undo offered by Bulk Status', () => {
 		expect(fetchMock).toHaveBeenCalledOnce();
 		const [url, init] = fetchMock.mock.calls[0];
 		expect(url).toBe('/org/org-1/api/availability/undo');
-		expect(JSON.parse(String(init.body))).toEqual({ restore: [{ ...removedEntry }] });
+		expect(JSON.parse(String(init.body))).toEqual({
+			restore: [{ id: removedEntry.id, personnelId: removedEntry.personnelId }]
+		});
 	});
 
 	it('stays silent once the reader is on another page', async () => {

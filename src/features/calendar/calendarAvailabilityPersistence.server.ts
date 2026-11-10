@@ -136,10 +136,6 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			requireAvailabilityMutation(error);
 			return toAvailability(data!);
 		},
-		async delete(id) {
-			const { error } = await client.from('availability_entries').delete().eq('organization_id', orgId).eq('id', id);
-			if (error) throw new Error(error.message);
-		},
 		async createMany(inputs) {
 			if (inputs.length === 0) return [];
 			const { data, error } = await client
@@ -183,21 +179,19 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			}
 			return deleted;
 		},
-		async restoreMany(entries) {
+		async restoreRemoved(entries) {
 			if (entries.length === 0) return [];
-			const { data, error } = await client
-				.from('availability_entries')
-				.upsert(
-					entries.map((entry) => ({
-						id: entry.id,
-						...availabilityInsert({ ...entry, note: entry.note ?? null }, orgId)
-					})),
-					{ onConflict: 'id', ignoreDuplicates: true }
-				)
-				.select('id')
-				.returns<{ id: string }[]>();
-			requireAvailabilityMutation(error);
-			return (data ?? []).map((row) => row.id);
+			const { data, error } = await client.rpc('restore_availability_entries', {
+				p_organization_id: orgId,
+				p_ids: entries.map((entry) => entry.id),
+				p_personnel_ids: entries.map((entry) => entry.personnelId)
+			});
+			if (error) {
+				if (error.code === '42501') throw new RequestFailure(403, 'You do not have access to that Calendar scope');
+				if (error.code === '22023') throw new RequestFailure(400, 'Provide between 1 and 500 availability IDs');
+				throw new Error(error.message);
+			}
+			return (data ?? []).map(toAvailability);
 		},
 		async insertReplacing(entries) {
 			const { data, error } = await client.rpc('import_availability_entries', {

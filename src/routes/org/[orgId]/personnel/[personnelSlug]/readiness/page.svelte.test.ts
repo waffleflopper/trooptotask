@@ -28,6 +28,7 @@ const personATraining: PersonnelTrainingReadiness = {
 			name: 'CPR / BLS',
 			status: 'expired',
 			daysUntilExpiration: -12,
+			expirationDate: '2026-09-24',
 			cycleMonths: 24,
 			expirationDateOnly: false,
 			canBeExempted: false,

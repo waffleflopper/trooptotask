@@ -29,7 +29,7 @@
 		onClose();
 	}
 
-	const statusLine = $derived(getStatusLine(statusInfo, training, type));
+	const statusLine = $derived(getStatusLine(statusInfo));
 
 	const toneClass = {
 		danger: 'text-danger-foreground',

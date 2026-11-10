@@ -1,3 +1,5 @@
+import { trainingExpirationDate } from '$features/training/contracts';
+
 export const ORGANIZATION_DATA_EXPORT_AREA_KEYS = [
 	'settings',
 	'audit',
@@ -38,6 +40,27 @@ export interface OrganizationDataExportReadableSheetDefinition {
 	name: string;
 	areaKey: OrganizationDataExportAreaKey;
 	rows: (sections: OrganizationDataExportSections, labels: OrganizationDataExportLabels) => Record<string, unknown>[];
+}
+
+/** A completion's effective expiration date, from the type's current months or, for a date-only type, the certificate date. */
+function trainingExpirationResolver(sections: OrganizationDataExportSections) {
+	const rules = new Map(
+		(sections.trainingTypes ?? []).map((type) => [
+			String(type.id),
+			{
+				expirationMonths: type.expiration_months as number | null,
+				expirationDateOnly: type.expiration_date_only === true
+			}
+		])
+	);
+	return (row: Record<string, unknown>): string | null => {
+		const rule = rules.get(String(row.training_type_id));
+		if (!rule) return null;
+		return trainingExpirationDate(
+			{ completionDate: row.completion_date as string | null, expirationDate: row.expiration_date as string | null },
+			rule
+		);
+	};
 }
 
 const ORGANIZATION_DATA_EXPORT_RESERVED_PAYLOAD_KEYS = new Set([
@@ -230,29 +253,33 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 	{
 		name: 'Training Records',
 		areaKey: 'training',
-		rows: (sections, labels) =>
-			(sections.personnelTrainings ?? []).map((training) => ({
+		rows: (sections, labels) => {
+			const expirationFor = trainingExpirationResolver(sections);
+			return (sections.personnelTrainings ?? []).map((training) => ({
 				person: lookup(labels.personnel, training.personnel_id),
 				training_type: lookup(labels.trainingTypes, training.training_type_id),
 				completion_date: training.completion_date,
-				expiration_date: training.expiration_date,
+				expiration_date: expirationFor(training),
 				notes: training.notes,
 				certificate_url: training.certificate_url
-			}))
+			}));
+		}
 	},
 	{
 		name: 'Training History',
 		areaKey: 'training',
-		rows: (sections, labels) =>
-			(sections.personnelTrainingHistory ?? []).map((entry) => ({
+		rows: (sections, labels) => {
+			const expirationFor = trainingExpirationResolver(sections);
+			return (sections.personnelTrainingHistory ?? []).map((entry) => ({
 				person: lookup(labels.personnel, entry.personnel_id),
 				training_type: lookup(labels.trainingTypes, entry.training_type_id),
 				completion_date: entry.completion_date,
-				expiration_date: entry.expiration_date,
+				expiration_date: expirationFor(entry),
 				notes: entry.notes,
 				certificate_url: entry.certificate_url,
 				superseded_at: entry.superseded_at
-			}))
+			}));
+		}
 	},
 	{ name: 'Status Types', areaKey: 'calendar', rows: (sections) => sections.statusTypes ?? [] },
 	{ name: 'Assignment Types', areaKey: 'calendar', rows: (sections) => sections.assignmentTypes ?? [] },

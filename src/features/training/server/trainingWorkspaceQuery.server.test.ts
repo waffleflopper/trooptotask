@@ -116,13 +116,13 @@ describe('fetchTrainingWorkspaceData', () => {
 			type('card', { expiration_date_only: true, expiration_months: null }),
 			type('optional', { is_optional: true })
 		]);
-		const completion = (personnelId: string, typeId: string, expirationDate: string) => ({
+		const completion = (personnelId: string, typeId: string, expires: string) => ({
 			id: `${personnelId}-${typeId}`,
 			organization_id: ORG,
 			personnel_id: personnelId,
 			training_type_id: typeId,
-			completion_date: typeId === 'card' ? null : '2026-01-01',
-			expiration_date: expirationDate,
+			completion_date: typeId === 'card' ? null : `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`,
+			expiration_date: typeId === 'card' ? expires : null,
 			notes: null,
 			certificate_url: null
 		});

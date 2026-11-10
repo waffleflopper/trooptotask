@@ -75,8 +75,18 @@ export function createInMemoryTrainingCatalogPersistence(
 		},
 		async listTypeLabels() {
 			return (
-				await store.findMany<{ id: string; name: string }>('training_types', orgId, {}, { select: 'id, name' })
-			).map(({ id, name }) => ({ id, name }));
+				await store.findMany<{
+					id: string;
+					name: string;
+					expiration_months: number | null;
+					expiration_date_only: boolean | null;
+				}>('training_types', orgId, {}, { select: 'id, name, expiration_months, expiration_date_only' })
+			).map((row) => ({
+				id: row.id,
+				name: row.name,
+				expirationMonths: row.expiration_months ?? null,
+				expirationDateOnly: row.expiration_date_only ?? false
+			}));
 		},
 		async listRankApplicabilityReferences() {
 			return (

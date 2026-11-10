@@ -39,6 +39,11 @@ function makeTrainingType(id: string, name = 'CPR') {
 	};
 }
 
+/** A completion of a 12-month type that expires on `expiry`; a type that never expires has no expiry. */
+function completedForExpiry(expiry: string | null | undefined): string {
+	return expiry ? `${Number(expiry.slice(0, 4)) - 1}${expiry.slice(4)}` : '2025-09-29';
+}
+
 describe('Dashboard Training summary', () => {
 	it('denies summary reads without Training view capability', async () => {
 		const ctx = createQueryPortsContext({
@@ -187,8 +192,8 @@ describe('fetchDashboardTrainingSummary', () => {
 				organization_id: ORG,
 				personnel_id: 'p2',
 				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
+				completion_date: '2026-06-01',
+				expiration_date: null,
 				notes: null,
 				certificate_url: null
 			}
@@ -204,7 +209,7 @@ describe('fetchDashboardTrainingSummary', () => {
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[],
 			onboardingPersonnelIds: ['p1', 'p2', 'missing'],
-			asOf: formatToday()
+			asOf: '2026-09-29'
 		});
 
 		expect(result.trainingSummary.stats.expired).toBe(1);
@@ -281,8 +286,8 @@ describe('literal Dashboard Training person attribution', () => {
 					organization_id: ORG,
 					personnel_id: personnelId,
 					training_type_id: typeId,
-					completion_date: '2024-01-01',
-					expiration_date: expiry,
+					completion_date: completedForExpiry(expiry),
+					expiration_date: null,
 					notes: null,
 					certificate_url: null
 				}))
@@ -329,8 +334,8 @@ describe('Dashboard expired Training by type', () => {
 				organization_id: ORG,
 				personnel_id: personnelId,
 				training_type_id: typeId,
-				completion_date: '2025-09-01',
-				expiration_date: expiry,
+				completion_date: completedForExpiry(expiry),
+				expiration_date: null,
 				notes: null,
 				certificate_url: null
 			}))
@@ -371,8 +376,8 @@ describe('Dashboard missing required Training', () => {
 				organization_id: ORG,
 				personnel_id: personnelId,
 				training_type_id: typeId,
-				completion_date: '2025-09-29',
-				expiration_date: expiry,
+				completion_date: completedForExpiry(expiry),
+				expiration_date: null,
 				notes: null,
 				certificate_url: null
 			}))
@@ -421,8 +426,8 @@ describe('Dashboard due soon Training by type', () => {
 				organization_id: ORG,
 				personnel_id: personnelId,
 				training_type_id: typeId,
-				completion_date: '2025-09-29',
-				expiration_date: expiry,
+				completion_date: completedForExpiry(expiry),
+				expiration_date: null,
 				notes: null,
 				certificate_url: null
 			}))

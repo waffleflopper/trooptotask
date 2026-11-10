@@ -31,7 +31,7 @@ export function renewalMode(type: RenewalKind): RenewalMode {
  */
 export function getCellDisplayText(
 	statusInfo: TrainingStatusInfo,
-	training: PersonnelTraining | undefined,
+	training: Pick<PersonnelTraining, 'completionDate'> | undefined,
 	type: RenewalKind,
 	currentMark: TrainingMatrixCurrentMark = 'date'
 ): string {
@@ -52,7 +52,7 @@ export function getCellDisplayText(
 			if (currentMark === 'blank') return '';
 			const date = neverExpires(type)
 				? training?.completionDate
-				: (training?.expirationDate ?? training?.completionDate);
+				: (statusInfo.expirationDate ?? training?.completionDate);
 			return (date && formatMonthYear(date)) || statusInfo.label;
 		}
 	}
@@ -82,13 +82,9 @@ export interface StatusLine {
 }
 
 /** One line on where a record stands, such as "Expired 4 Aug 2026 · 76 days ago". */
-export function getStatusLine(
-	statusInfo: TrainingStatusInfo,
-	training: Pick<PersonnelTraining, 'expirationDate'> | undefined,
-	type: RenewalKind
-): StatusLine {
-	const { status, daysUntilExpiration: days } = statusInfo;
-	const until = training?.expirationDate && !neverExpires(type) ? formatDayMonthYear(training.expirationDate) : null;
+export function getStatusLine(statusInfo: TrainingStatusInfo): StatusLine {
+	const { status, daysUntilExpiration: days, expirationDate } = statusInfo;
+	const until = expirationDate ? formatDayMonthYear(expirationDate) : null;
 	const dayCount = Math.abs(days ?? 0);
 	const dayLabel = `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`;
 	switch (status) {

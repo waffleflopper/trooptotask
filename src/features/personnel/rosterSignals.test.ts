@@ -37,6 +37,7 @@ function training(name: string, status: TrainingItem['status'], days: number | n
 		name,
 		status,
 		daysUntilExpiration: days,
+		expirationDate: null,
 		cycleMonths: 12,
 		applicability: { kind: 'all' },
 		completion: null

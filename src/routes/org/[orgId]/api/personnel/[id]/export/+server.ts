@@ -1,5 +1,6 @@
 import { listPersonnelAvailabilityHistory, listStatusTypeLabels } from '$features/calendar/index.server';
 import { exportPersonnelWorkbook, type PersonnelExportOutput } from '$features/personnel/index.server';
+import { trainingExpirationDate } from '$features/training/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelExportContext } from '$lib/server/adapters/requestContexts.server';
@@ -16,23 +17,33 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.exportRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({ personnelId: event.params.id as string, asOf: viewerToday(event.cookies) }),
-	fn: (ctx, input) =>
-		exportPersonnelWorkbook(
+	fn: (ctx, input) => {
+		let typeLabels: ReturnType<typeof ctx.trainingCatalog.listTypeLabels> | undefined;
+		const listTypeLabels = () => (typeLabels ??= ctx.trainingCatalog.listTypeLabels());
+		return exportPersonnelWorkbook(
 			ctx,
 			input,
 			(personnelId) => listPersonnelAvailabilityHistory(ctx, personnelId),
 			() => listStatusTypeLabels(ctx.calendarCatalogs),
-			() => ctx.trainingCatalog.listTypeLabels(),
-			(personnelId) =>
-				ctx.trainingCompletions.listPersonExportFacts(personnelId).then((rows) =>
-					rows.map((row) => ({
+			listTypeLabels,
+			async (personnelId) => {
+				const [rows, types] = await Promise.all([
+					ctx.trainingCompletions.listPersonExportFacts(personnelId),
+					listTypeLabels()
+				]);
+				const rules = new Map(types.map((type) => [type.id, type]));
+				return rows.map((row) => {
+					const rule = rules.get(row.trainingTypeId);
+					return {
 						training_type_id: row.trainingTypeId,
 						completion_date: row.completionDate,
-						expiration_date: row.expirationDate,
+						expiration_date: rule ? trainingExpirationDate(row, rule) : null,
 						notes: row.notes
-					}))
-				)
-		),
+					};
+				});
+			}
+		);
+	},
 	formatOutput: (result) => {
 		return workbookBufferResponse(result._buffer, result._filename);
 	}

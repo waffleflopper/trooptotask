@@ -928,6 +928,33 @@ describe('inviteOrganizationMembers', () => {
 		consoleErrorSpy.mockRestore();
 	});
 
+	it('still reports each address when the admin notice fails after the invitations exist', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(ctx.notifications, 'notifyAdmins').mockRejectedValue(new Error('notification unavailable'));
+
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				emails: 'one@example.com, two@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result.inviteResults.map(({ email, status }) => ({ email, status }))).toEqual([
+			{ email: 'one@example.com', status: 'invited' },
+			{ email: 'two@example.com', status: 'invited' }
+		]);
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[org-settings-member-management]',
+			expect.objectContaining({ status: 'invited-notification-failed', organizationId: 'org-1' })
+		);
+		consoleErrorSpy.mockRestore();
+	});
+
 	it('looks up the Organization name once for the notification and the invitation email', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });

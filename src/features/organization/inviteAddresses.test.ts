@@ -8,6 +8,15 @@ describe('parseInviteAddresses', () => {
 		).toEqual(['a@example.com', 'b@example.com', 'c@example.com', 'd@example.com']);
 	});
 
+	it('takes the addresses out of a recipient list copied from a mail client', () => {
+		expect(parseInviteAddresses('Jane Doe <jane@example.com>; <john@example.com>')).toEqual([
+			'jane',
+			'doe',
+			'jane@example.com',
+			'john@example.com'
+		]);
+	});
+
 	it('finds no address in blank text', () => {
 		expect(parseInviteAddresses(' ,\n; ')).toEqual([]);
 	});

@@ -367,15 +367,24 @@ export async function inviteOrganizationMembers(
 
 	const emails = addresses.filter((email) => results.get(email)?.status === 'invited');
 	if (emails.length > 0) {
-		await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
-			type: 'member_invited',
-			title: emails.length === 1 ? 'Member Invited' : 'Members Invited',
-			message:
-				emails.length === 1
-					? `"${input.actorEmail ?? ''}" invited "${emails[0]}" to the organization.`
-					: `"${input.actorEmail ?? ''}" invited ${emails.length} people to the organization: ${emails.join(', ')}.`,
-			link: `/org/${ports.auth.orgId}/settings/general`
-		});
+		try {
+			await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
+				type: 'member_invited',
+				title: emails.length === 1 ? 'Member Invited' : 'Members Invited',
+				message:
+					emails.length === 1
+						? `"${input.actorEmail ?? ''}" invited "${emails[0]}" to the organization.`
+						: `"${input.actorEmail ?? ''}" invited ${emails.length} people to the organization: ${emails.join(', ')}.`,
+				link: `/org/${ports.auth.orgId}/settings/general`
+			});
+		} catch (error) {
+			// The invitations already exist, so the admin still needs each address's result.
+			console.error('[org-settings-member-management]', {
+				status: 'invited-notification-failed',
+				organizationId: ports.auth.orgId,
+				error: sanitizeErrorForLog(error)
+			});
+		}
 	}
 
 	return outcome();

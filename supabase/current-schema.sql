@@ -19200,14 +19200,6 @@ ALTER TABLE ONLY calendar_private.availability_undo
 
 
 --
--- Name: availability_undo availability_undo_personnel_id_fkey; Type: FK CONSTRAINT; Schema: calendar_private; Owner: postgres
---
-
-ALTER TABLE ONLY calendar_private.availability_undo
-    ADD CONSTRAINT availability_undo_personnel_id_fkey FOREIGN KEY (personnel_id) REFERENCES public.personnel(id) ON DELETE CASCADE;
-
-
---
 -- Name: template_duplicate_receipts template_duplicate_receipts_organization_id_fkey; Type: FK CONSTRAINT; Schema: onboarding_private; Owner: postgres
 --
 

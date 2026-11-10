@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(16);
+SELECT plan(18);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -175,6 +175,26 @@ SELECT is((SELECT linked FROM dblink('undo_fixture', $query$
   SELECT count(*)::integer FROM public.availability_entries
   WHERE id = '7a5a0000-0000-4000-8000-000000000504' AND set_for_tasking_id IS NULL
 $query$) AS result(linked integer)), 1, 'it comes back without the link to the deleted Tasking');
+
+SELECT dblink_exec('undo_restorer', 'BEGIN');
+SELECT * FROM dblink('undo_restorer', $$
+  SELECT 1 FROM public.personnel WHERE id='7a5a0000-0000-4000-8000-000000000301' FOR UPDATE
+$$) AS locked(one integer);
+SELECT pg_temp.act('undo_writer');
+SELECT dblink_exec('undo_writer', $$SET LOCAL lock_timeout='2s'$$);
+SELECT is((SELECT removed FROM dblink('undo_writer', $call$
+  SELECT public.delete_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000503']::uuid[])
+$call$) AS result(removed integer)), 1,
+  'a removal never waits on the Person lock a restore takes before the Person''s entries');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT dblink_exec('undo_restorer','COMMIT');
+SELECT pg_temp.act('undo_writer');
+SELECT is((SELECT restored FROM dblink('undo_writer', $call$
+  SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000503']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000301']::uuid[])
+$call$) AS result(restored integer)), 1, 'its record still restores');
+SELECT dblink_exec('undo_writer','COMMIT');
 
 SELECT dblink_exec('undo_fixture', $cleanup$
   DELETE FROM public.organizations WHERE id='7a5a0000-0000-4000-8000-000000000101';

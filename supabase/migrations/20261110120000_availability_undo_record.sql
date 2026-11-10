@@ -6,7 +6,9 @@ CREATE TABLE calendar_private.availability_undo (
   actor_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
   organization_id uuid NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
   entry_id uuid NOT NULL,
-  personnel_id uuid NOT NULL REFERENCES public.personnel (id) ON DELETE CASCADE,
+  -- No foreign key: a removal would then lock the Person after its entries, the reverse of a restore. A record for
+  -- a deleted Person fails the restore's edit check and expires.
+  personnel_id uuid NOT NULL,
   status_type_id uuid NOT NULL,
   start_date date NOT NULL,
   end_date date NOT NULL,

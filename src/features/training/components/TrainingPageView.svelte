@@ -407,6 +407,7 @@
 					asOf={ctx.readinessAsOf}
 					goalPercent={ctx.readinessGoalPercent}
 					onRecord={ctx.canRecordTraining ? ctx.handleSaveTraining.bind(ctx) : undefined}
+					onExempt={ctx.trainingConfigureAffordance.allowed ? ctx.handleToggleExempt.bind(ctx) : undefined}
 					onRecordClass={ctx.canRecordTraining ? (type) => modals.open('record-class', { typeId: type.id }) : undefined}
 					onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}

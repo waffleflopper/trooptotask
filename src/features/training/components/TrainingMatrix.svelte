@@ -51,6 +51,8 @@
 		goalPercent: number | null;
 		/** Makes cells open the recording popover. */
 		onRecord?: (data: TrainingRecordSave) => void | Promise<void>;
+		/** Offers Mark exempt and Remove exemption in the popover, for types that allow exemptions. */
+		onExempt?: (typeId: string, personId: string, exempt: boolean) => Promise<void>;
 		/** Adds a Record class button to each column header. */
 		onRecordClass?: (type: TrainingType) => void;
 		/** Opens the person's record; `opener` is where focus goes back to when it closes. */
@@ -93,6 +95,7 @@
 		asOf,
 		goalPercent,
 		onRecord,
+		onExempt,
 		onRecordClass,
 		onPersonClick,
 		onRowOrderChange,
@@ -737,6 +740,9 @@
 								recordTarget?.personId === snapshot.person.id && recordTarget?.typeId === snapshot.type.id}
 							onSave={onRecord}
 							onOpenRecord={onPersonClick ? openPersonRecord : undefined}
+							onExempt={onExempt && snapshot.type.canBeExempted && snapshot.statusInfo.status !== 'not-required'
+								? (exempt) => onExempt(snapshot.type.id, snapshot.person.id, exempt)
+								: undefined}
 							onClose={closeRecord}
 						/>
 					{/key}

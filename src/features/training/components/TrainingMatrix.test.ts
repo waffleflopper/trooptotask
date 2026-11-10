@@ -856,6 +856,48 @@ describe('TrainingMatrix recording popover', () => {
 		expect(screen.getByText('Record · CPR')).toBeTruthy();
 	});
 
+	it('marks the Soldier exempt from a type that allows it and closes on the cell', async () => {
+		const user = userEvent.setup();
+		const exemptable = { ...trainingType, canBeExempted: true };
+		const onExempt = vi.fn().mockResolvedValue(undefined);
+		mountRecordable({ trainingTypes: [exemptable], onExempt });
+		const cell = screen.getByRole('button', { name: 'Smith CPR: No record' });
+
+		await user.click(cell);
+		const popover = await openPopover();
+		await user.click(within(popover).getByRole('button', { name: 'Mark exempt' }));
+
+		expect(onExempt).toHaveBeenCalledWith('type-1', 'person-1', true);
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
+		expect(document.activeElement).toBe(cell);
+	});
+
+	it('removes the exemption from an exempt cell', async () => {
+		const user = userEvent.setup();
+		const exempted = { ...trainingType, canBeExempted: true, exemptPersonnelIds: [person.id] };
+		const onExempt = vi.fn().mockResolvedValue(undefined);
+		mountRecordable({ trainingTypes: [exempted], onExempt });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: Exempt' }));
+		const popover = await openPopover();
+		await user.click(within(popover).getByRole('button', { name: 'Remove exemption' }));
+
+		expect(onExempt).toHaveBeenCalledWith('type-1', 'person-1', false);
+	});
+
+	it('offers no exemption for a type that does not allow one, or to a viewer who cannot exempt', async () => {
+		const user = userEvent.setup();
+		const { view } = mountRecordable({ trainingTypes: [trainingType], onExempt: vi.fn() });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		expect(within(await openPopover()).queryByRole('button', { name: 'Mark exempt' })).toBeNull();
+		view.unmount();
+
+		mountRecordable({ trainingTypes: [{ ...trainingType, canBeExempted: true }] });
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		expect(within(await openPopover()).queryByRole('button', { name: 'Mark exempt' })).toBeNull();
+	});
+
 	it('does not open a popover when the viewer cannot record', async () => {
 		render(TrainingMatrix, {
 			props: { ...matrixProps, personnel: [person], trainingTypes: [trainingType], trainings: [] }

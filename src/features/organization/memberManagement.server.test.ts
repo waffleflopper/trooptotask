@@ -864,6 +864,40 @@ describe('inviteOrganizationMembers', () => {
 		consoleErrorSpy.mockRestore();
 	});
 
+	it('tells the admin an invitation exists when finishing it fails, unlike one that was never created', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const invite = async (
+			port: ReturnType<typeof createOrganizationSettingsMemberManagementPort>,
+			auditFails: boolean
+		) => {
+			const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+			if (auditFails) vi.spyOn(ctx.audit, 'log').mockRejectedValue(new Error('audit store unavailable'));
+			const result = await inviteOrganizationMembers(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					emails: 'invitee@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
+					actorEmail: 'actor@example.com'
+				}
+			);
+			return result.inviteResults[0];
+		};
+
+		const unfinishedPort = createOrganizationSettingsMemberManagementPort();
+		const unfinished = await invite(unfinishedPort, true);
+		const neverCreated = await invite(
+			createOrganizationSettingsMemberManagementPort({ createInvitationError: 'insert failed' }),
+			false
+		);
+
+		expect(unfinishedPort.createdInvitations).toHaveLength(1);
+		expect(unfinished).toMatchObject({ email: 'invitee@example.com', status: 'failed' });
+		expect(neverCreated).toMatchObject({ email: 'invitee@example.com', status: 'failed' });
+		expect(unfinished.message).not.toBe(neverCreated.message);
+		consoleErrorSpy.mockRestore();
+	});
+
 	it('still creates the invitation and finishes when the invitation notification fails', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });

@@ -353,15 +353,19 @@ export async function inviteOrganizationMembers(
 	if (invitations.length === 0) return outcome();
 
 	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
-	const delivered = await settleEachAddress(invitations, results, (invitation) =>
-		completeInvitation(ports, {
-			...invitation,
-			actorUserId,
-			actorEmail: input.actorEmail ?? null,
-			origin: input.origin ?? '',
-			organizationName,
-			accessCommand
-		})
+	const delivered = await settleEachAddress(
+		invitations,
+		results,
+		(invitation) =>
+			completeInvitation(ports, {
+				...invitation,
+				actorUserId,
+				actorEmail: input.actorEmail ?? null,
+				origin: input.origin ?? '',
+				organizationName,
+				accessCommand
+			}),
+		ADDRESS_UNFINISHED_MESSAGE
 	);
 	for (const result of delivered) results.set(result.email, result);
 
@@ -391,6 +395,8 @@ export async function inviteOrganizationMembers(
 }
 
 const ADDRESS_FAILED_MESSAGE = "This invitation couldn't be created. Try again.";
+const ADDRESS_UNFINISHED_MESSAGE =
+	"This invitation was created but couldn't be finished. Resend or revoke it from Waiting on them.";
 // Bounds the per-address lookups and follow-ups a submission runs at once.
 const ADDRESS_CONCURRENCY = 5;
 
@@ -401,7 +407,8 @@ const ADDRESS_CONCURRENCY = 5;
 async function settleEachAddress<T extends string | { email: string }, R>(
 	items: readonly T[],
 	results: Map<string, InviteAddressResult>,
-	work: (item: T) => Promise<R>
+	work: (item: T) => Promise<R>,
+	unexpectedMessage = ADDRESS_FAILED_MESSAGE
 ): Promise<R[]> {
 	const settled: R[] = [];
 	let next = 0;
@@ -412,7 +419,7 @@ async function settleEachAddress<T extends string | { email: string }, R>(
 				settled.push(await work(item));
 			} catch (error) {
 				const email = typeof item === 'string' ? item : item.email;
-				results.set(email, { email, status: 'failed', message: addressFailureMessage(error) });
+				results.set(email, { email, status: 'failed', message: addressFailureMessage(error, unexpectedMessage) });
 			}
 		}
 	};
@@ -420,13 +427,13 @@ async function settleEachAddress<T extends string | { email: string }, R>(
 	return settled;
 }
 
-function addressFailureMessage(error: unknown): string {
+function addressFailureMessage(error: unknown, unexpectedMessage: string): string {
 	if (error instanceof RequestFailure && (error.status < 500 || error.publicMessage)) return error.message;
 	console.error('[org-settings-member-management]', {
 		status: 'invitation-address-failed',
 		error: sanitizeErrorForLog(error)
 	});
-	return ADDRESS_FAILED_MESSAGE;
+	return unexpectedMessage;
 }
 
 function inviteOutcome(

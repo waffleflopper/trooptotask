@@ -15,9 +15,13 @@ export function parseInviteAddresses(text: string): string[] {
 		.replace(/"[^"]*"/g, ' ')
 		.split(/[,;\n]/)
 		.flatMap((entry) => {
-			const bracketed = [...entry.matchAll(/<([^<>]*)>/g)].map((match) => match[1]);
-			const loose = entry.replace(/<[^<>]*>/g, ' ').split(/[\s<>]+/);
-			return bracketed.length > 0 ? [...loose.filter((word) => word.includes('@')), ...bracketed] : loose;
+			const pieces = entry.split(/(<[^<>]*>)/);
+			const named = pieces.length > 1;
+			return pieces.flatMap((piece, index) => {
+				if (index % 2 === 1) return [piece.slice(1, -1)];
+				const words = piece.split(/[\s<>]+/);
+				return named ? words.filter((word) => word.includes('@')) : words;
+			});
 		});
 	return [...new Set(addresses.flatMap((part) => (part.trim() ? [part.trim().toLowerCase()] : [])))];
 }

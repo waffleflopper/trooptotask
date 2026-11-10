@@ -367,6 +367,32 @@ describe('importTrainingRecords', () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
+	it('keeps an old stored expiration date when a batch records the same completion again', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_months: 12 });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: RECORD,
+				organization_id: 'test-org',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2024-01-01',
+				expiration_date: '2027-01-01'
+			}
+		]);
+
+		await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2024-01-01', status: 'completed' }
+			]
+		});
+
+		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
+			{ id: RECORD, completionDate: '2024-01-01', expirationDate: '2027-01-01' }
+		]);
+	});
+
 	it('deduplicates repeated completed records before the bulk upsert', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

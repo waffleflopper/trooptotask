@@ -63,7 +63,7 @@ export async function importTrainingRecords(
 
 	const personnelIds = [...new Set(records.map((r) => r.personnelId))];
 	const existingRecords = await ctx.trainingCompletions.listPairReferences(personnelIds, trainingTypeIds);
-	const existingMap = new Map(existingRecords.map((e) => [`${e.personnelId}:${e.trainingTypeId}`, e.id]));
+	const existingMap = new Map(existingRecords.map((e) => [`${e.personnelId}:${e.trainingTypeId}`, e]));
 
 	const batchErrors: TrainingBatchImportResult['errors'] = [];
 	const completedRows: TrainingCompletedUpsert[] = [];
@@ -112,11 +112,17 @@ export async function importTrainingRecords(
 			continue;
 		}
 
+		const existing = existingMap.get(`${rec.personnelId}:${rec.trainingTypeId}`);
+		// Re-recording the same completion keeps an old stored date, so the history trigger adds no row for it.
+		const keptDate =
+			!isExpirationDateOnly && existing && existing.completionDate === (completionDate ?? null)
+				? existing.expirationDate
+				: null;
 		completedRows.push({
 			personnelId: rec.personnelId,
 			trainingTypeId: rec.trainingTypeId,
 			completionDate: isExpirationDateOnly ? null : completionDate,
-			expirationDate: isExpirationDateOnly ? completionDate : null,
+			expirationDate: isExpirationDateOnly ? completionDate : keptDate,
 			notes: rec.notes ?? null,
 			updatedAt: new Date().toISOString()
 		});

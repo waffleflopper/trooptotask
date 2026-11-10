@@ -388,7 +388,10 @@ export type TrainingCompletedUpsert = Pick<
 	updatedAt: string;
 };
 export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'>;
-export type TrainingCompletionPairReference = Pick<PersonnelTraining, 'id' | 'personnelId' | 'trainingTypeId'>;
+export type TrainingCompletionPairReference = Pick<
+	PersonnelTraining,
+	'id' | 'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate'
+>;
 export type PersonnelTrainingExportFact = Pick<
 	PersonnelTraining,
 	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'

@@ -265,16 +265,23 @@ export function createInMemoryTrainingCompletionPersistence(
 		},
 		async listPairReferences(personnelIds, trainingTypeIds) {
 			return (
-				await store.findMany<{ id: string; personnel_id: string; training_type_id: string }>(
-					'personnel_trainings',
-					orgId,
-					undefined,
-					{
-						inFilters: { personnel_id: [...personnelIds], training_type_id: [...trainingTypeIds] },
-						select: 'id, personnel_id, training_type_id'
-					}
-				)
-			).map((row) => ({ id: row.id, personnelId: row.personnel_id, trainingTypeId: row.training_type_id }));
+				await store.findMany<{
+					id: string;
+					personnel_id: string;
+					training_type_id: string;
+					completion_date: string | null;
+					expiration_date: string | null;
+				}>('personnel_trainings', orgId, undefined, {
+					inFilters: { personnel_id: [...personnelIds], training_type_id: [...trainingTypeIds] },
+					select: 'id, personnel_id, training_type_id, completion_date, expiration_date'
+				})
+			).map((row) => ({
+				id: row.id,
+				personnelId: row.personnel_id,
+				trainingTypeId: row.training_type_id,
+				completionDate: row.completion_date,
+				expirationDate: row.expiration_date
+			}));
 		},
 		async listPersonExportFacts(personnelId) {
 			return (

@@ -273,7 +273,7 @@ describe('ordinary Training persistence', () => {
 			expirationDate: null
 		});
 		expect(await completions.listPairReferences(['p1'], ['t1'])).toEqual([
-			{ id: 'r1', personnelId: 'p1', trainingTypeId: 't1' }
+			{ id: 'r1', personnelId: 'p1', trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null }
 		]);
 		expect(await completions.listPersonExportFacts('p1')).toEqual([
 			{ trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null, notes: 'keep' }

@@ -968,7 +968,9 @@ describe('inviteOrganizationMembers', () => {
 			auditDown = false;
 			const second = await send('stuck@example.com');
 
-			expect(second.inviteResults).toEqual([expect.objectContaining({ email: 'stuck@example.com', status: 'invited' })]);
+			expect(second.inviteResults).toEqual([
+				expect.objectContaining({ email: 'stuck@example.com', status: 'invited' })
+			]);
 			expect(delivery.deliveries).toEqual([
 				expect.objectContaining({ email: 'fine@example.com' }),
 				expect.objectContaining({ email: 'stuck@example.com' })

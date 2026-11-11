@@ -458,7 +458,10 @@ function inviteOutcome(
 	return { inviteSuccess: true, inviteResults, inviteMessage };
 }
 
-/** Everything one created invitation still needs: platform access setup, its audit row, notices and its email. */
+/**
+ * Everything one created invitation still needs: its audit row first, then platform access setup, notices and
+ * its email. An invitation whose audit row fails is withdrawn before anything reaches the invitee.
+ */
 async function completeInvitation(
 	ports: InviteOrganizationMemberPorts,
 	invitation: {
@@ -475,6 +478,27 @@ async function completeInvitation(
 	}
 ): Promise<InviteAddressResult> {
 	const { email, invitationId, account, accessCommand } = invitation;
+	try {
+		await ports.audit.log({
+			action: 'member.invite',
+			resourceType: 'organization',
+			record: maskEmail(email),
+			details: { role: accessCommand.role }
+		});
+	} catch (error) {
+		// Nothing has reached the invitee yet. Revoking writes no audit row, so it works while the audit store is down,
+		// and the address can be sent again.
+		const withdrawn = await ports.settings.revokeInvitation(ports.auth.orgId, invitationId);
+		if (withdrawn.status !== 'revoked') throw error;
+		console.error('[org-settings-member-management]', {
+			status: 'invitation-audit-failed-withdrawn',
+			organizationId: ports.auth.orgId,
+			invitationId,
+			error: sanitizeErrorForLog(error)
+		});
+		fail(500, ADDRESS_FAILED_MESSAGE, { publicMessage: true });
+	}
+
 	if (!account) {
 		const bridge = await bridgeInvitationToAccessRequest(ports, {
 			organizationId: ports.auth.orgId,
@@ -503,13 +527,6 @@ async function completeInvitation(
 			publicOrigin: invitation.origin
 		});
 	}
-
-	await ports.audit.log({
-		action: 'member.invite',
-		resourceType: 'organization',
-		record: maskEmail(email),
-		details: { role: accessCommand.role }
-	});
 
 	if (account) {
 		await notifyInvitedAccount(ports, {

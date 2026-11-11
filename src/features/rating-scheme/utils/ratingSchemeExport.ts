@@ -4,6 +4,7 @@ import { formatToday } from '$lib/utils/dates';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
+import { isEvaluationCompleted } from './evaluationWorkflow';
 
 const RATING_SCHEME_COLUMNS = [
 	{ header: 'Eval Type', key: 'Eval Type', width: 10 },
@@ -32,7 +33,7 @@ function getPersonName(personnel: PersonnelLookup[], id: string | null, name: st
 }
 
 function getDueStatusLabel(entry: RatingSchemeEntry): string {
-	const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+	const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 	const days = getDaysUntilDue(entry.ratingPeriodEnd);
 	if (status === 'completed') return 'Completed';
 	if (status === 'overdue') return `Overdue (${Math.abs(days)}d)`;
@@ -44,13 +45,6 @@ function getDueStatusLabel(entry: RatingSchemeEntry): string {
 function getWorkflowLabel(status: string | null): string {
 	if (!status) return '';
 	return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
-}
-
-function getStatusLabel(status: string): string {
-	if (status === 'active') return 'Active';
-	if (status === 'completed') return 'Completed';
-	if (status === 'change-of-rater') return 'Change of Rater';
-	return status;
 }
 
 export async function buildRatingSchemeWorkbook(
@@ -86,7 +80,7 @@ function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: Personn
 		'Thru Date': entry.ratingPeriodEnd,
 		'Days Until Due': getDaysUntilDue(entry.ratingPeriodEnd),
 		'Due Status': getDueStatusLabel(entry),
-		Status: getStatusLabel(entry.status),
+		Status: isEvaluationCompleted(entry.workflowStatus) ? 'Completed' : 'Active',
 		'Workflow Status': getWorkflowLabel(entry.workflowStatus),
 		Notes: entry.notes ?? ''
 	};

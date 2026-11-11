@@ -2,6 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
+	import type { RatingSchemeRaterChange } from '../contracts';
 	import {
 		applyRatedPersonToNewRatingSchemeEntryDraft,
 		buildRatingSchemeEntrySaveData,
@@ -9,16 +10,24 @@
 		getRatingSchemeEntryDraftView,
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
-		removeWorkflowFromDraft,
 		type EvaluatorDraft,
+		type RatingSchemeEntrySaveData,
 		type RatingSchemeRequiredField,
 		type RatingSchemeEntryEvalType,
-		type RatingSchemeEntryStatus,
 		syncAnnualThruDateForRatingSchemeEntryDraft,
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { getDaysUntilDue, getRatingDueLabel } from '../utils/ratingScheme';
+	import {
+		EVALUATION_PHASE_COUNT,
+		evaluationPhase,
+		isEvaluationCompleted,
+		workflowMoves,
+		workflowRoles,
+		workflowStatusLabel,
+		type WorkflowMove
+	} from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -32,19 +41,27 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { formatDayMonthYear } from '$lib/utils/dates';
+	import { formatDayMonthYear, formatToday } from '$lib/utils/dates';
 	import { cn } from '$lib/utils';
 
 	interface Props {
 		entry: RatingSchemeEntry | null;
 		personnel: PersonnelLookup[];
 		isCurrentWorkspace: () => boolean;
-		onSave: (data: Omit<RatingSchemeEntry, 'id'>, isCurrent: () => boolean) => Promise<void>;
+		onSave: (data: RatingSchemeEntrySaveData, isCurrent: () => boolean) => Promise<void>;
 		onDelete?: (id: string, isCurrent: () => boolean) => Promise<boolean>;
+		/** Resolves to the saved step, or undefined when the workspace changed first. */
+		onMove?: (
+			id: string,
+			to: WorkflowStatus | null,
+			isCurrent: () => boolean
+		) => Promise<WorkflowStatus | null | undefined>;
+		/** Resolves true when a successor was opened, false when the evaluation was already completed. */
+		onChangeRater?: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onClose }: Props = $props();
+	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onMove, onChangeRater, onClose }: Props = $props();
 	let disposed = false;
 	onDestroy(() => {
 		disposed = true;
@@ -60,6 +77,10 @@
 		return createRatingSchemeEntryDraft(entry);
 	}
 
+	function initialWorkflowStatus() {
+		return entry?.workflowStatus ?? null;
+	}
+
 	let draft = $state(createInitialDraft());
 	const pristineDraft = JSON.stringify(createInitialDraft());
 	let showDeleteConfirm = $state(false);
@@ -68,7 +89,15 @@
 	let isDeleting = $state(false);
 	let saveError = $state('');
 	let saveButton = $state<HTMLButtonElement | null>(null);
-	const busy = $derived(isSaving || isDeleting);
+	let workflowStatus = $state(initialWorkflowStatus());
+	let isMoving = $state(false);
+	let moveError = $state('');
+	let showChangeRater = $state(false);
+	let newRater = $state<EvaluatorDraft>({ kind: 'empty' });
+	let changeDate = $state('');
+	let changeRaterError = $state('');
+	let isChangingRater = $state(false);
+	const busy = $derived(isSaving || isDeleting || isMoving || isChangingRater);
 	const dirty = $derived(JSON.stringify(draft) !== pristineDraft);
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
@@ -101,14 +130,6 @@
 	function handleRatingPeriodEndChange(value: string) {
 		draft.ratingPeriodEnd = value;
 		draft.autoFilledEnd = false;
-	}
-
-	function handleEntryStatusValueChange(value: string) {
-		draft.status = value as RatingSchemeEntryStatus;
-	}
-
-	function handleWorkflowStatusValueChange(value: string) {
-		draft.workflowStatus = value as WorkflowStatus | '';
 	}
 
 	function getSaveErrorMessage(error: unknown, fallback: string): string {
@@ -170,6 +191,80 @@
 		}
 	}
 
+	const phase = $derived(evaluationPhase(workflowStatus));
+	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
+	const canChangeRater = $derived(!!entry && !!onChangeRater && !isEvaluationCompleted(workflowStatus));
+
+	function moveLabel(move: WorkflowMove): string {
+		switch (move.kind) {
+			case 'start':
+				return 'Start tracking';
+			case 'complete':
+				return 'Mark completed';
+			case 'stop':
+				return 'Stop tracking';
+			case 'reopen':
+				return 'Reopen';
+			case 'back':
+				return `Back to ${workflowStatusLabel(move.to)}`;
+			case 'next':
+				return `Move to ${workflowStatusLabel(move.to)}`;
+		}
+	}
+
+	async function handleMove(to: WorkflowStatus | null) {
+		const moveHandler = onMove;
+		if (!entry || !moveHandler || busy || dirty || !isCurrent()) return;
+		moveError = '';
+		isMoving = true;
+		try {
+			const saved = await moveHandler(entry.id, to, isCurrent);
+			if (isCurrent() && saved !== undefined) workflowStatus = saved;
+		} catch (error) {
+			if (isCurrent()) moveError = getSaveErrorMessage(error, 'The workflow did not move. Try again.');
+		} finally {
+			if (isCurrent()) isMoving = false;
+		}
+	}
+
+	function openChangeRater() {
+		if (!entry) return;
+		const today = formatToday();
+		const { ratingPeriodStart: start, ratingPeriodEnd: end } = entry;
+		changeDate = today < start ? start : today > end ? end : today;
+		newRater = { kind: 'empty' };
+		changeRaterError = '';
+		showChangeRater = true;
+	}
+
+	async function handleChangeRater() {
+		const changeHandler = onChangeRater;
+		if (!entry || !changeHandler || busy || !isCurrent()) return;
+		if (newRater.kind === 'empty' || !changeDate) {
+			changeRaterError = 'Choose the new rater and the last day with the current rater.';
+			return;
+		}
+		const change: RatingSchemeRaterChange = {
+			changeDate,
+			raterPersonId: newRater.kind === 'person' ? newRater.personId : null,
+			raterName: newRater.kind === 'external' ? newRater.name : null
+		};
+		changeRaterError = '';
+		isChangingRater = true;
+		try {
+			const opened = await changeHandler(entry.id, change, isCurrent);
+			if (!isCurrent()) return;
+			if (opened) toastStore.success('Rater changed. A new evaluation was opened.');
+			else toastStore.info('This evaluation was already completed.');
+			showChangeRater = false;
+			onClose();
+		} catch (error) {
+			if (isCurrent()) changeRaterError = getSaveErrorMessage(error, 'The rater was not changed. Try again.');
+		} finally {
+			if (isCurrent()) isChangingRater = false;
+		}
+	}
+
 	function formatPersonLabel(p: PersonnelLookup): string {
 		return `${p.rank} ${p.lastName}, ${p.firstName}`;
 	}
@@ -183,7 +278,7 @@
 	}
 
 	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
-	const headerDue = $derived(entry ? getRatingDueLabel(entry.ratingPeriodEnd, entry.status) : null);
+	const headerDue = $derived(entry ? getRatingDueLabel(entry.ratingPeriodEnd, workflowStatus) : null);
 	const headerDueLine = $derived.by(() => {
 		if (!entry || !headerDue) return '';
 		const days = Math.abs(getDaysUntilDue(entry.ratingPeriodEnd));
@@ -199,11 +294,6 @@
 		}
 	});
 	const evalTypeOptions: RatingSchemeEntryEvalType[] = ['OER', 'NCOER', 'WOER'];
-	const statusOptions: { value: RatingSchemeEntryStatus; label: string }[] = [
-		{ value: 'active', label: 'Active' },
-		{ value: 'completed', label: 'Completed' },
-		{ value: 'change-of-rater', label: 'Change of rater' }
-	];
 </script>
 
 {#snippet requiredError(missingLabel: RatingSchemeRequiredField, message: string)}
@@ -433,64 +523,45 @@
 					{/if}
 				</section>
 
-				<section class="grid gap-3 px-7 py-5.5">
-					{@render sectionTitle('Tracking')}
-					<Field.Root>
-						<Field.Title id="entry-status-label">Status</Field.Title>
-						<ToggleGroup.Root
-							type="single"
-							class="w-full"
-							aria-labelledby="entry-status-label"
-							bind:value={
-								() => draft.status,
-								(value) => {
-									if (value) handleEntryStatusValueChange(value);
-								}
-							}
-						>
-							{#each statusOptions as option (option.value)}
-								<ToggleGroup.Item value={option.value} class="flex-1">{option.label}</ToggleGroup.Item>
-							{/each}
-						</ToggleGroup.Root>
-					</Field.Root>
-
-					{#if draft.showWorkflow}
-						<Field.Root>
-							<div class="flex items-center justify-between gap-2">
-								<Field.Label for="workflow-status">Workflow step</Field.Label>
+				{#if entry && (moves.length || canChangeRater)}
+					<section class="grid gap-3 border-b px-7 py-5.5" aria-labelledby="workflow-step">
+						{@render sectionTitle('Workflow')}
+						<p id="workflow-step" class="text-sm">
+							<span class="font-semibold">{phase.label}</span>
+							{#if phase.step}<span class="text-muted-foreground">
+									· step {phase.step} of {EVALUATION_PHASE_COUNT}</span
+								>{/if}
+						</p>
+						<div class="flex flex-wrap gap-2">
+							{#each moves as move (move.kind)}
 								<Button
-									variant="link"
-									size="none"
-									class="text-sm underline"
-									onclick={() => removeWorkflowFromDraft(draft)}
+									variant={move.kind === 'next' || move.kind === 'start' ? 'default' : 'outline'}
+									size="sm"
+									disabled={busy || dirty}
+									onclick={() => handleMove(move.to)}
 								>
-									Stop tracking
+									{moveLabel(move)}
 								</Button>
-							</div>
-							<Select.Root
-								type="single"
-								value={draft.workflowStatus}
-								onValueChange={(value) => handleWorkflowStatusValueChange(value as string)}
-							>
-								<Select.Trigger id="workflow-status" class="h-9 w-full">{view.workflowStatusLabel}</Select.Trigger>
-								<Select.Content>
-									{#each view.filteredWorkflowOptions as opt (opt.value)}
-										<Select.Item value={opt.value} label={opt.label} />
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</Field.Root>
-					{:else}
-						<Button
-							variant="link"
-							size="none"
-							class="w-fit text-sm underline"
-							onclick={() => (draft.showWorkflow = true)}
-						>
-							+ Track workflow step
-						</Button>
-					{/if}
+							{/each}
+							{#if canChangeRater}
+								<Button variant="outline" size="sm" disabled={busy || dirty} onclick={openChangeRater}>
+									Change rater
+								</Button>
+							{/if}
+						</div>
+						{#if dirty}
+							<p class="text-[13px] text-muted-foreground">Save or cancel your edits before moving the workflow.</p>
+						{/if}
+						{#if moveError}
+							<Alert.Root variant="destructive" role="alert">
+								<Alert.Title>The workflow did not move</Alert.Title>
+								<Alert.Description>{moveError}</Alert.Description>
+							</Alert.Root>
+						{/if}
+					</section>
+				{/if}
 
+				<section class="grid gap-3 px-7 py-5.5">
 					<Field.Root>
 						<div class="flex justify-between">
 							<Field.Label for="entry-notes">Notes</Field.Label>
@@ -537,6 +608,54 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
+
+{#if showChangeRater && entry}
+	<ConfirmDialog
+		title="Change rater"
+		message="This evaluation closes as a Change of Rater report through the last day below. A new Annual evaluation opens for the new rater the next day."
+		confirmLabel="Change rater"
+		variant="default"
+		loading={isChangingRater}
+		onConfirm={handleChangeRater}
+		onCancel={() => (showChangeRater = false)}
+	>
+		<div class="grid gap-3">
+			<Field.Root>
+				<Field.Label for="new-rater">New rater</Field.Label>
+				<EvaluatorField
+					id="new-rater"
+					label="New rater"
+					value={newRater}
+					people={personnelOptions}
+					onChange={(next) => {
+						newRater = next;
+						changeRaterError = '';
+					}}
+					class="h-9"
+				/>
+			</Field.Root>
+			<Field.Root>
+				<Field.Label for="rater-change-date">Last day with current rater</Field.Label>
+				<DatePicker
+					id="rater-change-date"
+					class="h-9"
+					value={changeDate}
+					placeholder="Select date"
+					onValueChange={(value) => {
+						changeDate = value;
+						changeRaterError = '';
+					}}
+				/>
+			</Field.Root>
+			{#if changeRaterError}
+				<Alert.Root variant="destructive" role="alert">
+					<Alert.Title>The rater was not changed</Alert.Title>
+					<Alert.Description>{changeRaterError}</Alert.Description>
+				</Alert.Root>
+			{/if}
+		</div>
+	</ConfirmDialog>
+{/if}
 
 {#if showDeleteConfirm}
 	<ConfirmDialog

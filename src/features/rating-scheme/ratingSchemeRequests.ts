@@ -1,5 +1,12 @@
 import { buildRequestError } from '$lib/stores/core';
-import type { RatingSchemeEntry, RatingSchemeEntryEditorData } from './contracts';
+import type {
+	RatingSchemeEntry,
+	RatingSchemeEntryEditorData,
+	RatingSchemeRaterChange,
+	RatingSchemeRaterChangeResult,
+	RatingSchemeTransition,
+	WorkflowStatus
+} from './contracts';
 
 export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Promise<RatingSchemeEntryEditorData> {
 	const response = await fetch(`/org/${orgId}/api/rating-scheme?${new URLSearchParams({ entry: id })}`, {
@@ -12,7 +19,7 @@ export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Pr
 export async function saveRatingSchemeEntry(
 	orgId: string,
 	id: string,
-	data: Partial<Omit<RatingSchemeEntry, 'id'>>
+	data: Partial<Omit<RatingSchemeEntry, 'id' | 'workflowStatus'>>
 ): Promise<RatingSchemeEntry> {
 	const response = await fetch(`/org/${orgId}/api/rating-scheme`, {
 		method: 'PUT',
@@ -21,4 +28,30 @@ export async function saveRatingSchemeEntry(
 	});
 	if (!response.ok) throw await buildRequestError(response, 'PUT', 'rating-scheme');
 	return response.json();
+}
+
+async function postEntryAction<T>(orgId: string, id: string, action: string, body: unknown): Promise<T> {
+	const response = await fetch(`/org/${orgId}/api/rating-scheme/${id}/${action}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!response.ok) throw await buildRequestError(response, 'POST', 'rating-scheme');
+	return response.json();
+}
+
+export function moveRatingSchemeEntry(
+	orgId: string,
+	id: string,
+	to: WorkflowStatus | null
+): Promise<RatingSchemeTransition> {
+	return postEntryAction(orgId, id, 'workflow', { to });
+}
+
+export function changeRatingSchemeRater(
+	orgId: string,
+	id: string,
+	change: RatingSchemeRaterChange
+): Promise<RatingSchemeRaterChangeResult> {
+	return postEntryAction(orgId, id, 'change-rater', change);
 }

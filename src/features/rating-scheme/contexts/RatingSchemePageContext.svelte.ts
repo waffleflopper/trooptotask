@@ -6,7 +6,10 @@ import type { RatingSchemeAffordance, RatingSchemePageAccess } from '../contract
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
+import { isEvaluationCompleted } from '$features/rating-scheme/utils/evaluationWorkflow';
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
+
+export type RatingSchemeStatusFilter = 'active' | 'completed' | 'all';
 
 export interface RatingSchemePageData {
 	orgId: string;
@@ -24,7 +27,7 @@ export class RatingSchemePageContext {
 	ratingViewMode = $state<'grouped' | 'table'>('grouped');
 	groupedSort = $state<GroupedSort>('urgency');
 	searchQuery = $state('');
-	ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
+	ratingFilter = $state<RatingSchemeStatusFilter>('active');
 	evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
 	workflowFilter = $state<WorkflowStatus | 'all'>('all');
 
@@ -90,7 +93,10 @@ export class RatingSchemePageContext {
 
 	get filteredRatingEntries(): RatingSchemeEntry[] {
 		let entries = this.#ratingStore.items;
-		if (this.ratingFilter !== 'all') entries = entries.filter((entry) => entry.status === this.ratingFilter);
+		if (this.ratingFilter !== 'all') {
+			const completed = this.ratingFilter === 'completed';
+			entries = entries.filter((entry) => isEvaluationCompleted(entry.workflowStatus) === completed);
+		}
 		if (this.evalTypeFilter !== 'all') entries = entries.filter((entry) => entry.evalType === this.evalTypeFilter);
 		if (this.workflowFilter !== 'all') {
 			entries = entries.filter((entry) => entry.workflowStatus === this.workflowFilter);
@@ -145,13 +151,13 @@ export class RatingSchemePageContext {
 	}
 
 	get activeEntryCount(): number {
-		return this.#ratingStore.items.filter((entry) => entry.status === 'active').length;
+		return this.#ratingStore.items.filter((entry) => !isEvaluationCompleted(entry.workflowStatus)).length;
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0 };
 		for (const entry of this.#ratingStore.items) {
-			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 			if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 				counts[status]++;
 			}

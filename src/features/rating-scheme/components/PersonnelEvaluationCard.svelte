@@ -2,7 +2,7 @@
 	import { SegmentedProgress } from '$lib/components/ui/progress/index.js';
 	import { formatDayMonthYear } from '$lib/utils/dates';
 	import type { PersonnelActiveEvaluation } from '../rating-scheme.types';
-	import { EVALUATION_PHASE_COUNT } from '../utils/evaluationPhase';
+	import { EVALUATION_PHASE_COUNT } from '../utils/evaluationWorkflow';
 
 	let { evaluation }: { evaluation: PersonnelActiveEvaluation | null } = $props();
 

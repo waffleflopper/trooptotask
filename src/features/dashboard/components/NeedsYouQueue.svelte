@@ -93,7 +93,29 @@
 		return error instanceof Error && error.message ? error.message : fallback;
 	}
 
-	async function open(id: string, action: Extract<NeedsYouAction, { open: unknown }>) {
+	type OpenAction = Extract<NeedsYouAction, { open: unknown }>;
+
+	// Pointing at or focusing an action starts its panel loading; the click takes that promise. A load that fails
+	// before the click is dropped, so the click tries again. Rendering never reads it, so it is a plain Map.
+	const warm = new Map<string, Promise<NeedsYouPanel>>();
+
+	function warmUp(id: string, action: OpenAction) {
+		const state = stateOf(id);
+		if (warm.has(id) || state.status === 'opening' || state.status === 'saving' || panelOf(state)) return;
+		const loading = action.open();
+		warm.set(id, loading);
+		loading.catch(() => {
+			if (warm.get(id) === loading) warm.delete(id);
+		});
+	}
+
+	function takePanel(id: string, action: OpenAction): Promise<NeedsYouPanel> {
+		const loading = warm.get(id) ?? action.open();
+		warm.delete(id);
+		return loading;
+	}
+
+	async function open(id: string, action: OpenAction) {
 		// One row works in place at a time; a row mid-save keeps its panel until the save lands.
 		if (action.mode === 'expand')
 			for (const [other, state] of actions)
@@ -101,7 +123,7 @@
 					send(other, { type: 'close' });
 		send(id, { type: 'open' });
 		try {
-			send(id, { type: 'opened', panel: await action.open() });
+			send(id, { type: 'opened', panel: await takePanel(id, action) });
 		} catch (error) {
 			send(id, { type: 'failed', message: messageOf(error, `${action.label} did not open`) });
 		}
@@ -215,6 +237,8 @@
 						aria-haspopup={act.mode === 'dialog' ? 'dialog' : undefined}
 						aria-expanded={act.mode === 'expand' ? panel !== null : undefined}
 						aria-controls={act.mode === 'expand' && panel ? panelId : undefined}
+						onpointerenter={() => warmUp(item.id, act)}
+						onfocus={() => warmUp(item.id, act)}
 						onclick={() => (busy ? undefined : panel ? send(item.id, { type: 'close' }) : open(item.id, act))}
 					>
 						{act.label}

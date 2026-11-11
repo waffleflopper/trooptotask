@@ -40,9 +40,9 @@ export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields
 	.partial()
 	.extend({ id: uuidSchema, status: notAField, workflowStatus: notAField });
 
-export const ratingSchemeTransitionSchema = z.strictObject({
-	to: z.enum(WORKFLOW_STEPS as [WorkflowStatus, ...WorkflowStatus[]]).nullable()
-});
+const workflowStepSchema = z.enum(WORKFLOW_STEPS as [WorkflowStatus, ...WorkflowStatus[]]).nullable();
+
+export const ratingSchemeTransitionSchema = z.strictObject({ from: workflowStepSchema, to: workflowStepSchema });
 
 export const ratingSchemeRaterChangeSchema = z
 	.strictObject({

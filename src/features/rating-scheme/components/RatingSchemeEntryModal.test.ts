@@ -176,7 +176,7 @@ describe('RatingSchemeEntryModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Start tracking' }));
 
-		expect(onMove).toHaveBeenCalledWith('entry-1', 'drafting', expect.any(Function));
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from: null, to: 'drafting' }, expect.any(Function));
 		expect(await screen.findByRole('button', { name: 'Stop tracking' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Start tracking' })).toBeNull();
 	});
@@ -191,7 +191,7 @@ describe('RatingSchemeEntryModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
 
-		expect(onMove).toHaveBeenCalledWith('entry-1', expected, expect.any(Function));
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'sr-signed', to: expected }, expect.any(Function));
 	});
 
 	it('steps back to the previous step', async () => {
@@ -200,7 +200,7 @@ describe('RatingSchemeEntryModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Back to/ }));
 
-		expect(onMove).toHaveBeenCalledWith('entry-1', 'with-rater', expect.any(Function));
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'rater-signed', to: 'with-rater' }, expect.any(Function));
 	});
 
 	it('reopens a completed evaluation as not tracked and offers no change of rater', async () => {
@@ -210,7 +210,7 @@ describe('RatingSchemeEntryModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
 
-		expect(onMove).toHaveBeenCalledWith('entry-1', null, expect.any(Function));
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'completed', to: null }, expect.any(Function));
 		expect(await screen.findByRole('button', { name: 'Start tracking' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Change rater' })).toBeTruthy();
 	});

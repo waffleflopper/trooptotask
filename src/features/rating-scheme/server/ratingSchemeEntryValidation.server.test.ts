@@ -78,10 +78,15 @@ describe('Rating Scheme entry validation', () => {
 		).toEqual({ id: ENTRY, notes: null });
 	});
 
-	it('accepts a lifecycle step or not tracked as a move target and nothing else', () => {
-		expect(ratingSchemeTransitionSchema.parse({ to: 'with-rater' })).toEqual({ to: 'with-rater' });
-		expect(ratingSchemeTransitionSchema.parse({ to: null })).toEqual({ to: null });
-		expect(ratingSchemeTransitionSchema.safeParse({ to: 'active' }).success).toBe(false);
+	it('accepts a lifecycle step or not tracked as the observed step and the target and nothing else', () => {
+		expect(ratingSchemeTransitionSchema.parse({ from: 'drafting', to: 'with-rater' })).toEqual({
+			from: 'drafting',
+			to: 'with-rater'
+		});
+		expect(ratingSchemeTransitionSchema.parse({ from: 'drafting', to: null })).toEqual({ from: 'drafting', to: null });
+		expect(ratingSchemeTransitionSchema.safeParse({ from: null, to: 'active' }).success).toBe(false);
+		expect(ratingSchemeTransitionSchema.safeParse({ from: 'active', to: 'drafting' }).success).toBe(false);
+		expect(ratingSchemeTransitionSchema.safeParse({ to: 'drafting' }).success).toBe(false);
 		expect(ratingSchemeTransitionSchema.safeParse({}).success).toBe(false);
 	});
 

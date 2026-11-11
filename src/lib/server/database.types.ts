@@ -5370,7 +5370,12 @@ export type Database = {
         Returns: boolean
       }
       transition_rating_scheme_entry: {
-        Args: { p_entry_id: string; p_organization_id: string; p_to?: string }
+        Args: {
+          p_entry_id: string
+          p_from?: string
+          p_organization_id: string
+          p_to?: string
+        }
         Returns: boolean
       }
       undo_roster_swap: {

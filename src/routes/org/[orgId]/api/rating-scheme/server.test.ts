@@ -227,10 +227,20 @@ describe('POST /api/rating-scheme/[entryId] lifecycle', () => {
 		const ctx = groupOperator();
 
 		await expect(
-			handleUseCaseRequest(_workflowConfig, ctx, { id: IN_GROUP_ENTRY, body: { to: 'with-rater' } }, () => ctx)
+			handleUseCaseRequest(
+				_workflowConfig,
+				ctx,
+				{ id: IN_GROUP_ENTRY, body: { from: 'drafting', to: 'with-rater' } },
+				() => ctx
+			)
 		).resolves.toMatchObject({ moved: true, entry: { workflowStatus: 'with-rater' } });
 		await expect(
-			handleUseCaseRequest(_workflowConfig, ctx, { id: OTHER_GROUP_ENTRY, body: { to: 'with-rater' } }, () => ctx)
+			handleUseCaseRequest(
+				_workflowConfig,
+				ctx,
+				{ id: OTHER_GROUP_ENTRY, body: { from: 'drafting', to: 'with-rater' } },
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		const other = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
 			id: OTHER_GROUP_ENTRY

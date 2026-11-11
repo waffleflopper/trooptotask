@@ -254,8 +254,10 @@ $$;
 
 -- One step forward or back along the chain, skipping the intermediate-rater and reviewer steps when the entry has
 -- no one in that role. Not tracked can start at drafting or be marked completed; drafting and completed can return
--- to not tracked. The same table is asserted in evaluationWorkflow.test.ts.
-CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text DEFAULT NULL)
+-- to not tracked. The same table is asserted in evaluationWorkflow.test.ts. The caller names the step it saw, so a
+-- move made from a stale view is refused instead of overwriting newer progress.
+CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL,
+  p_to text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
@@ -284,6 +286,10 @@ BEGIN
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
     RETURN false;
+  END IF;
+  IF v_row.workflow_status IS DISTINCT FROM p_from THEN
+    RAISE EXCEPTION 'The evaluation is at %, not %',
+      COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
   IF v_row.intermediate_rater_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.intermediate_rater_name), '') IS NULL THEN
@@ -316,8 +322,8 @@ BEGIN
   RETURN true;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text, text) TO authenticated;
 
 -- A change of rater completes the current entry as a Change of Rater report through the change date and opens an
 -- Annual successor for the new rater the next day. A completed entry has already been closed, so a repeat is a no-op.
@@ -351,7 +357,9 @@ BEGIN
   IF v_row.workflow_status = 'completed' THEN
     RETURN NULL;
   END IF;
-  IF p_rater_person_id = v_row.rater_person_id THEN
+  IF p_rater_person_id = v_row.rater_person_id
+    OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
+      AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_row.rater_name))) THEN
     RAISE EXCEPTION 'The new rater is already this evaluation''s rater' USING ERRCODE = '22023';
   END IF;
   IF p_change_date < v_row.rating_period_start OR p_change_date > v_row.rating_period_end THEN

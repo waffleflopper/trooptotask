@@ -8,7 +8,11 @@
 	}: {
 		entry: { id: string };
 		onSave: (data: { notes: string }, isCurrent: () => boolean) => Promise<void>;
-		onMove: (id: string, to: string | null, isCurrent: () => boolean) => Promise<unknown>;
+		onMove: (
+			id: string,
+			move: { from: string | null; to: string | null },
+			isCurrent: () => boolean
+		) => Promise<unknown>;
 		onChangeRater: (
 			id: string,
 			change: { changeDate: string; raterPersonId: string | null; raterName: string | null },
@@ -28,8 +32,12 @@
 <section aria-label="Entry {entry.id}">
 	{#if said}<p>Modal says: {said}</p>{/if}
 	<button type="button" onclick={() => report(onSave({ notes: 'Updated' }, () => true))}>Save notes</button>
-	<button type="button" onclick={() => report(onMove(entry.id, 'drafting', () => true))}>Start tracking</button>
-	<button type="button" onclick={() => report(onMove(entry.id, 'completed', () => true))}>Mark completed</button>
+	<button type="button" onclick={() => report(onMove(entry.id, { from: null, to: 'drafting' }, () => true))}
+		>Start tracking</button
+	>
+	<button type="button" onclick={() => report(onMove(entry.id, { from: null, to: 'completed' }, () => true))}
+		>Mark completed</button
+	>
 	<button
 		type="button"
 		onclick={() =>

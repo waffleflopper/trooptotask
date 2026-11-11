@@ -2,7 +2,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
-	import type { RatingSchemeRaterChange } from '$features/rating-scheme/contracts';
+	import type { RatingSchemeMove, RatingSchemeRaterChange } from '$features/rating-scheme/contracts';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { changeRatingSchemeRater, moveRatingSchemeEntry } from '$features/rating-scheme/ratingSchemeRequests';
 	import type { RatingSchemeEntrySaveData } from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
@@ -50,11 +50,11 @@
 
 	async function handleMoveRatingEntry(
 		id: string,
-		to: WorkflowStatus | null,
+		move: RatingSchemeMove,
 		isCurrent: () => boolean
 	): Promise<WorkflowStatus | null | undefined> {
 		if (!isCurrent()) return undefined;
-		const { entry } = await moveRatingSchemeEntry(initialOrgId, id, to).catch((failure: unknown) => {
+		const { entry } = await moveRatingSchemeEntry(initialOrgId, id, move).catch((failure: unknown) => {
 			throw new Error(rejectedRequestMessage(failure, 'The workflow did not move. Try again.'));
 		});
 		if (!isCurrent()) return undefined;

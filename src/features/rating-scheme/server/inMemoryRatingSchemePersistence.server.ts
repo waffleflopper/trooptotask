@@ -100,17 +100,22 @@ export function createInMemoryRatingSchemePersistence(
 		delete(id) {
 			return store.deleteWhere('rating_scheme_entries', orgId, { id });
 		},
-		async transition(id, to) {
+		async transition(id, { from, to }) {
 			const entry = await findEntry(id);
 			if (entry.workflowStatus === to) return { entry, moved: false };
-			if (!isWorkflowMoveAllowed(entry.workflowStatus, to, workflowRoles(entry))) return fail(409, EVALUATION_MOVED);
+			if (entry.workflowStatus !== from || !isWorkflowMoveAllowed(entry.workflowStatus, to, workflowRoles(entry)))
+				return fail(409, EVALUATION_MOVED);
 			const moved = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, { workflow_status: to });
 			return { entry: mapRatingSchemeEntry(moved), moved: true };
 		},
 		async changeRater(id, change) {
 			const entry = await findEntry(id);
 			if (isEvaluationCompleted(entry.workflowStatus)) return { entry, successor: null };
-			if (change.raterPersonId !== null && change.raterPersonId === entry.raterPersonId) {
+			const sameExternalRater =
+				change.raterPersonId === null &&
+				entry.raterPersonId === null &&
+				change.raterName?.trim().toLowerCase() === entry.raterName?.trim().toLowerCase();
+			if ((change.raterPersonId !== null && change.raterPersonId === entry.raterPersonId) || sameExternalRater) {
 				return fail(400, "The new rater is already this evaluation's rater");
 			}
 			if (change.changeDate < entry.ratingPeriodStart || change.changeDate > entry.ratingPeriodEnd) {

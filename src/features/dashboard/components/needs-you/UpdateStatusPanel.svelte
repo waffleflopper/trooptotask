@@ -4,6 +4,7 @@
 	import type {
 		RatingSchemeDueEntry,
 		RatingSchemeEntry,
+		RatingSchemeMove,
 		RatingSchemeRaterChange,
 		WorkflowStatus
 	} from '$features/rating-scheme/contracts';
@@ -22,7 +23,7 @@
 		) => Promise<void>;
 		onMove: (
 			id: string,
-			to: WorkflowStatus | null,
+			move: RatingSchemeMove,
 			isCurrent: () => boolean
 		) => Promise<WorkflowStatus | null | undefined>;
 		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
@@ -74,16 +75,16 @@
 	 * A step keeps the entry past thru, so the panel stays open for the next one. Completing it removes the row,
 	 * so that move saves through the row and focus moves on with it.
 	 */
-	const onMove: ComponentProps<EntryModal>['onMove'] = async (id, to, isCurrent) => {
+	const onMove: ComponentProps<EntryModal>['onMove'] = async (id, workflowMove, isCurrent) => {
 		const move = async () => {
-			const { entry } = await moveRatingSchemeEntry(orgId, id, to).catch((failure: unknown) => {
+			const { entry } = await moveRatingSchemeEntry(orgId, id, workflowMove).catch((failure: unknown) => {
 				throw new Error(rejectedRequestMessage(failure, 'The workflow did not move. Try again.'));
 			});
 			if (!isCurrent()) return undefined;
 			putEntry(entry);
 			return entry.workflowStatus;
 		};
-		if (!isEvaluationCompleted(to)) return move();
+		if (!isEvaluationCompleted(workflowMove.to)) return move();
 		let reached: WorkflowStatus | null | undefined;
 		await save(async () => {
 			reached = await move();

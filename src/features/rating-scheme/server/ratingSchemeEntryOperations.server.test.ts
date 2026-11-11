@@ -355,9 +355,9 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx, { workflow_status: 'rater-signed' });
 
-		const forward = await transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-senior-rater' });
+		const forward = await transitionRatingSchemeEntry(ctx, ENTRY, { from: 'rater-signed', to: 'with-senior-rater' });
 		expect(forward).toMatchObject({ moved: true, entry: { workflowStatus: 'with-senior-rater' } });
-		const back = await transitionRatingSchemeEntry(ctx, ENTRY, { to: 'rater-signed' });
+		const back = await transitionRatingSchemeEntry(ctx, ENTRY, { from: 'with-senior-rater', to: 'rater-signed' });
 		expect(back).toMatchObject({ moved: true, entry: { workflowStatus: 'rater-signed' } });
 	});
 
@@ -366,10 +366,14 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx, { workflow_status: 'ir-signed', reviewer_name: 'COL Reviewer' });
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-rated-soldier' })).rejects.toMatchObject({
+		await expect(
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'ir-signed', to: 'with-rated-soldier' })
+		).rejects.toMatchObject({
 			status: 409
 		});
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-reviewer' })).resolves.toMatchObject({
+		await expect(
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'ir-signed', to: 'with-reviewer' })
+		).resolves.toMatchObject({
 			moved: true
 		});
 	});
@@ -379,7 +383,9 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx, { workflow_status: 'drafting' });
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'sr-signed' })).rejects.toMatchObject({ status: 409 });
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { from: 'drafting', to: 'sr-signed' })).rejects.toMatchObject({
+			status: 409
+		});
 		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
 			id: ENTRY
 		});
@@ -391,7 +397,9 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx, { workflow_status: 'completed' });
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'completed' })).resolves.toMatchObject({
+		await expect(
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'completed', to: 'completed' })
+		).resolves.toMatchObject({
 			moved: false,
 			entry: { workflowStatus: 'completed' }
 		});
@@ -402,7 +410,9 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx);
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'active' })).rejects.toMatchObject({ status: 400 });
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { from: null, to: 'active' })).rejects.toMatchObject({
+			status: 400
+		});
 	});
 
 	it('denies a move without Rating Scheme operate access', async () => {
@@ -410,7 +420,9 @@ describe('Rating scheme entry — workflow', () => {
 		seedRatedPerson(ctx);
 		seedEntry(ctx);
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'drafting' })).rejects.toMatchObject({ status: 403 });
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { from: null, to: 'drafting' })).rejects.toMatchObject({
+			status: 403
+		});
 		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
 			id: ENTRY
 		});
@@ -421,9 +433,11 @@ describe('Rating scheme entry — workflow', () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 
-		await expect(transitionRatingSchemeEntry(ctx, FOREIGN_ENTRY, { to: 'drafting' })).rejects.toMatchObject({
-			status: 404
-		});
+		await expect(transitionRatingSchemeEntry(ctx, FOREIGN_ENTRY, { from: null, to: 'drafting' })).rejects.toMatchObject(
+			{
+				status: 404
+			}
+		);
 	});
 });
 

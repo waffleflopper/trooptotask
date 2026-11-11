@@ -107,10 +107,11 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 			const { error } = await client.from('rating_scheme_entries').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
 		},
-		async transition(id, to) {
+		async transition(id, { from, to }) {
 			const { data, error } = await client.rpc('transition_rating_scheme_entry', {
 				p_organization_id: orgId,
 				p_entry_id: id,
+				p_from: from ?? undefined,
 				p_to: to ?? undefined
 			});
 			if (error) return lifecycleFailure(error);

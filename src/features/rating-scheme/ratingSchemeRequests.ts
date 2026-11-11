@@ -2,10 +2,10 @@ import { buildRequestError } from '$lib/stores/core';
 import type {
 	RatingSchemeEntry,
 	RatingSchemeEntryEditorData,
+	RatingSchemeMove,
 	RatingSchemeRaterChange,
 	RatingSchemeRaterChangeResult,
-	RatingSchemeTransition,
-	WorkflowStatus
+	RatingSchemeTransition
 } from './contracts';
 
 export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Promise<RatingSchemeEntryEditorData> {
@@ -43,9 +43,9 @@ async function postEntryAction<T>(orgId: string, id: string, action: string, bod
 export function moveRatingSchemeEntry(
 	orgId: string,
 	id: string,
-	to: WorkflowStatus | null
+	move: RatingSchemeMove
 ): Promise<RatingSchemeTransition> {
-	return postEntryAction(orgId, id, 'workflow', { to });
+	return postEntryAction(orgId, id, 'workflow', move);
 }
 
 export function changeRatingSchemeRater(

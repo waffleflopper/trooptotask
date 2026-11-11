@@ -51,7 +51,8 @@ BEGIN
     EXIT WHEN (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = v_id)
       IS NOT DISTINCT FROM pg_temp.step(p_label);
     BEGIN
-      PERFORM public.transition_rating_scheme_entry(pg_temp.id('101'), v_id, v_step);
+      PERFORM public.transition_rating_scheme_entry(pg_temp.id('101'), v_id,
+        (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = v_id), v_step);
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
   END LOOP;
@@ -65,7 +66,8 @@ $$;
 -- Tries one move and undoes it, so every target is tried from the same starting step.
 CREATE FUNCTION pg_temp.attempt(p_entry uuid, p_to text) RETURNS text LANGUAGE plpgsql AS $$
 BEGIN
-  IF NOT public.transition_rating_scheme_entry(pg_temp.id('101'), p_entry, pg_temp.step(p_to)) THEN
+  IF NOT public.transition_rating_scheme_entry(pg_temp.id('101'), p_entry,
+    (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = p_entry), pg_temp.step(p_to)) THEN
     RETURN 'unchanged';
   END IF;
   RAISE EXCEPTION '%', COALESCE((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = p_entry), 'not tracked')
@@ -80,7 +82,8 @@ CREATE TEMP TABLE probe (entry uuid);
 CREATE TEMP TABLE changed (entry uuid, successor uuid);
 CREATE TEMP TABLE leap (entry uuid, successor uuid);
 CREATE TEMP TABLE fresh (entry uuid);
-GRANT ALL ON matrix, probe, changed, leap, fresh TO authenticated;
+CREATE TEMP TABLE stale (entry uuid);
+GRANT ALL ON matrix, probe, changed, leap, fresh, stale TO authenticated;
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT pg_temp.id(n::text), 'authenticated', 'authenticated', 'lifecycle-' || n || '@example.test', now()
@@ -104,7 +107,7 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   (pg_temp.id('303'), pg_temp.id('101'), pg_temp.id('201'), 'SFC', 'Next', 'Rater', 'lifecycle-next'),
   (pg_temp.id('305'), pg_temp.id('102'), NULL, 'SSG', 'Foreign', 'Rater', 'lifecycle-foreign');
 
-SELECT ok(NOT has_function_privilege('anon', 'public.transition_rating_scheme_entry(uuid,uuid,text)', 'EXECUTE')
+SELECT ok(NOT has_function_privilege('anon', 'public.transition_rating_scheme_entry(uuid,uuid,text,text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.change_rating_scheme_rater(uuid,uuid,date,uuid,text)', 'EXECUTE'),
   'signed-out callers cannot move an evaluation or change its rater');
 
@@ -152,10 +155,10 @@ SELECT is(pg_temp.attempt(m.entry, t.target),
 FROM matrix m CROSS JOIN unnest(pg_temp.steps()) AS t(target)
 ORDER BY m.roles, array_position(pg_temp.steps(), m.from_step), array_position(pg_temp.steps(), t.target);
 
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'sr-signed') $$,
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'drafting', 'sr-signed') $$,
     pg_temp.id('101'), pg_temp.at_step('none', 'drafting')),
   '55000', 'An evaluation at drafting cannot move to sr-signed', 'a jump past the next step is refused');
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'signed') $$,
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'drafting', 'signed') $$,
     pg_temp.id('101'), (SELECT entry FROM matrix WHERE roles = 'none' AND from_step = 'drafting')),
   '22023', 'Unknown evaluation step', 'an unknown step is rejected');
 
@@ -170,21 +173,30 @@ SELECT is((SELECT workflow_status FROM public.rating_scheme_entries
     WHERE id = (SELECT entry FROM matrix WHERE roles = 'none' AND from_step = 'drafting')), 'drafting',
   'the refused writes left the entry at its step');
 
+INSERT INTO stale SELECT pg_temp.new_entry('none');
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), entry, NULL, 'drafting') FROM stale;
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'drafting', 'with-rater') FROM stale;
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, NULL, 'drafting') $$,
+    pg_temp.id('101'), (SELECT entry FROM stale)),
+  '55000', 'The evaluation is at with-rater, not not tracked', 'a move from a step the entry has left is refused');
+SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM stale)), 'with-rater',
+  'the stale move kept the newer step');
+
 -- Out of scope and view-only members.
 INSERT INTO probe SELECT pg_temp.at_step('none', 'with-rater');
 SELECT pg_temp.act_as('3');
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'rater-signed') $$, pg_temp.id('101'),
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'with-rater', 'rater-signed') $$, pg_temp.id('101'),
     (SELECT entry FROM probe)), 'P0002', 'Evaluation not found', 'an operator outside the rated Person''s Group cannot find it');
 SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
     (SELECT entry FROM probe), pg_temp.id('303')), 'P0002', 'Evaluation not found',
   'an operator outside the rated Person''s Group cannot change its rater');
 SELECT pg_temp.act_as('4');
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'rater-signed') $$, pg_temp.id('101'),
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'with-rater', 'rater-signed') $$, pg_temp.id('101'),
     (SELECT entry FROM probe)), '42501', NULL, 'a view-only member cannot move an evaluation');
 SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
     (SELECT entry FROM probe), pg_temp.id('303')), '42501', NULL, 'a view-only member cannot change the rater');
 SELECT set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.claims', '{"role":"authenticated"}', true);
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'rater-signed') $$, pg_temp.id('101'),
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'with-rater', 'rater-signed') $$, pg_temp.id('101'),
     (SELECT entry FROM probe)), 'P0002', 'Evaluation not found', 'a request without a user finds nothing');
 SELECT pg_temp.act_as('2');
 SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM probe)), 'with-rater',
@@ -219,6 +231,15 @@ SELECT results_eq(
      FROM public.rating_scheme_entries WHERE id = (SELECT successor FROM leap) $$,
   $$ VALUES ('2028-02-29'::date, '2029-02-28'::date, NULL::uuid, 'SSG Named Rater'::text) $$,
   'a successor from 29 February runs through 28 February the next year, for a new rater named outside the roster');
+SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, '2028-06-15', NULL, 'ssg named rater ') $$,
+    pg_temp.id('101'), (SELECT successor FROM leap)),
+  '22023', 'The new rater is already this evaluation''s rater', 'the current rater named outside the roster cannot replace themselves');
+SELECT results_eq(
+  $$ SELECT rating_period_end, report_type, workflow_status,
+       (SELECT count(*)::int FROM public.rating_scheme_entries WHERE rating_period_start = '2028-06-16')
+     FROM public.rating_scheme_entries WHERE id = (SELECT successor FROM leap) $$,
+  $$ VALUES ('2029-02-28'::date, 'AN'::text, NULL::text, 0) $$,
+  'the refused change of the named rater left the entry open and opened no successor');
 
 INSERT INTO fresh SELECT pg_temp.new_entry('none');
 SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, %L, %L, NULL) $$, pg_temp.id('101'),

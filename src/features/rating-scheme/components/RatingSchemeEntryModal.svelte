@@ -2,7 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
-	import type { RatingSchemeRaterChange } from '../contracts';
+	import type { RatingSchemeMove, RatingSchemeRaterChange } from '../contracts';
 	import {
 		applyRatedPersonToNewRatingSchemeEntryDraft,
 		buildRatingSchemeEntrySaveData,
@@ -53,7 +53,7 @@
 		/** Resolves to the saved step, or undefined when the workspace changed first. */
 		onMove?: (
 			id: string,
-			to: WorkflowStatus | null,
+			move: RatingSchemeMove,
 			isCurrent: () => boolean
 		) => Promise<WorkflowStatus | null | undefined>;
 		/** Resolves true when a successor was opened, false when the evaluation was already completed. */
@@ -218,7 +218,7 @@
 		moveError = '';
 		isMoving = true;
 		try {
-			const saved = await moveHandler(entry.id, to, isCurrent);
+			const saved = await moveHandler(entry.id, { from: workflowStatus, to }, isCurrent);
 			if (isCurrent() && saved !== undefined) workflowStatus = saved;
 		} catch (error) {
 			if (isCurrent()) moveError = getSaveErrorMessage(error, 'The workflow did not move. Try again.');

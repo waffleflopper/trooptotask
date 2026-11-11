@@ -73,7 +73,7 @@ describe('UpdateStatusPanel', () => {
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
 			'/org/org-1/api/rating-scheme/e1/workflow',
 			'POST',
-			{ to: 'completed' }
+			{ from: null, to: 'completed' }
 		]);
 		expect(updates.putRecord.mock.calls).toEqual([
 			[

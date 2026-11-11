@@ -6516,7 +6516,9 @@ BEGIN
   IF v_row.workflow_status = 'completed' THEN
     RETURN NULL;
   END IF;
-  IF p_rater_person_id = v_row.rater_person_id THEN
+  IF p_rater_person_id = v_row.rater_person_id
+    OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
+      AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_row.rater_name))) THEN
     RAISE EXCEPTION 'The new rater is already this evaluation''s rater' USING ERRCODE = '22023';
   END IF;
   IF p_change_date < v_row.rating_period_start OR p_change_date > v_row.rating_period_end THEN
@@ -14549,10 +14551,10 @@ $$;
 ALTER FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text) OWNER TO postgres;
 
 --
--- Name: transition_rating_scheme_entry(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: transition_rating_scheme_entry(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text DEFAULT NULL::text) RETURNS boolean
+CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL::text, p_to text DEFAULT NULL::text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -14583,6 +14585,10 @@ BEGIN
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
     RETURN false;
+  END IF;
+  IF v_row.workflow_status IS DISTINCT FROM p_from THEN
+    RAISE EXCEPTION 'The evaluation is at %, not %',
+      COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
   IF v_row.intermediate_rater_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.intermediate_rater_name), '') IS NULL THEN
@@ -14617,7 +14623,7 @@ END;
 $$;
 
 
-ALTER FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) OWNER TO postgres;
+ALTER FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) OWNER TO postgres;
 
 --
 -- Name: undo_roster_swap(uuid, uuid, date); Type: FUNCTION; Schema: public; Owner: postgres
@@ -25306,12 +25312,12 @@ GRANT ALL ON FUNCTION public.transition_calendar_tasking(p_organization_id uuid,
 
 
 --
--- Name: FUNCTION transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) TO authenticated;
-GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) TO service_role;
+REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) TO authenticated;
+GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) TO service_role;
 
 
 --

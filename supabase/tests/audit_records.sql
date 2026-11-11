@@ -59,7 +59,7 @@ INSERT INTO public.rating_scheme_entries (
 ) VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
 UPDATE public.rating_scheme_entries SET rater_person_id = pg_temp.id('302'), notes = 'Private note'
 WHERE id = pg_temp.id('601');
-SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), pg_temp.id('601'), 'completed');
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), pg_temp.id('601'), NULL, 'completed');
 RESET ROLE;
 
 SELECT bag_eq(

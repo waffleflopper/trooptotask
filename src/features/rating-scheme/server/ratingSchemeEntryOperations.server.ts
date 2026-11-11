@@ -193,9 +193,9 @@ export async function transitionRatingSchemeEntry(
 	id: string,
 	data: Record<string, unknown>
 ): Promise<RatingSchemeTransition> {
-	const { to } = parseEntryInput(ratingSchemeTransitionSchema, data);
+	const move = parseEntryInput(ratingSchemeTransitionSchema, data);
 	await requireEntryUpdatePolicy(ctx, id);
-	return ctx.ratingScheme.transition(id, to);
+	return ctx.ratingScheme.transition(id, move);
 }
 
 /** Completes the evaluation as a Change of Rater report and opens the next one for the new rater. */

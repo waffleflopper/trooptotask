@@ -97,6 +97,12 @@ export interface RatingSchemeRaterChange {
 	raterName: string | null;
 }
 
+/** A workflow move names the step the caller saw, so a move from a stale view is refused. */
+export interface RatingSchemeMove {
+	from: WorkflowStatus | null;
+	to: WorkflowStatus | null;
+}
+
 export interface RatingSchemeTransition {
 	entry: SavedRatingSchemeEntry;
 	/** False when the evaluation was already at the requested step. */
@@ -118,7 +124,7 @@ export interface RatingSchemePersistence {
 	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
 	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;
 	delete(id: string): Promise<void>;
-	transition(id: string, to: WorkflowStatus | null): Promise<RatingSchemeTransition>;
+	transition(id: string, move: RatingSchemeMove): Promise<RatingSchemeTransition>;
 	changeRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
 }
 

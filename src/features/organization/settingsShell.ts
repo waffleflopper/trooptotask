@@ -22,10 +22,20 @@ export interface SettingsShell {
 	};
 }
 
-/** The counts the nav shows as badges. Each streams on its own, so one failed read leaves the other badge intact. */
+/** Pending invitations that need an admin, split by why: the same list the Dashboard shows. */
+export interface InvitationFollowUpCounts {
+	deliveryFailed: number;
+	expiringSoon: number;
+}
+
+/**
+ * The counts the nav shows as badges, and the Overview lists. Each streams on its own, so one failed read leaves
+ * the others intact.
+ */
 export interface SettingsNavCounts {
 	pendingInvitations: Promise<number>;
 	pendingApprovals: Promise<number>;
+	invitationsToFollowUp: Promise<InvitationFollowUpCounts>;
 }
 
 export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;

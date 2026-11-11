@@ -75,7 +75,12 @@ export type {
 	InvitationAttention,
 	InvitationsAttention
 } from './adminAttentionTypes';
-export type { SettingsNavCounts, SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
+export type {
+	InvitationFollowUpCounts,
+	SettingsNavCounts,
+	SettingsShell,
+	SettingsShellOrganizationSource
+} from './settingsShell';
 export type {
 	OrganizationSupportOrganization,
 	OrganizationSupportUserMembership,

@@ -330,8 +330,8 @@
 							<div class="grid min-w-0">
 								<p class="truncate text-sm font-semibold">{invite.email}</p>
 								<p class="font-mono text-xs text-muted-foreground">
-									{accessLabel(invite)} · sent {formatRelativeDate(invite.createdAt)}{#if expires}
-										· <span class={cn(invite.expiringSoon && 'font-semibold text-warning-foreground')}>{expires}</span
+									{accessLabel(invite)} · sent {formatRelativeDate(invite.createdAt)}{#if expires}{' · '}<span
+											class={cn(invite.expiringSoon && 'font-semibold text-warning-foreground')}>{expires}</span
 										>{/if}
 								</p>
 							</div>

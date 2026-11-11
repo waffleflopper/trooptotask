@@ -1,12 +1,15 @@
 -- An Evaluation keeps one lifecycle: workflow_status. NULL is "not tracked" and open; 'completed' is the only closed state.
 -- Where the two columns disagree, the later state wins, so a completed or change-of-rater entry becomes completed.
+-- A change-of-rater entry also keeps its label as the Change of Rater (CR) report, which is what the Change rater action
+-- writes.
 -- The mapping is a repair, not a person's edit: with the stamp trigger off it leaves updated_at alone. The audit
 -- trigger stays on, so the change is still recorded.
 ALTER TABLE public.rating_scheme_entries DISABLE TRIGGER update_rating_scheme_entries_updated_at;
 DO $$
 DECLARE v_mapped integer;
 BEGIN
-  UPDATE public.rating_scheme_entries SET workflow_status = 'completed'
+  UPDATE public.rating_scheme_entries SET workflow_status = 'completed',
+    report_type = CASE WHEN status = 'change-of-rater' THEN 'CR' ELSE report_type END
   WHERE status IN ('completed', 'change-of-rater') AND workflow_status IS DISTINCT FROM 'completed';
   GET DIAGNOSTICS v_mapped = ROW_COUNT;
   RAISE NOTICE 'Completed % evaluations whose status was already closed', v_mapped;

@@ -1,5 +1,6 @@
--- The upgrade keeps workflow_status as the one lifecycle. A closed status completes its entry; every other entry keeps
--- its step, and every other saved fact stays as it was.
+-- The upgrade keeps workflow_status as the one lifecycle. A closed status completes its entry, and a change-of-rater
+-- entry becomes a Change of Rater (CR) report; every other entry keeps its step, and every other saved fact stays as it
+-- was.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -17,15 +18,20 @@ SELECT results_eq(
 SELECT results_eq(
   $$SELECT id, to_jsonb(e) - 'workflow_status' FROM public.rating_scheme_entries e
     WHERE organization_id = 'e7b10000-0000-4000-8000-000000000101' ORDER BY id$$,
-  $$SELECT id, saved - ARRAY['workflow_status', 'status'] FROM upgrade_fixture.evaluation_lifecycle_before ORDER BY id$$,
-  'the upgrade keeps every period, report type, note and update time');
+  $$SELECT id, CASE WHEN id = 'e7b10000-0000-4000-8000-000000000405'
+      THEN saved - ARRAY['workflow_status', 'status'] || '{"report_type": "CR"}'
+      ELSE saved - ARRAY['workflow_status', 'status'] END
+    FROM upgrade_fixture.evaluation_lifecycle_before ORDER BY id$$,
+  'the upgrade keeps every period, note and update time, and every report type but the change-of-rater entry''s');
+SELECT is((SELECT report_type FROM public.rating_scheme_entries WHERE id = 'e7b10000-0000-4000-8000-000000000405'), 'CR',
+  'an entry whose status was change-of-rater is a Change of Rater report');
 SELECT hasnt_column('public', 'rating_scheme_entries', 'status', 'the second lifecycle column is gone');
 SELECT results_eq(
   $$SELECT resource_id, details -> 'change' FROM public.audit_logs
     WHERE org_id = 'e7b10000-0000-4000-8000-000000000101' AND action = 'rating_scheme.updated' AND user_id IS NULL
     ORDER BY resource_id$$,
   $$VALUES ('e7b10000-0000-4000-8000-000000000404'::uuid, '{"workflowStatus": {"from": "with-rater", "to": "completed"}}'::jsonb),
-    ('e7b10000-0000-4000-8000-000000000405'::uuid, '{"workflowStatus": {"from": null, "to": "completed"}}'::jsonb)$$,
+    ('e7b10000-0000-4000-8000-000000000405'::uuid, '{"workflowStatus": {"from": null, "to": "completed"}, "reportType": {"from": "AN", "to": "CR"}}'::jsonb)$$,
   'the audit log records each entry the upgrade completed, with no member named');
 SELECT is((SELECT tgenabled FROM pg_trigger WHERE tgrelid = 'public.rating_scheme_entries'::regclass
     AND tgname = 'update_rating_scheme_entries_updated_at'), 'O'::"char",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import { resolve } from '$app/paths';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Button } from '$lib/components/ui/button';
@@ -90,7 +91,10 @@
 			{/snippet}
 			{#snippet control()}
 				{#if current.state === 'ready' && current.value.count > 0 && check.fix}
-					<Button variant="link" href={href(check.fix.path)}>{check.fix.label}</Button>
+					<Button variant="link" class="-mr-2 -ml-2.5" href={href(check.fix.path)}>
+						{check.fix.label}
+						<ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+					</Button>
 				{/if}
 			{/snippet}
 		</PageShell.FactRow>

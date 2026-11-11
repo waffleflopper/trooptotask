@@ -66,8 +66,8 @@ $$;
 -- Tries one move and undoes it, so every target is tried from the same starting step.
 CREATE FUNCTION pg_temp.attempt(p_entry uuid, p_to text) RETURNS text LANGUAGE plpgsql AS $$
 BEGIN
-  IF NOT public.transition_rating_scheme_entry(pg_temp.id('101'), p_entry,
-    (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = p_entry), pg_temp.step(p_to)) THEN
+  IF NOT (public.transition_rating_scheme_entry(pg_temp.id('101'), p_entry,
+    (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = p_entry), pg_temp.step(p_to)) ->> 'moved')::boolean THEN
     RETURN 'unchanged';
   END IF;
   RAISE EXCEPTION '%', COALESCE((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = p_entry), 'not tracked')
@@ -83,7 +83,8 @@ CREATE TEMP TABLE changed (entry uuid, successor uuid);
 CREATE TEMP TABLE leap (entry uuid, successor uuid);
 CREATE TEMP TABLE fresh (entry uuid);
 CREATE TEMP TABLE stale (entry uuid);
-GRANT ALL ON matrix, probe, changed, leap, fresh, stale TO authenticated;
+CREATE TEMP TABLE returned (label text, result jsonb);
+GRANT ALL ON matrix, probe, changed, leap, fresh, stale, returned TO authenticated;
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT pg_temp.id(n::text), 'authenticated', 'authenticated', 'lifecycle-' || n || '@example.test', now()
@@ -182,6 +183,17 @@ SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 
 SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM stale)), 'with-rater',
   'the stale move kept the newer step');
 
+INSERT INTO returned SELECT 'move', public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'with-rater', 'rater-signed') FROM stale;
+INSERT INTO returned SELECT 'repeat', public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'with-rater', 'rater-signed') FROM stale;
+SELECT is((SELECT result FROM returned WHERE label = 'move'),
+  jsonb_build_object('moved', true, 'entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM stale))),
+  'a move returns the entry as it now stands');
+SELECT is((SELECT result FROM returned WHERE label = 'repeat'),
+  jsonb_build_object('moved', false, 'entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM stale))),
+  'repeating the move returns the same entry with moved false');
+SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM stale)), 'rater-signed',
+  'the repeated move left the entry where the first move put it');
+
 -- Out of scope and view-only members.
 INSERT INTO probe SELECT pg_temp.at_step('none', 'with-rater');
 SELECT pg_temp.act_as('3');
@@ -204,7 +216,14 @@ SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (
 
 -- Change of rater.
 INSERT INTO changed (entry) SELECT pg_temp.at_step('both', 'with-rater');
-UPDATE changed SET successor = public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2030-06-15', pg_temp.id('303'), NULL);
+INSERT INTO returned SELECT 'change', public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2030-06-15', pg_temp.id('303'), NULL)
+FROM changed;
+UPDATE changed SET successor = (SELECT (result -> 'successor' ->> 'id')::uuid FROM returned WHERE label = 'change');
+SELECT is((SELECT result FROM returned WHERE label = 'change'),
+    jsonb_build_object(
+      'entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM changed)),
+      'successor', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT successor FROM changed))),
+  'a change of rater returns the completed entry and its successor as stored');
 SELECT results_eq(
   $$ SELECT rating_period_start, rating_period_end, report_type, workflow_status, rater_person_id, notes
      FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM changed) $$,
@@ -220,12 +239,15 @@ SELECT results_eq(
        '2030-06-16'::date, '2031-06-15'::date, 'AN'::text, NULL::text, NULL::text) $$,
   'the successor is an untracked Annual for the new rater from the next day, with the other evaluators kept');
 SELECT is(public.change_rating_scheme_rater(pg_temp.id('101'), (SELECT entry FROM changed), '2030-06-15', pg_temp.id('303'), NULL),
-  NULL, 'repeating the change of rater returns no successor');
+  jsonb_build_object('entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM changed)),
+    'successor', NULL),
+  'repeating the change of rater returns the completed entry and no successor');
 SELECT is((SELECT count(*)::int FROM public.rating_scheme_entries WHERE rating_period_start = '2030-06-16'), 1,
   'repeating the change of rater opens no second successor');
 
 INSERT INTO leap (entry) SELECT pg_temp.new_entry('none', '2027-03-01', '2028-03-31');
-UPDATE leap SET successor = public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2028-02-28', NULL, ' SSG Named Rater ');
+UPDATE leap SET successor = (public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2028-02-28', NULL, ' SSG Named Rater ')
+  -> 'successor' ->> 'id')::uuid;
 SELECT results_eq(
   $$ SELECT rating_period_start, rating_period_end, rater_person_id, rater_name
      FROM public.rating_scheme_entries WHERE id = (SELECT successor FROM leap) $$,

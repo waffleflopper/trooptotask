@@ -4086,7 +4086,7 @@ export type Database = {
           p_rater_name?: string
           p_rater_person_id?: string
         }
-        Returns: string
+        Returns: Json
       }
       check_account_setup_rate_limit: {
         Args: {
@@ -5376,7 +5376,7 @@ export type Database = {
           p_organization_id: string
           p_to?: string
         }
-        Returns: boolean
+        Returns: Json
       }
       undo_roster_swap: {
         Args: { p_organization_id: string; p_swap_id: string; p_today: string }

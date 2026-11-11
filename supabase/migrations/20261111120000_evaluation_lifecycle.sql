@@ -255,10 +255,11 @@ $$;
 -- One step forward or back along the chain, skipping the intermediate-rater and reviewer steps when the entry has
 -- no one in that role. Not tracked can start at drafting or be marked completed; drafting and completed can return
 -- to not tracked. The same table is asserted in evaluationWorkflow.test.ts. The caller names the step it saw, so a
--- move made from a stale view is refused instead of overwriting newer progress.
+-- move made from a stale view is refused instead of overwriting newer progress. The result carries the row as it
+-- stands, so the caller needs no second read: moved is false when the entry was already at the requested step.
 CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL,
   p_to text DEFAULT NULL)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
     'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
@@ -285,7 +286,7 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN false;
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'entry', pg_catalog.to_jsonb(v_row));
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',
@@ -318,23 +319,25 @@ BEGIN
   END IF;
 
   UPDATE public.rating_scheme_entries SET workflow_status = p_to
-  WHERE organization_id = p_organization_id AND id = p_entry_id;
-  RETURN true;
+  WHERE organization_id = p_organization_id AND id = p_entry_id
+  RETURNING * INTO v_row;
+  RETURN pg_catalog.jsonb_build_object('moved', true, 'entry', pg_catalog.to_jsonb(v_row));
 END;
 $$;
 REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text, text) TO authenticated;
 
 -- A change of rater completes the current entry as a Change of Rater report through the change date and opens an
--- Annual successor for the new rater the next day. A completed entry has already been closed, so a repeat is a no-op.
+-- Annual successor for the new rater the next day. A completed entry has already been closed, so a repeat changes
+-- nothing and returns it with no successor.
 CREATE FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date,
   p_rater_person_id uuid DEFAULT NULL, p_rater_name text DEFAULT NULL)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_row public.rating_scheme_entries;
   v_rater_name text := NULLIF(pg_catalog.btrim(p_rater_name), '');
   v_start date := p_change_date + 1;
-  v_successor uuid;
+  v_successor public.rating_scheme_entries;
 BEGIN
   IF (p_rater_person_id IS NULL) = (v_rater_name IS NULL) THEN
     RAISE EXCEPTION 'Choose one new rater' USING ERRCODE = '22023';
@@ -355,7 +358,7 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status = 'completed' THEN
-    RETURN NULL;
+    RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', NULL);
   END IF;
   IF p_rater_person_id = v_row.rater_person_id
     OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
@@ -367,7 +370,8 @@ BEGIN
   END IF;
 
   UPDATE public.rating_scheme_entries SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed'
-  WHERE organization_id = p_organization_id AND id = p_entry_id;
+  WHERE organization_id = p_organization_id AND id = p_entry_id
+  RETURNING * INTO v_row;
 
   INSERT INTO public.rating_scheme_entries (
     organization_id, rated_person_id, eval_type, rater_person_id, rater_name,
@@ -380,8 +384,8 @@ BEGIN
     -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
     (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
     'AN'
-  ) RETURNING id INTO v_successor;
-  RETURN v_successor;
+  ) RETURNING * INTO v_successor;
+  RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', pg_catalog.to_jsonb(v_successor));
 END;
 $$;
 REVOKE ALL ON FUNCTION public.change_rating_scheme_rater(uuid, uuid, date, uuid, text) FROM PUBLIC, anon;

@@ -361,3 +361,48 @@ describe('owned Rating Scheme provider', () => {
 		}
 	});
 });
+
+describe('Rating Scheme lifecycle functions', () => {
+	function lifecycleProvider(result: unknown) {
+		const calls: string[] = [];
+		const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(new Request(input, init).url);
+					calls.push(url.pathname);
+					if (!url.pathname.startsWith('/rest/v1/rpc/')) throw new Error('Unexpected Rating provider operation');
+					return Response.json(result);
+				}
+			}
+		});
+		return { calls, ratingScheme: createSupabaseRatingSchemePersistence(client, 'org-a') };
+	}
+
+	it('answers a move from the function result with no second read', async () => {
+		const { calls, ratingScheme } = lifecycleProvider({ moved: false, entry: saved });
+		expect(await ratingScheme.transition('entry-a', { from: 'with-rater', to: 'with-rater' })).toEqual({
+			entry: expected,
+			moved: false
+		});
+		expect(calls).toEqual(['/rest/v1/rpc/transition_rating_scheme_entry']);
+	});
+
+	it('answers a change of rater with both rows from the function result', async () => {
+		const completed = { ...saved, workflow_status: 'completed' };
+		const successor = { ...saved, id: 'entry-b', workflow_status: null, report_type: 'AN' };
+		const change = { changeDate: '2026-06-01', raterPersonId: 'rater-b', raterName: null };
+		const open = lifecycleProvider({ entry: completed, successor });
+		expect(await open.ratingScheme.changeRater('entry-a', change)).toEqual({
+			entry: { ...expected, workflowStatus: 'completed' },
+			successor: { ...expected, id: 'entry-b', workflowStatus: null, reportType: 'AN' }
+		});
+		expect(open.calls).toEqual(['/rest/v1/rpc/change_rating_scheme_rater']);
+
+		const repeat = lifecycleProvider({ entry: completed, successor: null });
+		expect(await repeat.ratingScheme.changeRater('entry-a', change)).toEqual({
+			entry: { ...expected, workflowStatus: 'completed' },
+			successor: null
+		});
+	});
+});

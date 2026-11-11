@@ -6485,7 +6485,7 @@ ALTER FUNCTION public.cancel_own_deletion_request(p_organization_id uuid, p_requ
 -- Name: change_rating_scheme_rater(uuid, uuid, date, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid DEFAULT NULL::uuid, p_rater_name text DEFAULT NULL::text) RETURNS uuid
+CREATE FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid DEFAULT NULL::uuid, p_rater_name text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -6493,7 +6493,7 @@ DECLARE
   v_row public.rating_scheme_entries;
   v_rater_name text := NULLIF(pg_catalog.btrim(p_rater_name), '');
   v_start date := p_change_date + 1;
-  v_successor uuid;
+  v_successor public.rating_scheme_entries;
 BEGIN
   IF (p_rater_person_id IS NULL) = (v_rater_name IS NULL) THEN
     RAISE EXCEPTION 'Choose one new rater' USING ERRCODE = '22023';
@@ -6514,7 +6514,7 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status = 'completed' THEN
-    RETURN NULL;
+    RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', NULL);
   END IF;
   IF p_rater_person_id = v_row.rater_person_id
     OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
@@ -6526,7 +6526,8 @@ BEGIN
   END IF;
 
   UPDATE public.rating_scheme_entries SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed'
-  WHERE organization_id = p_organization_id AND id = p_entry_id;
+  WHERE organization_id = p_organization_id AND id = p_entry_id
+  RETURNING * INTO v_row;
 
   INSERT INTO public.rating_scheme_entries (
     organization_id, rated_person_id, eval_type, rater_person_id, rater_name,
@@ -6539,8 +6540,8 @@ BEGIN
     -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
     (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
     'AN'
-  ) RETURNING id INTO v_successor;
-  RETURN v_successor;
+  ) RETURNING * INTO v_successor;
+  RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', pg_catalog.to_jsonb(v_successor));
 END;
 $$;
 
@@ -14554,13 +14555,13 @@ ALTER FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_task
 -- Name: transition_rating_scheme_entry(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL::text, p_to text DEFAULT NULL::text) RETURNS boolean
+CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL::text, p_to text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
-  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
-    'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
+  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
+    'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
     'submitted-to-s1', 'completed'];
   v_row public.rating_scheme_entries;
   v_absent text[] := '{}';
@@ -14584,7 +14585,7 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN false;
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'entry', pg_catalog.to_jsonb(v_row));
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',
@@ -14617,8 +14618,9 @@ BEGIN
   END IF;
 
   UPDATE public.rating_scheme_entries SET workflow_status = p_to
-  WHERE organization_id = p_organization_id AND id = p_entry_id;
-  RETURN true;
+  WHERE organization_id = p_organization_id AND id = p_entry_id
+  RETURNING * INTO v_row;
+  RETURN pg_catalog.jsonb_build_object('moved', true, 'entry', pg_catalog.to_jsonb(v_row));
 END;
 $$;
 

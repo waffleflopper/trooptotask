@@ -259,8 +259,9 @@ withdraws nothing.
 - Pending invitation creation may succeed when email delivery fails. `Resend` retries that invitation and does not mint
   a new setup credential.
 - An invitation whose `member.invite` audit write fails is revoked before any setup link, notice or email, and the
-  address answers as one that was never created, so sending it again works. No fault control fails the audit store, so
-  the server tests own this case.
+  address answers as one that was never created, so sending it again works. If the revoke also fails, the invitation
+  stays pending and the address answers as created but unfinished; revoke it from `Waiting on them` before sending
+  again. No fault control fails the audit store, so the server tests own both cases.
 - Keep private email links and credentials out of snapshots, logs and committed evidence.
 - The captured mail is a synthetic sink, not a delivery proof. Supabase auth emails such as password recovery post to
   the same provider URL and are recorded as `auth`.

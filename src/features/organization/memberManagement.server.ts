@@ -460,7 +460,8 @@ function inviteOutcome(
 
 /**
  * Everything one created invitation still needs: its audit row first, then platform access setup, notices and
- * its email. An invitation whose audit row fails is withdrawn before anything reaches the invitee.
+ * its email. An invitation whose audit row fails is withdrawn before anything reaches the invitee; if the withdraw
+ * fails too, it stays pending and the address reports it as unfinished.
  */
 async function completeInvitation(
 	ports: InviteOrganizationMemberPorts,

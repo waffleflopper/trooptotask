@@ -64,7 +64,8 @@ export function evaluationPhase(workflowStatus: WorkflowStatus | null): Evaluati
 	return { step: PHASE_BY_STATUS[workflowStatus], label: workflowStatusLabel(workflowStatus) };
 }
 
-const hasRole = (personId: string | null, name: string | null) => personId !== null || Boolean(name?.trim());
+// Matches the database's btrim, which strips spaces only, so a tab-only name still counts as an evaluator.
+const hasRole = (personId: string | null, name: string | null) => personId !== null || /[^ ]/.test(name ?? '');
 
 export function workflowRoles(
 	entry: Pick<

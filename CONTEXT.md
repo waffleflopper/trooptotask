@@ -344,7 +344,7 @@ The independently authorized feature tracking rated people, rating relationships
 _Avoid_: Personnel metadata
 
 **Evaluation**:
-The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed and moves one step at a time, skipping the intermediate rater and reviewer steps when no one holds those roles.
+The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed.
 _Avoid_: Training, counseling, a separate record status
 
 **Change of Rater**:

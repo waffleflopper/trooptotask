@@ -51,7 +51,7 @@ describe('evaluation workflow moves', () => {
 		}
 	});
 
-	it('treats a blank evaluator name as no evaluator', () => {
+	it('counts an evaluator the way the database does', () => {
 		expect(ROLES.legacy).toEqual({ intermediateRater: false, reviewer: false });
 		expect(
 			workflowRoles({
@@ -59,6 +59,14 @@ describe('evaluation workflow moves', () => {
 				intermediateRaterName: 'LTC Named',
 				reviewerPersonId: 'reviewer-1',
 				reviewerName: null
+			})
+		).toEqual({ intermediateRater: true, reviewer: true });
+		expect(
+			workflowRoles({
+				intermediateRaterPersonId: null,
+				intermediateRaterName: '\t',
+				reviewerPersonId: null,
+				reviewerName: '\n'
 			})
 		).toEqual({ intermediateRater: true, reviewer: true });
 	});

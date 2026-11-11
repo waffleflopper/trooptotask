@@ -113,6 +113,7 @@ import type {
 } from '$features/personnel/contracts';
 import {
 	isArchivedPerson,
+	parseWorkflowStatus,
 	toArchivedPersonIds,
 	type RatingSchemeDuePort,
 	type RatingSchemePersistence
@@ -414,7 +415,9 @@ function unavailableRatingScheme(): RatingSchemePersistence {
 		countEntries: unavailable,
 		create: unavailable,
 		update: unavailable,
-		delete: unavailable
+		delete: unavailable,
+		transition: unavailable,
+		changeRater: unavailable
 	};
 }
 
@@ -1559,7 +1562,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				rated_person_id: string;
 				eval_type: 'OER' | 'NCOER' | 'WOER';
 				rating_period_end: string;
-				status: 'active' | 'completed' | 'change-of-rater';
+				workflow_status: string | null;
 			}>(
 				'rating_scheme_entries',
 				actor.orgId,
@@ -1578,7 +1581,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 					...(names.has(row.rated_person_id) ? { ratedPersonName: names.get(row.rated_person_id) } : {}),
 					evalType: row.eval_type,
 					ratingPeriodEnd: row.rating_period_end,
-					status: row.status
+					workflowStatus: parseWorkflowStatus(row.workflow_status)
 				}));
 		}
 	};

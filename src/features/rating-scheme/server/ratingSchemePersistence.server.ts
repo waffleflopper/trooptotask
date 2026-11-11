@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '$lib/server/database';
+import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { RatingSchemePersistence } from '../contracts';
+import { EVALUATION_GONE, lifecycleFailure } from './ratingSchemeLifecycleFailure.server';
 import {
 	mapRatingSchemeEntry,
 	ratingSchemeCreateValues,
@@ -10,6 +12,18 @@ import {
 } from './ratingSchemeEntryMapping.server';
 
 export function createSupabaseRatingSchemePersistence(client: SupabaseClient, orgId: string): RatingSchemePersistence {
+	async function findEntry(id: string) {
+		const { data, error } = await client
+			.from('rating_scheme_entries')
+			.select(RATING_SCHEME_SELECT)
+			.eq('organization_id', orgId)
+			.eq('id', id)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		if (!data) return fail(404, EVALUATION_GONE);
+		return mapRatingSchemeEntry(data as RatingSchemeRow);
+	}
+
 	return {
 		async listWorkspace() {
 			const { data, error } = await selectAllSupabaseRows<RatingSchemeRow>(async (from, to) => {
@@ -92,6 +106,27 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 		async delete(id) {
 			const { error } = await client.from('rating_scheme_entries').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
+		},
+		async transition(id, to) {
+			const { data, error } = await client.rpc('transition_rating_scheme_entry', {
+				p_organization_id: orgId,
+				p_entry_id: id,
+				p_to: to ?? undefined
+			});
+			if (error) return lifecycleFailure(error);
+			return { entry: await findEntry(id), moved: data === true };
+		},
+		async changeRater(id, change) {
+			const { data, error } = await client.rpc('change_rating_scheme_rater', {
+				p_organization_id: orgId,
+				p_entry_id: id,
+				p_change_date: change.changeDate,
+				p_rater_person_id: change.raterPersonId ?? undefined,
+				p_rater_name: change.raterName ?? undefined
+			});
+			if (error) return lifecycleFailure(error);
+			const [entry, successor] = await Promise.all([findEntry(id), data ? findEntry(data) : null]);
+			return { entry, successor };
 		}
 	};
 }

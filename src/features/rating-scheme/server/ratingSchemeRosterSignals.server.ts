@@ -9,7 +9,6 @@ type EntryTuple = [
 	reportType: RatingSchemeEntry['reportType'],
 	ratingPeriodStart: string,
 	ratingPeriodEnd: string,
-	status: RatingSchemeEntry['status'],
 	workflowStatus: RatingSchemeEntry['workflowStatus']
 ];
 
@@ -18,22 +17,10 @@ export function createSupabaseRatingSchemeRosterSignals(slices: RosterSignalSlic
 		const { cohort, entries } = (await slices('evaluations', query)) as { cohort: string[]; entries: EntryTuple[] };
 		const { asOf } = query;
 		const read = new Map<string, ActiveEvaluationProjection | null>(cohort.map((id) => [id, null]));
-		for (const [
-			personnelId,
-			id,
-			evalType,
-			reportType,
-			ratingPeriodStart,
-			ratingPeriodEnd,
-			status,
-			workflowStatus
-		] of entries) {
+		for (const [personnelId, id, evalType, reportType, ratingPeriodStart, ratingPeriodEnd, workflowStatus] of entries) {
 			read.set(
 				personnelId,
-				projectActiveEvaluation(
-					{ id, evalType, reportType, ratingPeriodStart, ratingPeriodEnd, status, workflowStatus },
-					asOf
-				)
+				projectActiveEvaluation({ id, evalType, reportType, ratingPeriodStart, ratingPeriodEnd, workflowStatus }, asOf)
 			);
 		}
 		return read;

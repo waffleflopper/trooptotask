@@ -2,13 +2,15 @@ import type { Database } from '$lib/server/database';
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSchemeEntry } from '../contracts';
+import { parseWorkflowStatus, WORKFLOW_STEPS } from '../utils/evaluationWorkflow';
+import type { WorkflowStatus } from '../rating-scheme.types';
 
 export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entries']['Row'];
 
 export const RATING_SCHEME_SELECT =
-	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at';
+	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,created_at,updated_at';
 
-export const ratingSchemeEntryCreateSchema = z.object({
+const ratingSchemeEntryFields = z.object({
 	ratedPersonId: uuidSchema,
 	evalType: z.enum(['OER', 'NCOER', 'WOER']),
 	raterPersonId: z.string().nullable().optional(),
@@ -21,13 +23,39 @@ export const ratingSchemeEntryCreateSchema = z.object({
 	reviewerName: z.string().nullable().optional(),
 	ratingPeriodStart: dateOnlySchema,
 	ratingPeriodEnd: dateOnlySchema,
-	status: z.enum(['active', 'completed', 'change-of-rater']),
 	notes: z.string().nullable().optional(),
-	reportType: z.string().nullable().optional(),
-	workflowStatus: z.string().nullable().optional()
+	reportType: z.string().nullable().optional()
 });
 
-export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryCreateSchema.partial().extend({ id: uuidSchema });
+/** Only the lifecycle actions move the step, so a client still sending it learns that instead of losing the change. */
+const notAField = z.never({ error: 'The workflow step changes through its own action, not a save' }).optional();
+
+/** A new entry starts not tracked; the client's optimistic row says so. */
+export const ratingSchemeEntryCreateSchema = ratingSchemeEntryFields.extend({
+	status: notAField,
+	workflowStatus: z.null({ error: 'A new evaluation starts not tracked' }).optional()
+});
+
+export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields
+	.partial()
+	.extend({ id: uuidSchema, status: notAField, workflowStatus: notAField });
+
+export const ratingSchemeTransitionSchema = z.strictObject({
+	to: z.enum(WORKFLOW_STEPS as [WorkflowStatus, ...WorkflowStatus[]]).nullable()
+});
+
+export const ratingSchemeRaterChangeSchema = z
+	.strictObject({
+		changeDate: dateOnlySchema,
+		raterPersonId: uuidSchema.nullable().optional(),
+		raterName: z.string().trim().nullable().optional()
+	})
+	.transform(({ changeDate, raterPersonId, raterName }) => ({
+		changeDate,
+		raterPersonId: raterPersonId ?? null,
+		raterName: raterName || null
+	}))
+	.refine((change) => (change.raterPersonId === null) !== (change.raterName === null), 'Choose one new rater');
 
 export function mapRatingSchemeEntry(row: RatingSchemeRow): SavedRatingSchemeEntry {
 	return {
@@ -45,10 +73,9 @@ export function mapRatingSchemeEntry(row: RatingSchemeRow): SavedRatingSchemeEnt
 		reviewerName: row.reviewer_name,
 		ratingPeriodStart: row.rating_period_start,
 		ratingPeriodEnd: row.rating_period_end,
-		status: row.status as SavedRatingSchemeEntry['status'],
 		notes: row.notes,
 		reportType: row.report_type as SavedRatingSchemeEntry['reportType'],
-		workflowStatus: row.workflow_status as SavedRatingSchemeEntry['workflowStatus'],
+		workflowStatus: parseWorkflowStatus(row.workflow_status),
 		created_at: row.created_at,
 		updated_at: row.updated_at
 	};
@@ -72,10 +99,8 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 		reviewer_name: emptyToNull(input.reviewerName) ?? null,
 		rating_period_start: input.ratingPeriodStart,
 		rating_period_end: input.ratingPeriodEnd,
-		status: input.status,
 		notes: emptyToNull(input.notes) ?? null,
-		report_type: emptyToNull(input.reportType) ?? null,
-		workflow_status: emptyToNull(input.workflowStatus) ?? null
+		report_type: emptyToNull(input.reportType) ?? null
 	};
 }
 
@@ -93,10 +118,8 @@ export function ratingSchemePatchValues(input: RatingSchemePatchValues) {
 		reviewer_name: emptyToNull(input.reviewerName),
 		rating_period_start: input.ratingPeriodStart,
 		rating_period_end: input.ratingPeriodEnd,
-		status: input.status,
 		notes: emptyToNull(input.notes),
-		report_type: emptyToNull(input.reportType),
-		workflow_status: emptyToNull(input.workflowStatus)
+		report_type: emptyToNull(input.reportType)
 	};
 	const filtered: Partial<typeof values> = Object.fromEntries(
 		Object.entries(values).filter(([, value]) => value !== undefined)

@@ -11,10 +11,17 @@ import type { PersonnelRatingSchemeRosterPort, PersonnelWriteSubject } from '$fe
 import type {
 	RatingSchemePersistence,
 	RatingSchemePatchValues,
+	RatingSchemeRaterChangeResult,
+	RatingSchemeTransition,
 	RatingSchemeWriteReference,
 	SavedRatingSchemeEntry
 } from '../contracts';
-import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
+import {
+	ratingSchemeEntryCreateSchema,
+	ratingSchemeEntryUpdateSchema,
+	ratingSchemeRaterChangeSchema,
+	ratingSchemeTransitionSchema
+} from './ratingSchemeEntryMapping.server';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
 import { RequestFailure } from '$lib/errors';
@@ -25,7 +32,10 @@ export { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './
 export interface RatingSchemeEntryWriteContext {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;
-	readonly ratingScheme: Pick<RatingSchemePersistence, 'findWriteReference' | 'create' | 'update' | 'delete'>;
+	readonly ratingScheme: Pick<
+		RatingSchemePersistence,
+		'findWriteReference' | 'create' | 'update' | 'delete' | 'transition' | 'changeRater'
+	>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
 		'findRatedPersonForWrite' | 'hasEvaluatorReferences'
@@ -165,6 +175,39 @@ export async function updateRatingSchemeEntry(
 	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
 
 	return entry;
+}
+
+async function requireEntryUpdatePolicy(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string
+): Promise<RatingSchemeWriteReference> {
+	if (!validateUUID(id)) throw new RequestFailure(404, 'Rating Scheme entry not found');
+	const current = await findRatingSchemeEntry(ctx, id);
+	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.ratedPersonId), id);
+	return current;
+}
+
+/** Moves an evaluation one step; the database refuses any other move. */
+export async function transitionRatingSchemeEntry(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string,
+	data: Record<string, unknown>
+): Promise<RatingSchemeTransition> {
+	const { to } = parseEntryInput(ratingSchemeTransitionSchema, data);
+	await requireEntryUpdatePolicy(ctx, id);
+	return ctx.ratingScheme.transition(id, to);
+}
+
+/** Completes the evaluation as a Change of Rater report and opens the next one for the new rater. */
+export async function changeRatingSchemeRater(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string,
+	data: Record<string, unknown>
+): Promise<RatingSchemeRaterChangeResult> {
+	const change = parseEntryInput(ratingSchemeRaterChangeSchema, data);
+	const current = await requireEntryUpdatePolicy(ctx, id);
+	await requireEvaluatorReferences(ctx, { raterPersonId: change.raterPersonId }, current);
+	return ctx.ratingScheme.changeRater(id, change);
 }
 
 export async function removeRatingSchemeEntry(

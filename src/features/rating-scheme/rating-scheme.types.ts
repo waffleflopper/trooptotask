@@ -99,14 +99,13 @@ export interface RatingSchemeEntry {
 	reviewerName: string | null;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
-	status: 'active' | 'completed' | 'change-of-rater';
 	notes: string | null;
 	reportType: ReportType | null;
 	workflowStatus: WorkflowStatus | null;
 }
 
 export interface EvaluationPhase {
-	/** 0 when no workflow status is tracked yet. */
+	/** 0 when the evaluation is not tracked. */
 	step: 0 | 1 | 2 | 3 | 4 | 5;
 	label: string;
 }

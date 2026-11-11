@@ -2,7 +2,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import { parseDate } from '$lib/utils/dates';
 import type { RatingSchemePersistence } from '../contracts';
 import type { PersonnelActiveEvaluation, RatingSchemeEntry } from '../rating-scheme.types';
-import { evaluationPhase } from '../utils/evaluationPhase';
+import { evaluationPhase, isEvaluationCompleted } from '../utils/evaluationWorkflow';
 import { getDaysUntilDue, getRatingDueStatus, getReportTypeLabel } from '../utils/ratingScheme';
 
 type Evaluator = 'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer';
@@ -10,7 +10,7 @@ const EVALUATORS: readonly Evaluator[] = ['rater', 'seniorRater', 'intermediateR
 
 export type ActiveEvaluationEntry = Pick<
 	RatingSchemeEntry,
-	'id' | 'evalType' | 'reportType' | 'ratingPeriodStart' | 'ratingPeriodEnd' | 'status' | 'workflowStatus'
+	'id' | 'evalType' | 'reportType' | 'ratingPeriodStart' | 'ratingPeriodEnd' | 'workflowStatus'
 >;
 
 export type ActiveEvaluationProjection = Omit<
@@ -28,7 +28,7 @@ export function projectActiveEvaluation(entry: ActiveEvaluationEntry, asOf: stri
 		periodStart: entry.ratingPeriodStart,
 		periodEnd: entry.ratingPeriodEnd,
 		daysUntilThru: getDaysUntilDue(entry.ratingPeriodEnd, today),
-		dueStatus: getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today),
+		dueStatus: getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today),
 		workflowStatus: entry.workflowStatus,
 		phase: evaluationPhase(entry.workflowStatus)
 	};
@@ -42,7 +42,9 @@ export async function loadPersonnelActiveEvaluation(input: {
 	findPersonNames: (ids: string[]) => Promise<Map<string, string>>;
 }): Promise<PersonnelActiveEvaluation | null> {
 	const person = await input.loadAuthorizedPerson();
-	const entry = (await input.ratingScheme.listPersonReadiness(person.id)).find((row) => row.status !== 'completed');
+	const entry = (await input.ratingScheme.listPersonReadiness(person.id)).find(
+		(row) => !isEvaluationCompleted(row.workflowStatus)
+	);
 	if (!entry) return null;
 
 	const personIds = EVALUATORS.map((role) => entry[`${role}PersonId`]).filter((id): id is string => Boolean(id));

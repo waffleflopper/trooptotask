@@ -1,6 +1,6 @@
 import type { CapabilityMap, MembershipRole, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PersonnelLookup } from '$features/personnel/contracts';
-import type { RatingSchemeEntry } from './rating-scheme.types';
+import type { RatingSchemeEntry, WorkflowStatus } from './rating-scheme.types';
 import type {
 	FeatureLanePolicyAction,
 	OrganizationGovernancePolicyAction,
@@ -68,7 +68,6 @@ export interface RatingSchemeCreateValues {
 	evalType: RatingSchemeEntry['evalType'];
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
-	status: RatingSchemeEntry['status'];
 	raterPersonId?: string | null;
 	raterName?: string | null;
 	seniorRaterPersonId?: string | null;
@@ -79,7 +78,6 @@ export interface RatingSchemeCreateValues {
 	reviewerName?: string | null;
 	notes?: string | null;
 	reportType?: string | null;
-	workflowStatus?: string | null;
 }
 
 export type RatingSchemePatchValues = Partial<RatingSchemeCreateValues>;
@@ -92,6 +90,25 @@ export interface RatingSchemeWriteReference {
 	reviewerPersonId: string | null;
 }
 
+/** The current rater's last day closes this evaluation as a Change of Rater; the new rater starts the next one. */
+export interface RatingSchemeRaterChange {
+	changeDate: string;
+	raterPersonId: string | null;
+	raterName: string | null;
+}
+
+export interface RatingSchemeTransition {
+	entry: SavedRatingSchemeEntry;
+	/** False when the evaluation was already at the requested step. */
+	moved: boolean;
+}
+
+export interface RatingSchemeRaterChangeResult {
+	entry: SavedRatingSchemeEntry;
+	/** Null when the evaluation was already completed, so nothing changed. */
+	successor: SavedRatingSchemeEntry | null;
+}
+
 export interface RatingSchemePersistence {
 	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
 	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
@@ -101,6 +118,8 @@ export interface RatingSchemePersistence {
 	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
 	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;
 	delete(id: string): Promise<void>;
+	transition(id: string, to: WorkflowStatus | null): Promise<RatingSchemeTransition>;
+	changeRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
 }
 
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';
@@ -134,7 +153,7 @@ export interface RatingSchemeDueEntry {
 	ratedPersonName?: string;
 	evalType: 'OER' | 'NCOER' | 'WOER';
 	ratingPeriodEnd: string;
-	status: 'active' | 'completed' | 'change-of-rater';
+	workflowStatus: WorkflowStatus | null;
 }
 
 /** Trusted request facts supplied after Organization admission. */
@@ -153,6 +172,7 @@ export interface RatingSchemeDuePort {
 }
 
 export { getRatingDueStatus } from './utils/ratingScheme';
+export { isEvaluationCompleted, parseWorkflowStatus } from './utils/evaluationWorkflow';
 export { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
 export type { ArchivedPersonIds } from './archivedPeople';
 

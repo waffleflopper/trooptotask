@@ -1,7 +1,7 @@
 import type { AssignmentType, DailyAssignment, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { formatDate, getMonthDates, isWeekend, parseDate } from '$lib/utils/dates';
-import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { fromDayNumber, mondayOf, toDayNumber } from '$lib/utils/dayNumber';
 import { takesDutyOn } from '$features/calendar/roster/rosterCalendar';
 import { availabilityEntryLabel } from './availabilityLabels';
 import { assignmentSlotKey } from './calendarIndexes';
@@ -256,12 +256,6 @@ export function monthWeekStarts(anchor: Date): string[] {
 	const dates = getMonthDates(anchor.getFullYear(), anchor.getMonth()).map(formatDate);
 	const starts = new Set(dates.map(mondayOf));
 	return [...starts];
-}
-
-export function mondayOf(dateKey: string): string {
-	const day = toDayNumber(dateKey);
-	// Day 0 is Thursday 1 Jan 1970, so (day + 4) % 7 is 0 on Sunday.
-	return fromDayNumber(day - ((((day + 4) % 7) + 6) % 7));
 }
 
 /**

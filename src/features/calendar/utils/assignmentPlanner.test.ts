@@ -11,10 +11,10 @@ import {
 	buildCopyPlan,
 	buildPlannerTable,
 	buildQuickFillBatch,
-	mondayOf,
 	monthWeekStarts,
 	type CopySpan
 } from './assignmentPlanner';
+import { mondayOf } from '$lib/utils/dayNumber';
 import { indexAssignmentsBySlot } from './calendarIndexes';
 import { findDutyConflicts, indexDutyAvailability } from './dutyReadModel';
 

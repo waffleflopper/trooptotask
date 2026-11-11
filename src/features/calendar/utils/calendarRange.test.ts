@@ -10,6 +10,7 @@ import {
 	longRangeDates,
 	planCalendarRangeReads,
 	shiftCalendarPeriod,
+	weekDates,
 	type CalendarBufferedRange
 } from './calendarRange';
 
@@ -212,6 +213,71 @@ describe('calendarPeriod', () => {
 		expect(formatDate(shiftCalendarPeriod(anchor, 'month', -1))).toBe('2026-11-01');
 		expect(formatDate(shiftCalendarPeriod(anchor, '3-month', 1))).toBe('2027-03-01');
 		expect(formatDate(shiftCalendarPeriod(new Date(2027, 0, 15), '3-month', -1))).toBe('2026-10-01');
+	});
+});
+
+describe('week periods', () => {
+	it.each(['agenda', 'week'] as const)('names the Monday-start week of any day in %s', (view) => {
+		const period = calendarPeriod(new Date(2026, 10, 11), view);
+
+		expect(period.title).toBe('9–15 Nov 2026');
+		expect(formatDate(period.start)).toBe('2026-11-09');
+		expect([period.previousLabel, period.nextLabel]).toEqual(['Previous week', 'Next week']);
+	});
+
+	it('names a week across a month end and across a year end', () => {
+		expect(calendarPeriod(new Date(2026, 9, 28), 'week').title).toBe('26 Oct – 1 Nov 2026');
+		expect(calendarPeriod(new Date(2026, 10, 2), 'week').title).toBe('2–8 Nov 2026');
+		expect(calendarPeriod(new Date(2026, 11, 31), 'week').title).toBe('28 Dec 2026 – 3 Jan 2027');
+	});
+
+	it('steps seven days from the anchor in either direction, across a month end', () => {
+		const anchor = new Date(2026, 9, 29);
+		expect(formatDate(shiftCalendarPeriod(anchor, 'week', 1))).toBe('2026-11-05');
+		expect(formatDate(shiftCalendarPeriod(anchor, 'agenda', -1))).toBe('2026-10-22');
+	});
+
+	it('lists Monday to Sunday of the anchor week, with a Sunday anchor belonging to the week before it', () => {
+		expect(weekDates(new Date(2026, 10, 15)).map(formatDate)).toEqual([
+			'2026-11-09',
+			'2026-11-10',
+			'2026-11-11',
+			'2026-11-12',
+			'2026-11-13',
+			'2026-11-14',
+			'2026-11-15'
+		]);
+		expect(formatDate(weekDates(new Date(2026, 10, 16))[0])).toBe('2026-11-16');
+	});
+
+	it('covers the anchor week through the same read-back as the months', () => {
+		expect(calendarViewCoverage(new Date(2026, 10, 18), 'week', '2026-11-18')).toEqual({
+			availability: { rangeStart: '2026-11-16', rangeEnd: '2026-11-22' },
+			assignments: { rangeStart: '2026-11-16', rangeEnd: '2026-11-22' }
+		});
+		expect(calendarViewCoverage(new Date(2026, 10, 25), 'agenda', '2026-11-18').availability).toEqual({
+			rangeStart: '2026-11-18',
+			rangeEnd: '2026-11-29'
+		});
+	});
+
+	it('needs no read for a week inside the loaded month', () => {
+		const month = calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-11-10');
+
+		expect(planCalendarRangeReads(month, calendarViewCoverage(new Date(2026, 10, 18), 'week', '2026-11-10'))).toEqual(
+			[]
+		);
+	});
+
+	it('reads only the missing days of a week that straddles into the month before the loaded one', () => {
+		const month = calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-11-10');
+
+		expect(planCalendarRangeReads(month, calendarViewCoverage(new Date(2026, 10, 3), 'week', '2026-11-10'))).toEqual(
+			[]
+		);
+		expect(planCalendarRangeReads(month, calendarViewCoverage(new Date(2026, 10, 1), 'agenda', '2026-11-10'))).toEqual([
+			{ rangeStart: '2026-10-26', rangeEnd: '2026-10-31', collections: ['availability', 'assignments'] }
+		]);
 	});
 });
 

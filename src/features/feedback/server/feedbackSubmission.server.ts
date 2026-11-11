@@ -17,6 +17,7 @@ const SECTION_MAP: Record<string, string> = {
 	personnel: 'Personnel',
 	onboarding: 'Onboarding',
 	settings: 'Settings',
+	'settings/overview': 'Settings',
 	'settings/general': 'Settings',
 	'settings/members': 'Settings',
 	'settings/policies': 'Settings',

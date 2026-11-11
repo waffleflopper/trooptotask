@@ -12,6 +12,12 @@ export function streamSettingsNavCounts(
 	const { approvals, invitations } = readAdminAttention({ ...ctx, readPendingApprovals });
 	return {
 		pendingInvitations: keepStreamedRejectionObserved(invitations.then((read) => read.pending)),
+		invitationsToFollowUp: keepStreamedRejectionObserved(
+			invitations.then(({ attention }) => ({
+				deliveryFailed: attention.filter((invitation) => invitation.reason === 'deliveryFailed').length,
+				expiringSoon: attention.filter((invitation) => invitation.reason === 'expiringSoon').length
+			}))
+		),
 		pendingApprovals: keepStreamedRejectionObserved(
 			approvals.then((groups) => groups.reduce((total, group) => total + group.count, 0))
 		)

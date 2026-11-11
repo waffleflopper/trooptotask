@@ -6,7 +6,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { streamSettingsNavCounts } from './settingsShell.server';
 import { buildSettingsShell } from '$features/organization/contracts';
-import { loadSettingsOrganization, buildSettingsPageOrganization } from './settingsLoad.server';
+import { loadSettingsOrganization, buildSettingsPageOrganization, settingsLandingPath } from './settingsLoad.server';
 import { createSettingsShellContext } from './settingsRequestContexts.server';
 import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
@@ -19,11 +19,11 @@ export const load: LayoutServerLoad = async (event) => {
 	const orgUrlSegment = organization.urlSegment;
 	if (identity.suspendedAt) redirect(303, `/org/${orgUrlSegment}`);
 
-	await buildLayoutRequest(locals, identity.id);
+	const request = await buildLayoutRequest(locals, identity.id);
 
 	// A tracked route read would make the client refetch this layout on every switch between settings pages.
 	if (untrack(() => route.id) === '/org/[orgId]/settings') {
-		redirect(303, `/org/${orgUrlSegment}/settings/general`);
+		redirect(303, settingsLandingPath(orgUrlSegment, request.auth.role));
 	}
 
 	depends(PENDING_APPROVALS_DEPENDENCY);

@@ -76,6 +76,8 @@ export {
 } from './settingsProvider.server';
 export { readUnitCounts, type OrganizationUnitCountsPort } from './unitCounts.server';
 export { createSupabaseOrganizationUnitCountsPort } from './unitCountsProvider.server';
+export type { OrganizationOverviewCountsPort } from './overviewCounts.server';
+export { createSupabaseOrganizationOverviewCountsPort } from './overviewCountsProvider.server';
 export { createSupabaseOrganizationRawExportReader } from './rawExport.server';
 export { createSupabaseOrganizationRetentionSettingsReader } from './retentionSettings.server';
 export {

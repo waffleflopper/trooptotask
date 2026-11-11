@@ -362,6 +362,27 @@ describe('members settings setup-state lookup degradation', () => {
 });
 
 describe('members settings section shaping', () => {
+	it('marks the invitations counted as expiring soon, leaving a failed email to its own count', () => {
+		const section = buildSection({
+			invitations: [
+				invitationRow({ id: 'soon', expires_at: '2026-08-07T12:00:00Z' }),
+				invitationRow({ id: 'soon-and-failed', expires_at: '2026-08-05T08:00:00Z' }),
+				invitationRow({ id: 'later', expires_at: '2026-08-07T12:00:01Z' })
+			],
+			invitationDeliveries: [
+				deliveryRow({ invitation_id: 'soon' }),
+				deliveryRow({ id: 'delivery-2', invitation_id: 'soon-and-failed', status: 'failed' }),
+				deliveryRow({ id: 'delivery-3', invitation_id: 'later' })
+			]
+		});
+
+		expect(section.invitations.map(({ id, expiringSoon }) => [id, expiringSoon])).toEqual([
+			['soon', true],
+			['soon-and-failed', false],
+			['later', false]
+		]);
+	});
+
 	it('streams lapsed and closed invitations into history, newest first, and keeps only actionable ones pending', async () => {
 		const section = buildSection({
 			invitations: [
@@ -411,6 +432,21 @@ describe('members settings section shaping', () => {
 		});
 
 		expect(section.rows[0].scopeDisplayLabel).toBe('No groups');
+	});
+
+	it('reads a member whose only Groups were deleted as scoped to no groups, and names the Groups that remain', () => {
+		const section = buildSection({
+			groups: [{ id: 'alpha', name: 'Alpha', parentId: null, memberCount: 3 }],
+			members: [
+				memberRow({ id: 'orphan', access_scope_kind: 'groups', access_scope_group_ids: ['deleted-group'] }),
+				memberRow({ id: 'mixed', access_scope_kind: 'groups', access_scope_group_ids: ['deleted-group', 'alpha'] })
+			]
+		});
+
+		expect(section.rows.map((row) => [row.id, row.scopeDisplayLabel])).toEqual([
+			['orphan', 'No groups'],
+			['mixed', 'Alpha']
+		]);
 	});
 
 	it('withholds invite and access management from members who cannot manage members', () => {

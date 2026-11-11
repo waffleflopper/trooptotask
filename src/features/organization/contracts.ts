@@ -75,7 +75,12 @@ export type {
 	InvitationAttention,
 	InvitationsAttention
 } from './adminAttentionTypes';
-export type { SettingsNavCounts, SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
+export type {
+	InvitationFollowUpCounts,
+	SettingsNavCounts,
+	SettingsShell,
+	SettingsShellOrganizationSource
+} from './settingsShell';
 export type {
 	OrganizationSupportOrganization,
 	OrganizationSupportUserMembership,
@@ -90,16 +95,21 @@ export type {
 export {
 	FEATURE_COUNT_KEYS,
 	FEATURE_ROWS,
+	FEATURE_SETUP,
 	availabilityHolds,
+	featuresNotSetUp,
 	holdsLane,
+	setupFeaturesOn,
 	lossWindowHolds,
 	strengthFloorSentence,
 	type FeatureCounts,
 	type FeatureRow,
 	type FeaturesSettingsData,
-	type HoldsLane
+	type HoldsLane,
+	type SetupFeatureKey
 } from './featuresSettings';
 export { availabilityPercent, isBelowStrengthFloor } from './strengthFloor';
+export type { OverviewSources, SettingsOverviewData } from './settingsOverview';
 
 export * from './setup/registry';
 export * from './setup/state';

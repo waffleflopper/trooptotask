@@ -362,6 +362,7 @@
 						{/if}
 						<SetupHints
 							hints={setupHints}
+							overviewHref="/org/{model?.data.orgId}/settings/overview"
 							onDismiss={(feature) => hintDismissals.dismiss(feature)}
 							onEmptied={focusAfterHints}
 						/>

@@ -49,6 +49,7 @@ export type SettingsPendingInvitationRow = SettingsInvitationRow & {
 	funnelStatus: SettingsInvitationFunnelStatus;
 	funnelStatusLabel: string;
 	funnelStatusDetail: string;
+	expiringSoon: boolean;
 };
 
 export type SettingsInvitationHistoryRow = SettingsInvitationAccessRow & {

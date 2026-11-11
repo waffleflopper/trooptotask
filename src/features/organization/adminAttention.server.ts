@@ -14,6 +14,10 @@ import type { OrganizationSettingsReader } from './settingsTypes';
 /** An invitation that lapses within this long is worth a nudge before it does. */
 export const EXPIRING_SOON_HOURS = 72;
 
+export function expiresSoon(expiresAt: string, now: Date): boolean {
+	return new Date(expiresAt).getTime() <= now.getTime() + EXPIRING_SOON_HOURS * 3_600_000;
+}
+
 export interface AdminAttentionContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
@@ -24,12 +28,11 @@ export interface AdminAttentionContext {
 
 async function readInvitations(ctx: AdminAttentionContext, now: Date): Promise<InvitationsAttention> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.inviteMember);
-	const soonest = now.getTime() + EXPIRING_SOON_HOURS * 3_600_000;
 	const facts = await ctx.organizationSettings.listUnexpiredPendingInvitations(ctx.auth.orgId, now);
 	const attention = facts.flatMap((fact): InvitationAttention[] => {
 		const { id, email, expiresAt } = fact;
 		if (fact.latestDeliveryStatus === 'failed') return [{ id, email, expiresAt, reason: 'deliveryFailed' }];
-		if (new Date(expiresAt).getTime() <= soonest) return [{ id, email, expiresAt, reason: 'expiringSoon' }];
+		if (expiresSoon(expiresAt, now)) return [{ id, email, expiresAt, reason: 'expiringSoon' }];
 		return [];
 	});
 	return { pending: facts.length, attention: attention.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt)) };

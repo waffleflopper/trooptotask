@@ -22,10 +22,15 @@ export interface SettingsShell {
 	};
 }
 
-/** The counts the nav shows as badges. Each streams on its own, so one failed read leaves the other badge intact. */
+export interface InvitationFollowUpCounts {
+	deliveryFailed: number;
+	expiringSoon: number;
+}
+
 export interface SettingsNavCounts {
 	pendingInvitations: Promise<number>;
 	pendingApprovals: Promise<number>;
+	invitationsToFollowUp: Promise<InvitationFollowUpCounts>;
 }
 
 export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;
@@ -35,6 +40,7 @@ export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;
  * starts a new section, 40 px below the one above, as the pages set their sections apart.
  */
 export type SettingsSkeletonBlock =
+	| { kind: 'summary' }
 	/** Rows under a 2px rule, one height in px per row; `endRule` closes them as FactSection's does. */
 	| { kind: 'rows'; heights: readonly number[]; rule?: 'destructive'; endRule?: boolean }
 	/** A compact section title over a 2px rule, with a control on the right when `action` is set. */
@@ -66,6 +72,13 @@ export interface SettingsPage {
 
 /** Every settings page in nav order. Admins do not see owner-only pages; those routes guard themselves. */
 export const SETTINGS_PAGES = {
+	overview: {
+		label: 'Overview',
+		group: 'Unit',
+		ownerOnly: false,
+		width: 'form',
+		skeleton: [{ kind: 'summary' }, { kind: 'rows', heights: [97, 97, 97, 97, 96], endRule: true }]
+	},
 	general: {
 		label: 'General',
 		group: 'Unit',

@@ -39,8 +39,43 @@ function count(n: number, one: string, many = `${one}s`): string {
 	return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 }
 
-function holding(text: string, empty: boolean, missing: string): FeatureHolds {
-	return { text, missing: empty ? missing : null };
+type SetupCountKey = 'trainingTypes' | 'criticalTaskLists' | 'ratingSchemeEntries' | 'onboardingTemplates';
+
+interface FeatureSetup {
+	count: SetupCountKey;
+	missing: string;
+	/** Where to fix it; `path` is under `/org/<segment>/`. */
+	fix: { label: string; path: string };
+}
+
+export const FEATURE_SETUP = {
+	training: {
+		count: 'trainingTypes',
+		missing: 'training types',
+		fix: { label: 'Add a training type', path: 'training/types' }
+	},
+	criticalTasks: {
+		count: 'criticalTaskLists',
+		missing: 'task lists',
+		fix: { label: 'Add a task', path: 'critical-tasks/library' }
+	},
+	evaluations: {
+		count: 'ratingSchemeEntries',
+		missing: 'rating scheme',
+		fix: { label: 'Add an entry', path: 'evals' }
+	},
+	onboarding: {
+		count: 'onboardingTemplates',
+		missing: 'templates',
+		fix: { label: 'Create a template', path: 'onboarding/templates' }
+	}
+} as const satisfies Partial<Record<FeatureKey, FeatureSetup>>;
+
+export type SetupFeatureKey = keyof typeof FEATURE_SETUP;
+
+function holding(key: SetupFeatureKey, counts: FeatureCounts, text: string): FeatureHolds {
+	const { count: countKey, missing } = FEATURE_SETUP[key];
+	return { text, missing: counts[countKey] === 0 ? missing : null };
 }
 
 const OFF = 'Off. Hidden from the sidebar and the dashboard';
@@ -51,35 +86,25 @@ export const FEATURE_ROWS: readonly FeatureRow[] = (
 			key: 'training',
 			description: 'Training records, types and reports, and training currency on the dashboard.',
 			offDescription: `${OFF}, and its summary isn't loaded. Training types and records are kept.`,
-			holds: (c) =>
-				holding(
-					`${count(c.trainingTypes, 'type')} · ${count(c.trainingRecords, 'record')}`,
-					c.trainingTypes === 0,
-					'training types'
-				)
+			holds: (c) => holding('training', c, `${count(c.trainingTypes, 'type')} · ${count(c.trainingRecords, 'record')}`)
 		},
 		{
 			key: 'criticalTasks',
 			description: 'Critical task lists and sign-offs, and the critical tasks summary on the dashboard.',
 			offDescription: `${OFF}, and its summary isn't loaded. Task lists and sign-offs are kept.`,
-			holds: (c) => holding(count(c.criticalTaskLists, 'task list'), c.criticalTaskLists === 0, 'task lists')
+			holds: (c) => holding('criticalTasks', c, count(c.criticalTaskLists, 'task list'))
 		},
 		{
 			key: 'evaluations',
 			description: 'The rating scheme and Evals, and overdue and due-soon NCOERs and OERs on the dashboard.',
 			offDescription: `${OFF}, and its due dates aren't loaded. The rating scheme is kept.`,
-			holds: (c) =>
-				holding(
-					`${c.ratingSchemeEntries.toLocaleString('en-US')} in rating scheme`,
-					c.ratingSchemeEntries === 0,
-					'rating scheme'
-				)
+			holds: (c) => holding('evaluations', c, `${c.ratingSchemeEntries.toLocaleString('en-US')} in rating scheme`)
 		},
 		{
 			key: 'onboarding',
 			description: 'Onboarding packets and templates, and onboarding progress on the dashboard.',
 			offDescription: `${OFF}, and its progress isn't loaded. Templates and packets are kept.`,
-			holds: (c) => holding(count(c.onboardingTemplates, 'template'), c.onboardingTemplates === 0, 'templates')
+			holds: (c) => holding('onboarding', c, count(c.onboardingTemplates, 'template'))
 		},
 		{
 			key: 'lossesAndAwards',
@@ -97,6 +122,21 @@ export const FEATURE_ROWS: readonly FeatureRow[] = (
 		}
 	] satisfies Omit<FeatureRow, 'label'>[]
 ).map((row) => ({ ...row, label: FEATURE_SWITCHES[row.key].label }));
+
+const isSetupFeature = (key: FeatureKey): key is SetupFeatureKey => key in FEATURE_SETUP;
+
+export function setupFeaturesOn(disabledFeatures: readonly FeatureKey[]): SetupFeatureKey[] {
+	return FEATURE_ROWS.map((row) => row.key).filter(
+		(key): key is SetupFeatureKey => isSetupFeature(key) && !disabledFeatures.includes(key)
+	);
+}
+
+export function featuresNotSetUp(
+	disabledFeatures: readonly FeatureKey[],
+	counts: Partial<Record<SetupCountKey, number>>
+): SetupFeatureKey[] {
+	return setupFeaturesOn(disabledFeatures).filter((key) => counts[FEATURE_SETUP[key].count] === 0);
+}
 
 export function availabilityHolds(counts: FeatureCounts): string {
 	return `${count(counts.activePersonnel, 'person', 'people')} · ${count(counts.statusTypes, 'status', 'statuses')}`;

@@ -706,7 +706,7 @@ describe('AppShellHeader', () => {
 		const settingsLink = screen.getByRole('link', { name: 'Unit settings' });
 		const accountMenu = screen.getByRole('button', { name: /account menu/ });
 
-		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings/general');
+		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings/overview');
 		expect(settingsLink.compareDocumentPosition(accountMenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 

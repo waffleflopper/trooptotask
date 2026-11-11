@@ -61,6 +61,10 @@ export async function loadSettingsPage<TContext, TSectionData extends Record<str
 	});
 }
 
+export function settingsLandingPath(urlSegment: string, role: OrganizationAccessGrant['role']): string {
+	return `/org/${urlSegment}/settings/${role === 'owner' || role === 'admin' ? 'overview' : 'general'}`;
+}
+
 export async function loadSettingsOrganization(
 	event: Pick<SettingsSubrouteLoadEvent, 'locals' | 'params'>
 ): Promise<OrganizationRouteIdentity> {

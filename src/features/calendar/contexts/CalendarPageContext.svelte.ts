@@ -25,7 +25,7 @@ import {
 import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
-import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+import { initialCalendarView, rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
@@ -42,6 +42,8 @@ export interface CalendarRosterFilterOption {
 	label: string;
 	count?: number;
 }
+
+export type RosterEmpty = 'no-personnel' | 'no-matches';
 
 export type CalendarPopover =
 	| {
@@ -125,7 +127,7 @@ export class CalendarPageContext {
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	viewMode = $state<CalendarViewMode>('month');
+	viewMode = $state<CalendarViewMode>(initialCalendarView());
 
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
@@ -277,6 +279,14 @@ export class CalendarPageContext {
 
 	readonly filteredPBG: NestedRosterBand[] = $derived(
 		nestRosterBands(this.groupTree, this.#filteredSections, showSubGroups.current)
+	);
+
+	readonly rosterEmpty: RosterEmpty | null = $derived(
+		this.filteredPBG.some((band) => band.personnel.length > 0)
+			? null
+			: this.allPersonnelFlat.length > 0
+				? 'no-matches'
+				: 'no-personnel'
 	);
 
 	/** Exports always write each Group's own people under its path, whatever the screen shows. */

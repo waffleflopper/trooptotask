@@ -1,8 +1,18 @@
+<script lang="ts" module>
+	import type { CalendarViewMode } from '$features/calendar/utils/calendarRange';
+
+	const VIEWS: readonly { value: CalendarViewMode; label: string }[] = [
+		{ value: 'agenda', label: 'Agenda' },
+		{ value: 'week', label: 'Week' },
+		{ value: 'month', label: 'Month' },
+		{ value: '3-month', label: '3-Month' }
+	];
+</script>
+
 <script lang="ts">
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { TodayAvailability } from '$features/calendar/contexts/CalendarPageContext.svelte';
-	import type { CalendarViewMode } from '$features/calendar/utils/calendarRange';
 	import CalendarPeriodNavigation from './CalendarPeriodNavigation.svelte';
 
 	interface Props {
@@ -25,7 +35,8 @@
 
 	function chooseView(value: string) {
 		// A single toggle group emits '' when the pressed item is clicked again.
-		if (value === 'month' || value === '3-month') onViewChange(value);
+		const chosen = VIEWS.find((view) => view.value === value);
+		if (chosen) onViewChange(chosen.value);
 	}
 </script>
 
@@ -41,8 +52,9 @@
 		</div>
 	{/if}
 	<ToggleGroup.Root type="single" size="sm" bind:value={() => view, chooseView} aria-label="Calendar view">
-		<ToggleGroup.Item value="month">Month</ToggleGroup.Item>
-		<ToggleGroup.Item value="3-month">3-Month</ToggleGroup.Item>
+		{#each VIEWS as item (item.value)}
+			<ToggleGroup.Item value={item.value}>{item.label}</ToggleGroup.Item>
+		{/each}
 	</ToggleGroup.Root>
 {/snippet}
 

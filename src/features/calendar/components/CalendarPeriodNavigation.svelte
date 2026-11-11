@@ -1,5 +1,13 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
+	import type { CalendarViewMode } from '$features/calendar/utils/calendarRange';
+
+	const TITLE_TEST_IDS: Record<CalendarViewMode, string> = {
+		agenda: 'calendar-week-label',
+		week: 'calendar-week-label',
+		month: 'calendar-month-label',
+		'3-month': 'long-range-date-label'
+	};
 
 	export interface MonthPickerStyle {
 		variant?: 'ghost' | 'outline';
@@ -20,11 +28,12 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button';
-	import { calendarPeriod, shiftCalendarPeriod, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+	import { calendarPeriod, shiftCalendarPeriod } from '$features/calendar/utils/calendarRange';
 	import MonthYearPicker from './MonthYearPicker.svelte';
 
 	interface Props {
 		view: CalendarViewMode;
+		/** Any day of the period; month views read its month. */
 		anchor: Date;
 		onAnchorChange: (anchor: Date) => void;
 		/** Called after the anchor moves, so a grid can bring today into view even when the period did not change. */
@@ -63,7 +72,7 @@
 
 	function goToToday() {
 		const now = new Date();
-		onAnchorChange(new Date(now.getFullYear(), now.getMonth(), 1));
+		onAnchorChange(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
 		onToday?.();
 	}
 </script>
@@ -74,7 +83,7 @@
 		variant={style.variant ?? 'ghost'}
 		size={style.size}
 		class={style.class}
-		data-testid={view === 'month' ? 'calendar-month-label' : 'long-range-date-label'}
+		data-testid={TITLE_TEST_IDS[view]}
 		{disabled}
 		aria-expanded={pickerOpen}
 		aria-haspopup="dialog"
@@ -118,8 +127,8 @@
 	{#if pickerOpen}
 		<div class="absolute z-50" style:left="{pickerPosition.left}px" style:top="{pickerPosition.top}px">
 			<MonthYearPicker
-				year={period.start.getFullYear()}
-				month={period.start.getMonth()}
+				year={anchor.getFullYear()}
+				month={anchor.getMonth()}
 				onSelect={selectMonth}
 				onEscape={closePickerToTrigger}
 				onOutsideClick={() => (pickerOpen = false)}

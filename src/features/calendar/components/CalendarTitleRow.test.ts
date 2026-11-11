@@ -73,4 +73,23 @@ describe('CalendarTitleRow', () => {
 
 		expect(views).toEqual(['3-month']);
 	});
+
+	it('offers Agenda, Week, Month and 3-Month in that order', () => {
+		renderRow();
+
+		expect(
+			within(screen.getByRole('group', { name: 'Calendar view' }))
+				.getAllByRole('radio')
+				.map((radio) => radio.textContent?.trim())
+		).toEqual(['Agenda', 'Week', 'Month', '3-Month']);
+	});
+
+	it.each<CalendarViewMode>(['agenda', 'week'])('hands the %s view back when it is chosen', async (view) => {
+		const { views } = renderRow({ view: 'month' });
+		const name = view === 'agenda' ? 'Agenda' : 'Week';
+
+		await fireEvent.click(within(screen.getByRole('group', { name: 'Calendar view' })).getByRole('radio', { name }));
+
+		expect(views).toEqual([view]);
+	});
 });

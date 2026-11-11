@@ -480,7 +480,7 @@
 								</DropdownMenu.Group>
 								{#if canAccessOrganizationSettings}
 									<DropdownMenu.Separator />
-									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings/general` as '/'))}>
+									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings/overview` as '/'))}>
 										<Settings />
 										Unit settings
 									</DropdownMenu.Item>
@@ -517,7 +517,7 @@
 								{#snippet child({ props })}
 									<a
 										{...props}
-										href={resolve(`/org/${orgUrlSegment}/settings/general` as '/')}
+										href={resolve(`/org/${orgUrlSegment}/settings/overview` as '/')}
 										aria-current={inSettings(pathname) ? 'page' : undefined}
 									>
 										<Settings />

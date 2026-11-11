@@ -35,25 +35,33 @@ describe('settings layout server load', () => {
 		requestStoreMock.mockReset();
 	});
 
-	it('redirects the settings index before loading the shell', async () => {
-		await expect(
-			load({
-				cookies: {},
-				route: { id: '/org/[orgId]/settings' },
-				untrack: (fn: () => unknown) => fn(),
-				depends: () => undefined,
-				...createOrganizationLoadEventData(
-					createReadyAppShellRouteData({
-						orgId: 'org-1',
-						orgName: 'Test Org',
-						orgUrlSegment: 'test-org'
-					})
-				)
-			} as never)
-		).rejects.toMatchObject({ status: 303, location: '/org/test-org/settings/general' });
+	it.each([
+		{ role: 'owner', landing: 'overview' },
+		{ role: 'admin', landing: 'overview' },
+		{ role: 'member', landing: 'general' }
+	] as const)(
+		'lands a $role on $landing from the settings index, before loading the shell',
+		async ({ role, landing }) => {
+			await expect(
+				load({
+					cookies: {},
+					route: { id: '/org/[orgId]/settings' },
+					untrack: (fn: () => unknown) => fn(),
+					depends: () => undefined,
+					...createOrganizationLoadEventData(
+						createReadyAppShellRouteData({
+							orgId: 'org-1',
+							orgName: 'Test Org',
+							orgUrlSegment: 'test-org',
+							role
+						})
+					)
+				} as never)
+			).rejects.toMatchObject({ status: 303, location: `/org/test-org/settings/${landing}` });
 
-		expect(loadWithContextMock).not.toHaveBeenCalled();
-	});
+			expect(loadWithContextMock).not.toHaveBeenCalled();
+		}
+	);
 
 	it.each([
 		{

@@ -4,11 +4,11 @@
 		CalendarPageContext,
 		calendarViewCoverage,
 		calendarStore,
+		CalendarAgendaSkeleton,
 		type CalendarPageData,
 		type CalendarWorkspaceResult
 	} from '$features/calendar';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
-	import CalendarAgendaSkeleton from '$features/calendar/components/calendar-agenda/CalendarAgendaSkeleton.svelte';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';

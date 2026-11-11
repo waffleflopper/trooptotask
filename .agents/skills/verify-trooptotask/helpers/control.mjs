@@ -20,7 +20,7 @@ import {
 	recordingTransition,
 	assertWorkerSession
 } from '../../../../scripts/verification/core.mjs';
-import { installNetworkControl } from './network-control.mjs';
+import { installNetworkControl, ratingEntryNetworkTarget } from './network-control.mjs';
 import { installBusyControl } from './busy-control.mjs';
 import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
@@ -2716,6 +2716,7 @@ async function main() {
 			].includes(action)
 		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
+			const ratingEntryMove = ratingEntryNetworkTarget(family);
 			const shellPart = {
 				'shell-notification-count': 'notification-count',
 				'shell-organization-switcher': 'organization-switcher'
@@ -2852,6 +2853,7 @@ async function main() {
 				!accountPage &&
 				!orgPage &&
 				!platformForm &&
+				!ratingEntryMove &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^calendar-taskings\/[0-9a-f-]{36}\/(?:equipment|checklist)$/.test(family) &&
@@ -3027,6 +3029,7 @@ async function main() {
 				(platformForm?.sameOrigin ?? false);
 			const requestMethod =
 				platformForm?.requestMethod ??
+				ratingEntryMove?.requestMethod ??
 				(family === 'ict-tasks/order'
 					? 'POST'
 					: action === 'arm-drop' && family === 'availability'

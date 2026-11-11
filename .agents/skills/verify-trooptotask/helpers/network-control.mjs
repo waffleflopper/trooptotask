@@ -1,3 +1,11 @@
+const ratingEntryMove =
+	/^rating-scheme\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:workflow|change-rater)$/i;
+
+// An Evaluation's workflow move and Change rater are POSTs to that entry's own path, so the family names the entry.
+export function ratingEntryNetworkTarget(family) {
+	return ratingEntryMove.test(family) ? { requestMethod: 'POST' } : null;
+}
+
 // This function runs in the owned browser page. Keep it self-contained so
 // control.mjs can inject it through the native DevTools evaluation tool.
 export function installNetworkControl(

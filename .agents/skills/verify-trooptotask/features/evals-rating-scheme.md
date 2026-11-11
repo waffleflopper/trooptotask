@@ -41,8 +41,9 @@ through a provider-created authenticated session; `actor --form ROLE evals|home`
 records across A/B; it returns exact IDs and examples, records every ID before insertion, and uses `clean-seeds`.
 `rows rating_scheme_entries orgA|orgB id ID` reads their
 evaluator/workflow/date/notes fields; `rated_person_id` is also supported. `network` accepts the exact A
-`rating-scheme` endpoint, which carries saves but not workflow moves or Change rater
-(`rating-scheme/<id>/workflow`, `rating-scheme/<id>/change-rater`); a stale second tab supplies a real refused move.
+`rating-scheme` endpoint, which carries saves, and one entry's own POST families
+`rating-scheme/<entry id>/workflow` and `rating-scheme/<entry id>/change-rater`; each matches that entry's exact path
+only. A stale second tab still supplies a real refused move.
 Use the existing `deletion-requests` control separately for approval submission. Inspect real
 downloads with `workbook FILE 'Rating Scheme'`. The [Evals recipe](evals-rating-scheme.md) owns expectations.
 
@@ -227,7 +228,9 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    - ID: E4 - Screen and control: Rating chain comboboxes and failed save - How to reach it: Open an entry, `Rater`,
      type a name nobody in the unit has (`COL Visiting Guest`), press Enter - Expected: The list reads
      `No one in the unit matches.` and ends with `Use "COL Visiting Guest" as an external rater`, wrapped on a narrow
-     sheet. A unit Person shows a muted mono `In unit` hint; a typed name shows orange mono `External` text, not a
+     sheet. The default `take_snapshot` leaves every listbox option out, this one and the unit People alike. Take
+     the snapshot with `verbose` to see `option "Use "COL Visiting Guest" as an external rater"` and press it with
+     `tool click` on its uid. A unit Person shows a muted mono `In unit` hint; a typed name shows orange mono `External` text, not a
      filled badge. Under the chain a line reads
      `Search the unit, or type a name that isn't in it to add an external rater.`; `+ Intermediate rater` and
      `+ Reviewer` are underlined links, and each added slot has a remove button. After Save,
@@ -305,12 +308,17 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        page's step. A move whose target neighbours the newer step is refused the same way: with the first page still
        showing Not tracked, move the entry to `Drafting` and then `With Rater` in the second page, then press
        `Start tracking` in the first; the POST returns 409 and `rows` still reads `with-rater`. Asking for the step the row already holds returns 200
-       and shows it. `Change rater` opens a dialog
+       and shows it. With `$V network arm-fail PAGE rating-scheme/<id>/workflow` armed, a move returns 503, the section
+       shows `The workflow did not move` with `The workflow did not move. Try again.`, the step stays and `rows` still
+       reads the old `workflow_status`; after `network restore` the same press moves it. `Change rater` opens a dialog
        with `New rater` and `Last day with current rater` (today, kept within the rating period). Confirming with no
        rater shows `The rater was not changed` with `Choose the new rater and the last day with the current rater.`,
        which clears once a rater is chosen. Confirming sends one `POST api/rating-scheme/<id>/change-rater` and closes
        the sheet: the entry reads `CR`, `completed` and ends on the chosen day, and a new `AN` entry for the new rater
-       starts the next day, ends a year later and is Not tracked with no notes (`6 of 9 shown`)
+       starts the next day, ends a year later and is Not tracked with no notes (`6 of 9 shown`). With
+       `$V network arm-fail PAGE rating-scheme/<id>/change-rater` armed, confirming returns 503, the sheet stays open
+       with `The rater was not changed` and `The rater was not changed. Try again.`, and `rows` still reads the entry
+       unchanged with no new entry; after `network restore` confirming again changes the rater
 
 Remove UI-created entries through the owner UI. Compare every original A/B row across all 19 fields, including
 timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any

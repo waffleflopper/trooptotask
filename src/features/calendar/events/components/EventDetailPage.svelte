@@ -12,7 +12,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { formatDate, formatDayMonth, formatDisplayDateTime } from '$lib/utils/dates';
+	import { formatDate, formatDayMonth, formatDisplayDateTime, parseDate } from '$lib/utils/dates';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import { calendarStore } from '../../stores/calendar.svelte';
 	import {
@@ -107,9 +107,9 @@
 			});
 	}
 
-	/** The Calendar opens on the month it was last left in, so the link moves it to the Event's month first. */
+	/** The Calendar opens where it was last left, so the link moves it to the Event's first day first. */
 	function showOnAvailability(startsOn: string) {
-		calendarStore.goToMonth(Number(startsOn.slice(0, 4)), Number(startsOn.slice(5, 7)) - 1);
+		calendarStore.goToDay(parseDate(startsOn));
 	}
 
 	const historyDay = (at: string) => formatDayMonth(formatDate(new Date(at)));

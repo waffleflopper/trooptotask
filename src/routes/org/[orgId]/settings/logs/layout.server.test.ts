@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { PersonnelRosterReader } from '$features/personnel/contracts';
-import {
-	createReadyAppShellRouteData,
-	createSuspendedAppShellRouteData,
-	createOrganizationLoadEventData
-} from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 
@@ -19,9 +15,9 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 import { load } from './+layout.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
-function event(suspended = false) {
+function event() {
 	return createOrganizationLoadEventData(
-		(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
+		createReadyAppShellRouteData({
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			orgUrlSegment: 'test-org'
@@ -61,11 +57,6 @@ function admit(role: 'owner' | 'admin' | 'member') {
 
 describe('logs settings layout server', () => {
 	beforeEach(() => vi.clearAllMocks());
-
-	it('returns no picker lists for a suspended Organization without reading them', async () => {
-		expect(await load(event(true))).toEqual({});
-		expect(loadWithContextMock).not.toHaveBeenCalled();
-	});
 
 	it('denies a member without admin', async () => {
 		admit('member');

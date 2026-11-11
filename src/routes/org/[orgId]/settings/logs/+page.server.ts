@@ -1,3 +1,5 @@
+import { redirect } from '@sveltejs/kit';
+import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
 import type { PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { parseAuditLogFilters } from '$lib/audit/auditLogFilters';
@@ -21,7 +23,7 @@ export const load: PageServerLoad = async (event) => {
 	event.depends('app:org-core');
 	event.depends(VIEWER_DAY_DEPENDENCY);
 	const organization = await loadSettingsOrganization(event);
-	if (organization.suspendedAt) return {};
+	if (organization.suspendedAt) redirect(303, `/org/${getPreferredOrganizationUrlSegment(organization)}`);
 
 	return loadWithContext<LogsPageData, ReturnType<typeof createRequestOrganizationAuditLogContext>>(
 		event.locals,

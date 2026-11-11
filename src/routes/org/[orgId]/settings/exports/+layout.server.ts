@@ -6,8 +6,8 @@ import { createSettingsUnitSummaryContext } from '../settingsRequestContexts.ser
 
 export const load = (async (event): Promise<{ lastExport: LastExportData }> => {
 	event.depends(LAST_EXPORT_DEPENDENCY);
-	const data = await loadSettingsPage(event, createSettingsUnitSummaryContext, (ctx) => ({
+	const { lastExport } = await loadSettingsPage(event, createSettingsUnitSummaryContext, (ctx) => ({
 		lastExport: loadLastExport(ctx)
 	}));
-	return { lastExport: 'lastExport' in data ? data.lastExport : null };
+	return { lastExport };
 }) satisfies LayoutServerLoad;

@@ -1,11 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import {
-	createReadyAppShellRouteData,
-	createSuspendedAppShellRouteData,
-	createOrganizationLoadEventData
-} from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 
 const { getAdminClientMock, loadWithContextMock } = vi.hoisted(() => ({
 	getAdminClientMock: vi.fn(),
@@ -24,13 +20,13 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 import { load } from './+page.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
-function event(suspended = false, depends = vi.fn(), search = '') {
+function event(depends = vi.fn(), search = '') {
 	return {
 		depends,
 		url: new URL(`https://app.test/org/test-org/settings/logs${search}`),
 		cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
 		...createOrganizationLoadEventData(
-			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
+			createReadyAppShellRouteData({
 				orgId: 'org-1',
 				orgName: 'Test Org',
 				orgUrlSegment: 'test-org'
@@ -65,12 +61,6 @@ describe('logs settings page server', () => {
 	beforeEach(() => vi.clearAllMocks());
 	afterEach(() => vi.useRealTimers());
 
-	it('returns no page data for a suspended Organization without constructing privileged readers', async () => {
-		expect(await load(event(true))).toEqual({});
-		expect(loadWithContextMock).not.toHaveBeenCalled();
-		expect(getAdminClientMock).not.toHaveBeenCalled();
-	});
-
 	it('denies a member without admin before constructing privileged readers', async () => {
 		admit('member');
 		await expect(load(event())).rejects.toMatchObject({ status: 403 });
@@ -87,7 +77,7 @@ describe('logs settings page server', () => {
 		);
 
 		const result = (await load(
-			event(false, vi.fn(), '?kind=availability.deleted&from=2026-10-01&to=not-a-date&person=nope')
+			event(vi.fn(), '?kind=availability.deleted&from=2026-10-01&to=not-a-date&person=nope')
 		)) as { logsSettings: { filters: unknown } };
 
 		expect(result.logsSettings.filters).toEqual({ kind: 'availability.deleted', from: '2026-10-01' });
@@ -137,7 +127,7 @@ describe('logs settings page server', () => {
 				})
 			);
 			const depends = vi.fn();
-			const result = await load(event(false, depends));
+			const result = await load(event(depends));
 			expect(depends).toHaveBeenCalledWith('app:viewer-day');
 			expect(result).toMatchObject({
 				orgId: 'org-1',

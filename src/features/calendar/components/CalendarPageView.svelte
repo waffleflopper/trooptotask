@@ -298,8 +298,10 @@
 			});
 	}
 
+	const scopedPeopleById = $derived(new Map(ctx.allPersonnelFlat.map((person) => [person.id, person])));
+
 	function personLabel(personnelId: string): string {
-		const person = ctx.allPersonnelFlat.find((candidate) => candidate.id === personnelId);
+		const person = scopedPeopleById.get(personnelId);
 		return person ? personName(person) : 'A picked Person';
 	}
 

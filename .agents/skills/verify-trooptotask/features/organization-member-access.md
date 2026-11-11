@@ -17,8 +17,8 @@ with a confirmed action.
   writes leave saved access intact.
 - `member-name`: an owner or admin gives a member who has no name on their account a rank, first and last name that only
   this Organization shows; a member whose account has a name shows it, read-only, with no editor.
-- `member-exit`: a member can leave from Account → Profile (Leave unit); an owner cannot leave while still owning the
-  Organization.
+- `member-exit`: a member can leave from Account → Profile (Leave unit), and the owner's Logs name them on their own
+  leave entry; an owner cannot leave while still owning the Organization.
 
 ## How to get to it (user POV)
 
@@ -118,7 +118,10 @@ Groups Alpha, <Lane> <Level>)`, naming the Group and each area override saved at
    the ownership explanation and the owner row unchanged. This is an authenticated action check, separate from visible
    UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Account →
    `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
-   and absence of that membership after reload. Restart the worker after this seeded deletion.
+   and absence of that membership after reload. Give that member an account name first (Account → Profile →
+   `Add name and rank`); after the leave, the owner's Settings → Logs shows the `member.left` entry with that name as
+   Actor, not their email, and `$V rows audit_logs orgA action member.left` holds the same `actor_label`. Restart the
+   worker after this seeded deletion.
 
 ### Member name
 

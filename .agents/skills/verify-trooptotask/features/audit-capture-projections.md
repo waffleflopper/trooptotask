@@ -42,9 +42,12 @@ Organizations without disclosing those privileged details to anyone else.
 - `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
   shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
   own Retry.
-- `actor-label`: an event's Actor is the member's stored membership email, else their account identity email. A former
-  member with no membership row stays `Unknown member`. Most fixture memberships have a null email, which exercises the
-  fallback; `deletionRequester` and `deletionReviewer` must show their addresses after a denied bulk archive.
+- `actor-label`: an event's Actor is saved when it is written: the member's name (`<rank> <last>, <first>`, from their
+  account, else the name this Organization gave them), else their membership email, else their account email. An entry
+  written after the membership is gone, such as the member's own `member.left`, keeps their account name. An older
+  entry with no saved Actor whose member can no longer be named stays `Unknown member`. Most fixture memberships have a
+  null email, which exercises the fallback; `deletionRequester` and `deletionReviewer` must show their addresses after
+  a denied bulk archive.
 - `safe-labels`: authorized page data resolves only same-Organization Personnel, Training and Calendar labels, preserves
   saved masked values and strips remaining top-level string UUID details.
 - `platform-log`: operator-only Activity at `/admin/activity`, stored details, paging and category/search/date filters.

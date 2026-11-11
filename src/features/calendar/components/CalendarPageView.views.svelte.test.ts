@@ -362,14 +362,14 @@ describe('Calendar views over one week', () => {
 		]);
 	});
 
-	it('names a Special Day on its date and says so when no one is out or on duty', async () => {
+	it('names a Special Day on its date and lists no one on a day no one is out or on duty', async () => {
 		await renderAt('Agenda');
 
 		const veterans = document.querySelector<HTMLElement>('li[data-date="2026-11-11"]')!;
 		const quiet = document.querySelector<HTMLElement>('li[data-date="2026-11-13"]')!;
 
 		expect(within(veterans).getByText('Veterans Day')).toBeTruthy();
-		expect(within(quiet).getByText('No one out or on duty.')).toBeTruthy();
+		expect(quiet.querySelector('[data-person-id]')).toBeNull();
 		expect(within(quiet).queryByText('Veterans Day')).toBeNull();
 	});
 
@@ -394,7 +394,7 @@ describe('Calendar views over one week', () => {
 		expect(duty.closest('button')).toBeNull();
 	});
 
-	it('shows the same empty state as the grid when the roster is empty', async () => {
+	it('points to Personnel instead of an agenda when the roster is empty', async () => {
 		const ctx = new CalendarPageContext(
 			{ ...mockData, personnel: [], allPersonnel: [] },
 			makeOrg(),
@@ -403,7 +403,7 @@ describe('Calendar views over one week', () => {
 		);
 		await renderAt('Agenda', ctx);
 
-		expect(screen.getByText('No personnel added yet')).toBeTruthy();
+		expect(document.querySelector('a[href="/org/org1/personnel"]')).toBeTruthy();
 		expect(document.querySelector('[data-testid="calendar-agenda"]')).toBeNull();
 	});
 

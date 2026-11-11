@@ -178,6 +178,8 @@ function createOrganizationSettingsMemberManagementPort(
 	accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[];
 	blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }>;
 	revokedInvitations: Array<{ orgId: string; inviteId: string }>;
+	/** Each created invitation's current status, by invitation id. */
+	invitationStatuses: Map<string, { email: string; status: 'pending' | 'revoked' }>;
 	pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }>;
 	membershipLookups: Array<{ orgId: string; membershipId: string }>;
 	removedMemberships: Array<{ orgId: string; membershipId: string }>;
@@ -192,6 +194,7 @@ function createOrganizationSettingsMemberManagementPort(
 	const blockedInvitations: Array<{ organizationId: string; invitationId: string; blockedBy: string; reason: string }> =
 		[];
 	const revokedInvitations: Array<{ orgId: string; inviteId: string }> = [];
+	const invitationStatuses = new Map<string, { email: string; status: 'pending' | 'revoked' }>();
 	const pendingInvitationByIdLookups: Array<{ orgId: string; inviteId: string }> = [];
 	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
 	const removedMemberships: Array<{ orgId: string; membershipId: string }> = [];
@@ -213,13 +216,16 @@ function createOrganizationSettingsMemberManagementPort(
 		accessRequestBridges,
 		blockedInvitations,
 		revokedInvitations,
+		invitationStatuses,
 		pendingInvitationByIdLookups,
 		membershipLookups,
 		removedMemberships,
 		updatedMemberships,
 		async findPendingInvitationEmails(orgId, emails) {
 			invitationLookups.push({ orgId, emails });
-			return emails.filter((email) => options.pendingEmails?.includes(email));
+			const pending = new Set(options.pendingEmails);
+			for (const row of invitationStatuses.values()) if (row.status === 'pending') pending.add(row.email);
+			return emails.filter((email) => pending.has(email));
 		},
 		async findPendingInvitationById(orgId, inviteId) {
 			pendingInvitationByIdLookups.push({ orgId, inviteId });
@@ -242,15 +248,12 @@ function createOrganizationSettingsMemberManagementPort(
 		async createInvitations(inputs) {
 			createInvitationCalls.push(inputs.length);
 			createdInvitations.push(...inputs);
-			return inputs.map((input, index) =>
-				options.createInvitationError
-					? { status: 'failed', message: options.createInvitationError }
-					: {
-							status: 'created',
-							invitationId: index === 0 ? 'invite-created' : `invite-created-${input.email}`,
-							createdAt: '2026-05-22T12:00:00.000Z'
-						}
-			);
+			return inputs.map((input, index) => {
+				if (options.createInvitationError) return { status: 'failed', message: options.createInvitationError };
+				const invitationId = index === 0 ? 'invite-created' : `invite-created-${input.email}`;
+				invitationStatuses.set(invitationId, { email: input.email, status: 'pending' });
+				return { status: 'created', invitationId, createdAt: '2026-05-22T12:00:00.000Z' };
+			});
 		},
 		async createOrLinkApprovedAccessRequestForInvitation(input) {
 			accessRequestBridges.push(input);
@@ -262,7 +265,10 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async revokeInvitation(orgId, inviteId) {
 			revokedInvitations.push({ orgId, inviteId });
-			return options.revokeInvitationResult ?? { status: 'revoked', email: 'invitee@example.com' };
+			const result = options.revokeInvitationResult ?? { status: 'revoked', email: 'invitee@example.com' };
+			const row = invitationStatuses.get(inviteId);
+			if (row && result.status === 'revoked') row.status = 'revoked';
+			return result;
 		},
 		async findMembershipById(orgId, membershipId) {
 			membershipLookups.push({ orgId, membershipId });
@@ -864,7 +870,7 @@ describe('inviteOrganizationMembers', () => {
 		consoleErrorSpy.mockRestore();
 	});
 
-	it('tells the admin an invitation exists when finishing it fails, unlike one that was never created', async () => {
+	it('tells the admin an invitation exists only when its audit write fails and it cannot be withdrawn', async () => {
 		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const invite = async (
 			port: ReturnType<typeof createOrganizationSettingsMemberManagementPort>,
@@ -884,8 +890,11 @@ describe('inviteOrganizationMembers', () => {
 			return result.inviteResults[0];
 		};
 
-		const unfinishedPort = createOrganizationSettingsMemberManagementPort();
+		const unfinishedPort = createOrganizationSettingsMemberManagementPort({
+			revokeInvitationResult: { status: 'failed', email: null }
+		});
 		const unfinished = await invite(unfinishedPort, true);
+		const withdrawn = await invite(createOrganizationSettingsMemberManagementPort(), true);
 		const neverCreated = await invite(
 			createOrganizationSettingsMemberManagementPort({ createInvitationError: 'insert failed' }),
 			false
@@ -893,10 +902,80 @@ describe('inviteOrganizationMembers', () => {
 
 		expect(unfinishedPort.createdInvitations).toHaveLength(1);
 		expect(unfinished).toMatchObject({ email: 'invitee@example.com', status: 'failed' });
+		expect(withdrawn).toMatchObject({ email: 'invitee@example.com', status: 'failed' });
 		expect(neverCreated).toMatchObject({ email: 'invitee@example.com', status: 'failed' });
 		expect(unfinished.message).not.toBe(neverCreated.message);
+		expect(withdrawn.message).toBe(neverCreated.message);
 		consoleErrorSpy.mockRestore();
 	});
+
+	it.each([
+		{ invitee: 'without an account', existingUserAccount: null },
+		{ invitee: 'with an account', existingUserAccount: undefined }
+	])(
+		'withdraws an invitation $invitee whose audit write fails before anything reaches them, and the others still go out',
+		async ({ existingUserAccount }) => {
+			const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+			const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount });
+			const issuance = createAccountSetupIssuancePorts();
+			const delivery = createInvitationDeliveryPort('sent');
+			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			let auditDown = true;
+			const log = ctx.audit.log.bind(ctx.audit);
+			vi.spyOn(ctx.audit, 'log').mockImplementation(async (event) => {
+				if (auditDown && event.action === 'member.invite' && event.record === 's***@example.com') {
+					throw new Error('audit store unavailable');
+				}
+				return log(event);
+			});
+			const send = (emails: string) =>
+				inviteOrganizationMembers(
+					{
+						auth: ctx.auth,
+						audit: ctx.audit,
+						notifications: ctx.notifications,
+						settings: port,
+						setupLinks: issuance.setupLinks,
+						setupDelivery: issuance.setupDelivery,
+						invitationDelivery: delivery,
+						invitationRateLimiter: createInvitationRateLimiter({ limited: false, action: 'create' })
+					},
+					{ emails, membershipRole: 'member', memberAccess: memberAccess(), actorEmail: 'actor@example.com' }
+				);
+
+			const first = await send('stuck@example.com, fine@example.com');
+
+			expect(first.inviteResults).toEqual([
+				expect.objectContaining({ email: 'stuck@example.com', status: 'failed' }),
+				expect.objectContaining({ email: 'fine@example.com', status: 'invited' })
+			]);
+			expect(port.invitationStatuses.get('invite-created')).toEqual({ email: 'stuck@example.com', status: 'revoked' });
+			expect(port.accessRequestBridges.map((bridge) => bridge.email)).toEqual(
+				existingUserAccount === null ? ['fine@example.com'] : []
+			);
+			expect(issuance.setupLinkRequests).toHaveLength(existingUserAccount === null ? 1 : 0);
+			expect(issuance.setupDeliveries.map((setup) => setup.email)).toEqual(
+				existingUserAccount === null ? ['fine@example.com'] : []
+			);
+			expect(
+				ctx.notificationPort.notifications
+					.filter((entry) => entry.target === 'user')
+					.map((entry) => entry.notification.type)
+			).toEqual(existingUserAccount === null ? [] : ['organization_invitation_received']);
+			expect(delivery.deliveries).toEqual([expect.objectContaining({ email: 'fine@example.com' })]);
+			expect(ctx.auditPort.events.map((event) => event.action)).not.toContain('member.invite_revoked');
+
+			auditDown = false;
+			const second = await send('stuck@example.com');
+
+			expect(second.inviteResults).toEqual([expect.objectContaining({ email: 'stuck@example.com', status: 'invited' })]);
+			expect(delivery.deliveries).toEqual([
+				expect.objectContaining({ email: 'fine@example.com' }),
+				expect.objectContaining({ email: 'stuck@example.com' })
+			]);
+			consoleErrorSpy.mockRestore();
+		}
+	);
 
 	it('still creates the invitation and finishes when the invitation notification fails', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });

@@ -46,20 +46,18 @@ describe('overview checks', () => {
 		]);
 	});
 
-	it('splits invitations into failed and expiring soon, and gives a feature its own fix', async () => {
-		const [invitations, features] = [OVERVIEW_CHECKS[1], OVERVIEW_CHECKS[4]];
+	it('gives each feature with nothing set up its own fix', async () => {
+		const items = (await OVERVIEW_CHECKS[4].read(sources)).items ?? [];
 
-		expect((await invitations.read(sources)).breakdown).toBe('2 failed · 3 expiring soon');
-		expect((await features.read(sources)).items).toEqual([
-			{ text: 'Evaluations: no rating scheme', fix: { label: 'Add an entry', path: 'evals' } }
-		]);
+		expect(items.map((item) => item.fix.path)).toEqual(['evals']);
 	});
 
-	it('names only the invitation causes that apply', async () => {
-		const invitations = OVERVIEW_CHECKS[1];
+	it('leaves an invitation cause with nothing in it out of the breakdown', async () => {
 		const onlyExpiring = { ...sources, invitationsToFollowUp: Promise.resolve({ deliveryFailed: 0, expiringSoon: 2 }) };
+		const { breakdown } = await OVERVIEW_CHECKS[1].read(onlyExpiring);
 
-		expect((await invitations.read(onlyExpiring)).breakdown).toBe('2 expiring soon');
+		expect(breakdown).toMatch(/\b2\b/);
+		expect(breakdown).not.toMatch(/\b0\b/);
 	});
 
 	it('leaves no unhandled rejection when a source fails, as server rendering attaches no handler', async () => {

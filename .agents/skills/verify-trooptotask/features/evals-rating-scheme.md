@@ -300,7 +300,10 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        `Save or cancel your edits before moving the workflow.` Move the entry forward in the second page, then step back
        in the first: the POST returns 409, the section shows `The workflow did not move` with
        `This evaluation has changed since you opened it. Refresh it and try again.`, and the row keeps the second
-       page's step. Asking for the step the row already holds returns 200 and shows it. `Change rater` opens a dialog
+       page's step. A move whose target neighbours the newer step is refused the same way: with the first page still
+       showing Not tracked, move the entry to `Drafting` and then `With Rater` in the second page, then press
+       `Start tracking` in the first; the POST returns 409 and `rows` still reads `with-rater`. Asking for the step the row already holds returns 200
+       and shows it. `Change rater` opens a dialog
        with `New rater` and `Last day with current rater` (today, kept within the rating period). Confirming with no
        rater shows `The rater was not changed` with `Choose the new rater and the last day with the current rater.`,
        which clears once a rater is chosen. Confirming sends one `POST api/rating-scheme/<id>/change-rater` and closes

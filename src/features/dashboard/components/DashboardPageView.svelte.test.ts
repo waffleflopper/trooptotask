@@ -1047,6 +1047,18 @@ describe('setup hints', () => {
 		expect(hintTexts()).toHaveLength(2);
 	});
 
+	it('links to the Unit settings overview once while any hint shows, and not after the last is dismissed', async () => {
+		viewAs('user-1');
+		const link = () => screen.queryAllByRole('link', { name: /every check/i });
+		expect(link().map((a) => a.getAttribute('href'))).toEqual(['/org/org-1/settings/overview']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Onboarding hint' }));
+		expect(link()).toHaveLength(1);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Training hint' }));
+		expect(link()).toEqual([]);
+	});
+
 	it('moves focus to the Readiness heading when the last hint goes and columns remain', async () => {
 		const column = () => ({ id: 'evals', title: 'Evaluations', link: { label: 'Evals', href: '#' } });
 		render(DashboardPageView, {

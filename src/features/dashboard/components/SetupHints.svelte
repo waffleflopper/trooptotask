@@ -6,12 +6,14 @@
 
 	interface Props {
 		hints: readonly SetupHint[];
+		/** Where every Organization check is listed; linked once, after the hints, while any hint shows. */
+		overviewHref: string;
 		onDismiss: (feature: FeatureKey) => void;
 		/** Takes focus once the last hint is gone. */
 		onEmptied: () => void;
 	}
 
-	let { hints, onDismiss, onEmptied }: Props = $props();
+	let { hints, overviewHref, onDismiss, onEmptied }: Props = $props();
 
 	// Keep keyboard focus among the hints rather than dropping it to the page.
 	function dismiss(event: MouseEvent & { currentTarget: Element }, feature: FeatureKey) {
@@ -47,3 +49,6 @@
 		</Button>
 	</div>
 {/each}
+{#if hints.length > 0}
+	<a href={overviewHref} class="{LINK} self-start text-foreground">See every check in Unit settings</a>
+{/if}

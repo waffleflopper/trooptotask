@@ -10,9 +10,10 @@ DECLARE v_mapped integer;
 BEGIN
   UPDATE public.rating_scheme_entries SET workflow_status = 'completed',
     report_type = CASE WHEN status = 'change-of-rater' THEN 'CR' ELSE report_type END
-  WHERE status IN ('completed', 'change-of-rater') AND workflow_status IS DISTINCT FROM 'completed';
+  WHERE (status IN ('completed', 'change-of-rater') AND workflow_status IS DISTINCT FROM 'completed')
+    OR (status = 'change-of-rater' AND report_type IS DISTINCT FROM 'CR');
   GET DIAGNOSTICS v_mapped = ROW_COUNT;
-  RAISE NOTICE 'Completed % evaluations whose status was already closed', v_mapped;
+  RAISE NOTICE 'Mapped % evaluations whose status was closed', v_mapped;
 END;
 $$;
 ALTER TABLE public.rating_scheme_entries ENABLE TRIGGER update_rating_scheme_entries_updated_at;

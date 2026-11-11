@@ -240,8 +240,12 @@ SELECT results_eq(
   'the successor is an untracked Annual for the new rater from the next day, with the other evaluators kept');
 SELECT is(public.change_rating_scheme_rater(pg_temp.id('101'), (SELECT entry FROM changed), '2030-06-15', pg_temp.id('303'), NULL),
   jsonb_build_object('entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM changed)),
+    'successor', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT successor FROM changed))),
+  'replaying the change of rater returns the completed entry and the successor it opened');
+SELECT is(public.change_rating_scheme_rater(pg_temp.id('101'), (SELECT entry FROM changed), '2030-06-14', pg_temp.id('303'), NULL),
+  jsonb_build_object('entry', (SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = (SELECT entry FROM changed)),
     'successor', NULL),
-  'repeating the change of rater returns the completed entry and no successor');
+  'a different change of rater on the completed entry returns it with no successor');
 SELECT is((SELECT count(*)::int FROM public.rating_scheme_entries WHERE rating_period_start = '2030-06-16'), 1,
   'repeating the change of rater opens no second successor');
 

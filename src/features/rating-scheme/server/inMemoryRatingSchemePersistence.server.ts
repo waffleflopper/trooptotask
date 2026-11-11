@@ -110,7 +110,26 @@ export function createInMemoryRatingSchemePersistence(
 		},
 		async changeRater(id, change) {
 			const entry = await findEntry(id);
-			if (isEvaluationCompleted(entry.workflowStatus)) return { entry, successor: null };
+			const next = parseDate(change.changeDate);
+			next.setDate(next.getDate() + 1);
+			const start = formatDate(next);
+			if (isEvaluationCompleted(entry.workflowStatus)) {
+				const replay = entry.reportType === 'CR' && entry.ratingPeriodEnd === change.changeDate;
+				const candidates = replay
+					? await store.findMany<RatingSchemeRow>('rating_scheme_entries', orgId, {
+							rated_person_id: entry.ratedPersonId,
+							eval_type: entry.evalType,
+							rating_period_start: start
+						})
+					: [];
+				const successor = candidates.find((row) =>
+					change.raterPersonId !== null
+						? row.rater_person_id === change.raterPersonId
+						: row.rater_person_id === null &&
+							row.rater_name?.trim().toLowerCase() === change.raterName?.trim().toLowerCase()
+				);
+				return { entry, successor: successor ? mapRatingSchemeEntry(successor) : null };
+			}
 			const sameExternalRater =
 				change.raterPersonId === null &&
 				entry.raterPersonId === null &&
@@ -126,9 +145,6 @@ export function createInMemoryRatingSchemePersistence(
 				report_type: 'CR',
 				workflow_status: 'completed'
 			});
-			const next = parseDate(change.changeDate);
-			next.setDate(next.getDate() + 1);
-			const start = formatDate(next);
 			const successor = await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, {
 				...ratingSchemeCreateValues({
 					...entry,

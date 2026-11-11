@@ -470,16 +470,19 @@ describe('Rating scheme entry — change of rater', () => {
 		});
 	});
 
-	it('opens no second successor when the change is sent again', async () => {
+	it('returns the successor it opened when the change is sent again, and opens no second one', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 		seedEntry(ctx);
 		const change = { changeDate: '2026-06-30', raterName: 'SSG New' };
 
-		await changeRatingSchemeRater(ctx, ENTRY, change);
-		const repeated = await changeRatingSchemeRater(ctx, ENTRY, change);
+		const first = await changeRatingSchemeRater(ctx, ENTRY, change);
+		const repeated = await changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: ' ssg new ' });
+		const different = await changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG Other' });
 
-		expect(repeated.successor).toBeNull();
+		expect(repeated.successor).toEqual(first.successor);
+		expect(repeated.successor).toMatchObject({ raterName: 'SSG New', ratingPeriodStart: '2026-07-01' });
+		expect(different.successor).toBeNull();
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(2);
 	});
 

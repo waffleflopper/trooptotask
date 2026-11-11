@@ -6514,7 +6514,17 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status = 'completed' THEN
-    RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', NULL);
+    SELECT * INTO v_successor FROM public.rating_scheme_entries AS s
+    WHERE v_row.report_type = 'CR' AND v_row.rating_period_end = p_change_date
+      AND s.organization_id = p_organization_id AND s.rated_person_id = v_row.rated_person_id
+      AND s.eval_type IS NOT DISTINCT FROM v_row.eval_type AND s.rating_period_start = v_start
+      AND (s.rater_person_id = p_rater_person_id
+        OR (p_rater_person_id IS NULL AND s.rater_person_id IS NULL
+          AND pg_catalog.lower(pg_catalog.btrim(s.rater_name)) = pg_catalog.lower(v_rater_name)))
+    ORDER BY s.created_at DESC, s.id
+    LIMIT 1;
+    RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row),
+      'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
   END IF;
   IF p_rater_person_id = v_row.rater_person_id
     OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL

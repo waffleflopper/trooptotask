@@ -34,7 +34,7 @@ Never weaken assertions, add skips, hide scan paths, add waivers or relax checks
 
 ## Shared module graph
 
-Vitest gives a file its own module graph only when the file calls `vi.mock` or `vi.doMock`. Every other file shares one graph per worker with the files that ran before it, so a test restores any module-level state, global or environment variable it changes. File order is shuffled on every run. When a file passes alone but fails in the suite, rerun with the printed seed (`npx vitest run --sequence.seed=<seed>`) and fix the file that leaks.
+Vitest gives a file its own module graph only when the file calls `vi.mock` or `vi.doMock`. Every other file shares one graph per worker with the files that ran before it, so a test restores any module-level state, global or environment variable it changes. Watch mode sorts files when it starts, so restart `npm run test:watch` after you add a module mock. File order is shuffled on every run. When a file passes alone but fails in the suite, rerun with the printed seed (`npx vitest run --sequence.seed=<seed>`) and fix the file that leaks.
 
 ## Choose the seam
 

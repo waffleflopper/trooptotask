@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { FEATURE_ROWS, holdsLane, strengthFloorSentence, type FeatureCounts } from './featuresSettings';
+import {
+	FEATURE_ROWS,
+	featuresNotSetUp,
+	holdsLane,
+	setupFeaturesOn,
+	strengthFloorSentence,
+	type FeatureCounts
+} from './featuresSettings';
 
 const empty: FeatureCounts = {
 	activePersonnel: 0,
@@ -51,6 +58,29 @@ describe('Features holds lanes', () => {
 			['Training', { text: 'No training types', notSetUp: false }],
 			['Critical tasks', { text: 'No task lists', notSetUp: false }]
 		]);
+	});
+});
+
+describe('features not set up', () => {
+	const zeros = { trainingTypes: 0, criticalTaskLists: 0, ratingSchemeEntries: 0, onboardingTemplates: 0 };
+
+	it('lists every enabled feature that holds nothing, in the order Features shows them', () => {
+		expect(featuresNotSetUp([], zeros)).toEqual(['training', 'criticalTasks', 'evaluations', 'onboarding']);
+	});
+
+	it('leaves out a disabled feature and a feature that holds something', () => {
+		expect(featuresNotSetUp(['training'], { ...zeros, ratingSchemeEntries: 21 })).toEqual([
+			'criticalTasks',
+			'onboarding'
+		]);
+	});
+
+	it('does not call a feature unset when its count was not read', () => {
+		expect(featuresNotSetUp([], { trainingTypes: 0 })).toEqual(['training']);
+	});
+
+	it('names only the features that are on and can be not set up', () => {
+		expect(setupFeaturesOn(['onboarding', 'lossesAndAwards'])).toEqual(['training', 'criticalTasks', 'evaluations']);
 	});
 });
 

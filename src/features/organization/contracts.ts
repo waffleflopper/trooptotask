@@ -90,14 +90,18 @@ export type {
 export {
 	FEATURE_COUNT_KEYS,
 	FEATURE_ROWS,
+	FEATURE_SETUP,
 	availabilityHolds,
+	featuresNotSetUp,
 	holdsLane,
+	setupFeaturesOn,
 	lossWindowHolds,
 	strengthFloorSentence,
 	type FeatureCounts,
 	type FeatureRow,
 	type FeaturesSettingsData,
-	type HoldsLane
+	type HoldsLane,
+	type SetupFeatureKey
 } from './featuresSettings';
 export { availabilityPercent, isBelowStrengthFloor } from './strengthFloor';
 

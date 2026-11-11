@@ -25,7 +25,7 @@ import {
 import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
-import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+import { initialCalendarView, rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
@@ -125,7 +125,7 @@ export class CalendarPageContext {
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	viewMode = $state<CalendarViewMode>('month');
+	viewMode = $state<CalendarViewMode>(initialCalendarView());
 
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);

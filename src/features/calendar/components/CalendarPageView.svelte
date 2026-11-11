@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
+	import CalendarAgenda from '$features/calendar/components/calendar-agenda/CalendarAgenda.svelte';
+	import CalendarAgendaSkeleton from '$features/calendar/components/calendar-agenda/CalendarAgendaSkeleton.svelte';
+	import CalendarWeekSkeleton from '$features/calendar/components/calendar-agenda/CalendarWeekSkeleton.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import CalendarLegend from '$features/calendar/components/calendar-legend/CalendarLegend.svelte';
 	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
@@ -15,6 +18,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
+	import { buildCalendarAgenda, rosterPeople } from '$features/calendar/utils/calendarAgenda';
 	import { longRangeDates } from '$features/calendar/utils/calendarRange';
 	import {
 		EMPTY_TASKING_FACTS,
@@ -184,8 +188,8 @@
 
 	// An archived type stays in the legend only while an entry in view uses it.
 	const legendStatusTypes = $derived.by(() => {
-		const first = projectionDates.at(0);
-		const last = projectionDates.at(-1);
+		const first = viewDates.at(0);
+		const last = viewDates.at(-1);
 		if (!first || !last) return statusTypesStore.active;
 		const [start, end] = [formatDate(first), formatDate(last)];
 		const inUse = new Set(
@@ -195,11 +199,13 @@
 		);
 		return statusTypesStore.items.filter((status) => !status.archivedAt || inUse.has(status.id));
 	});
+	// Month and Week draw the grid; Agenda lists the same entries by day.
+	const showsGrid = $derived(ctx.viewMode === 'month' || ctx.viewMode === 'week');
 	// A touch screen cannot drag-select, so its hint teaches the two-tap range instead.
 	const coarsePointer = new MediaQuery('pointer: coarse', false);
 
 	const legend = $derived([
-		...(ctx.viewMode === 'month'
+		...(showsGrid
 			? [
 					statusLegend(
 						legendStatusTypes,
@@ -208,7 +214,7 @@
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
 			: [statusLegend(legendStatusTypes)]),
-		...(ctx.showEvents ? [shownEventsLegend] : [])
+		...(ctx.showEvents && ctx.viewMode !== 'agenda' ? [shownEventsLegend] : [])
 	]);
 
 	const projectionLinks = $derived.by((): ProjectionLinks => {
@@ -221,18 +227,26 @@
 	});
 	// The viewer's day, matching the server's notion of overdue for this read.
 	const today = formatDate(new Date());
-	const projectionDates = $derived(
-		ctx.viewMode === '3-month' ? longRangeDates(calendarStore.currentDate) : calendarStore.dates
-	);
+	const viewDates = $derived.by(() => {
+		switch (ctx.viewMode) {
+			case 'month':
+				return calendarStore.dates;
+			case '3-month':
+				return longRangeDates(calendarStore.currentDate);
+			case 'week':
+			case 'agenda':
+				return calendarStore.weekDates;
+		}
+	});
 	const projectionRegion = $derived.by((): ProjectionRegion => {
 		if (projectionStatus === 'error') return { kind: 'error', retry: onRetryProjection };
 		if (projectionStatus === 'loading' || !projection) return { kind: 'loading' };
 		return { kind: 'ready', projection, facts: taskingFacts };
 	});
 	const projectionLanes = $derived(
-		ctx.showEvents && ctx.showEventLanes && projectionDates.length > 0
+		ctx.showEvents && ctx.showEventLanes && viewDates.length > 0
 			? buildProjectionLanes({
-					dates: projectionDates,
+					dates: viewDates,
 					region: projectionRegion,
 					links: projectionLinks,
 					density: ctx.viewMode === '3-month' ? 'compact' : 'month',
@@ -241,14 +255,14 @@
 			: []
 	);
 	const headerSuspenses = $derived(
-		ctx.showEvents && ctx.showEventLanes && ctx.viewMode === 'month' && projectionRegion.kind === 'ready'
-			? suspenseDays({ dates: projectionDates, links: projectionLinks, today }, projectionRegion.projection)
+		ctx.showEvents && ctx.showEventLanes && showsGrid && projectionRegion.kind === 'ready'
+			? suspenseDays({ dates: viewDates, links: projectionLinks, today }, projectionRegion.projection)
 			: undefined
 	);
 
 	// One quick card at a time; opening another marker replaces it. A card belongs to the period it was opened in,
 	// so moving to another month or view drops it with its marker.
-	const period = $derived(`${ctx.viewMode}:${projectionDates[0]?.getTime()}`);
+	const period = $derived(`${ctx.viewMode}:${viewDates[0]?.getTime()}`);
 	let opened = $state.raw<{ request: ProjectionCardRequest; anchor: HTMLElement; period: string } | null>(null);
 	const card = $derived(opened?.period === period ? opened : null);
 	let assigning = $state.raw<TaskingCard | null>(null);
@@ -303,11 +317,11 @@
 		}
 	}
 	const commitments = $derived(
-		ctx.showEvents && projectionRegion.kind === 'ready' && projectionDates.length > 0
+		ctx.showEvents && projectionRegion.kind === 'ready' && viewDates.length > 0
 			? commitmentsByPerson(
 					projectionRegion.projection.commitments,
-					formatDate(projectionDates[0]),
-					projectionDates.length,
+					formatDate(viewDates[0]),
+					viewDates.length,
 					projectionLinks
 				)
 			: undefined
@@ -318,8 +332,8 @@
 		indexDutyAvailability(blockingAvailability(availabilityStore.items, statusTypesStore.items))
 	);
 	const unavailableSlots = $derived.by(() => {
-		const first = calendarStore.dates.at(0);
-		const last = calendarStore.dates.at(-1);
+		const first = viewDates.at(0);
+		const last = viewDates.at(-1);
 		if (!first || !last) return undefined;
 		return dutyConflictReasons(
 			findDutyConflicts({
@@ -335,7 +349,7 @@
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
 	const allLanes = $derived(
 		buildCalendarLanes({
-			dates: calendarStore.dates,
+			dates: viewDates,
 			assignmentTypes: dailyAssignmentsStore.types,
 			assignments: dailyAssignmentsStore.assignments,
 			specialDays: specialDaysStore.items,
@@ -357,6 +371,28 @@
 		allLanes.filter((lane) => (lane.kind === 'days' ? ctx.showDaysLane : ctx.showAssignmentLanes))
 	);
 
+	// Week and Agenda wait for their own days, so a gap read shows in their body instead of above it.
+	type PeriodRegion = { kind: 'ready' } | { kind: 'loading' } | { kind: 'error'; retry?: () => void };
+	const weekPeriod = $derived(ctx.viewMode === 'week' || ctx.viewMode === 'agenda');
+	const periodRegion = $derived.by((): PeriodRegion => {
+		if (!weekPeriod || rangeStatus === 'ready') return { kind: 'ready' };
+		return rangeStatus === 'error' ? { kind: 'error', retry: onRetryRange } : { kind: 'loading' };
+	});
+
+	const agenda = $derived(
+		ctx.viewMode === 'agenda'
+			? buildCalendarAgenda({
+					dates: viewDates,
+					people: rosterPeople(ctx.filteredPBG),
+					tracks: ctx.availabilityTracks,
+					specialDays: specialDaysStore.items,
+					assignments: dailyAssignmentsStore.assignments,
+					assignmentTypes: dailyAssignmentsStore.types,
+					unavailable: unavailableSlots
+				})
+			: []
+	);
+
 	const barPopover = $derived(ctx.popover?.kind === 'duty' ? null : ctx.popover);
 	const popoverEntry = $derived(
 		ctx.popover?.kind === 'entry' ? { personId: ctx.popover.person.id, entryId: ctx.popover.entryId } : null
@@ -368,7 +404,7 @@
 	);
 
 	$effect(() => {
-		void [calendarStore.year, calendarStore.month, ctx.viewMode];
+		void [viewDates[0]?.getTime(), ctx.viewMode];
 		untrack(() => ctx.closePopover());
 	});
 
@@ -461,6 +497,15 @@
 	}
 </script>
 
+{#snippet rangeError(retry: (() => void) | undefined)}
+	<Alert.Root variant="destructive" role="status" aria-live="polite">
+		<Alert.Description>Additional calendar data is temporarily unavailable.</Alert.Description>
+		<Alert.Action>
+			<Button type="button" variant="destructive" size="xs" onclick={retry}>Retry calendar load</Button>
+		</Alert.Action>
+	</Alert.Root>
+{/snippet}
+
 <svelte:head>
 	<title>{data.orgName} - Troop to Task</title>
 </svelte:head>
@@ -482,6 +527,10 @@
 
 				{#if ctx.viewMode === '3-month'}
 					<Skeleton class="h-[min(820px,calc(100dvh-10rem))] w-full rounded-lg" />
+				{:else if ctx.viewMode === 'week'}
+					<CalendarWeekSkeleton />
+				{:else if ctx.viewMode === 'agenda'}
+					<CalendarAgendaSkeleton />
 				{:else}
 					<div class="grid grid-cols-7 gap-1">
 						{#each { length: 49 }, index (index)}
@@ -496,11 +545,11 @@
 			<section class="flex h-full w-full flex-col gap-3 overflow-hidden sm:gap-4">
 				<CalendarTitleRow
 					view={ctx.viewMode}
-					anchor={calendarStore.currentDate}
+					anchor={calendarStore.focusDay}
 					today={ctx.todayAvailability}
 					orgName={data.orgName}
 					personnelCount={ctx.allPersonnelFlat.length}
-					onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
+					onAnchorChange={(anchor) => calendarStore.goToDay(anchor)}
 					onToday={() => ctx.requestToday()}
 					onViewChange={(view) => ctx.setViewMode(view)}
 				/>
@@ -518,17 +567,12 @@
 					}}
 				/>
 
-				{#if rangeStatus === 'loading'}
+				{#if !weekPeriod && rangeStatus === 'loading'}
 					<Alert.Root role="status" aria-live="polite">
 						<Alert.Description>Loading additional calendar dates...</Alert.Description>
 					</Alert.Root>
-				{:else if rangeStatus === 'error'}
-					<Alert.Root variant="destructive" role="status" aria-live="polite">
-						<Alert.Description>Additional calendar data is temporarily unavailable.</Alert.Description>
-						<Alert.Action>
-							<Button type="button" variant="destructive" size="xs" onclick={onRetryRange}>Retry calendar load</Button>
-						</Alert.Action>
-					</Alert.Root>
+				{:else if !weekPeriod && rangeStatus === 'error'}
+					{@render rangeError(onRetryRange)}
 				{/if}
 
 				{#if ctx.lossWarningsUnavailable}
@@ -543,7 +587,18 @@
 					</Alert.Root>
 				{/if}
 
-				{#if ctx.viewMode === '3-month'}
+				{#if periodRegion.kind === 'loading'}
+					<div class="flex min-h-0 flex-1 flex-col overflow-hidden" role="status" aria-live="polite">
+						<span class="sr-only">Loading additional calendar dates...</span>
+						{#if ctx.viewMode === 'week'}
+							<CalendarWeekSkeleton />
+						{:else}
+							<div class="min-h-0 flex-1 overflow-y-auto"><CalendarAgendaSkeleton /></div>
+						{/if}
+					</div>
+				{:else if periodRegion.kind === 'error'}
+					{@render rangeError(periodRegion.retry)}
+				{:else if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
 						personnelByGroup={ctx.filteredPBG}
@@ -556,9 +611,17 @@
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 					/>
+				{:else if ctx.viewMode === 'agenda'}
+					<CalendarAgenda
+						days={agenda}
+						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
+						onDutyClick={ctx.canManageAssignments ? (date) => ctx.handleDateClick(date) : undefined}
+						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
+						{popoverEntry}
+					/>
 				{:else}
 					<Calendar
-						dates={calendarStore.dates}
+						dates={viewDates}
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
@@ -676,7 +739,7 @@
 			defaultStatusTypeId={ctx.defaultStatusTypeId}
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}
-			anchorHasResizeGrips={ctx.viewMode !== '3-month' &&
+			anchorHasResizeGrips={showsGrid &&
 				!ctx.savingAvailability &&
 				popover.kind === 'entry' &&
 				popover.anchor.dataset.entryId === popover.entryId}

@@ -17,6 +17,14 @@ export interface CalendarBufferedRange {
 
 export type CalendarViewMode = 'agenda' | 'week' | 'month' | '3-month';
 
+/** Below this width a month grid needs sideways scrolling, so the Calendar opens on Agenda; matches Tailwind's `max-[640px]`. */
+export const PHONE_WIDTH_QUERY = '(width < 641px)';
+
+/** The view a Calendar opens on. Only the opening view depends on width; the view is never switched on resize. */
+export function initialCalendarView(): CalendarViewMode {
+	return typeof window !== 'undefined' && window.matchMedia?.(PHONE_WIDTH_QUERY).matches ? 'agenda' : 'month';
+}
+
 /** What a view shows from its anchor: one Monday-start week, or whole months from the anchor's month. */
 type PeriodSpan = { readonly unit: 'week' } | { readonly unit: 'months'; readonly count: number };
 

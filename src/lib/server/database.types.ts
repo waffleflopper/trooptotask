@@ -2945,7 +2945,6 @@ export type Database = {
           reviewer_person_id: string | null
           senior_rater_name: string | null
           senior_rater_person_id: string | null
-          status: string
           updated_at: string
           workflow_status: string | null
         }
@@ -2967,7 +2966,6 @@ export type Database = {
           reviewer_person_id?: string | null
           senior_rater_name?: string | null
           senior_rater_person_id?: string | null
-          status?: string
           updated_at?: string
           workflow_status?: string | null
         }
@@ -2989,7 +2987,6 @@ export type Database = {
           reviewer_person_id?: string | null
           senior_rater_name?: string | null
           senior_rater_person_id?: string | null
-          status?: string
           updated_at?: string
           workflow_status?: string | null
         }
@@ -4080,6 +4077,16 @@ export type Database = {
       cancel_own_deletion_request: {
         Args: { p_organization_id: string; p_request_id: string }
         Returns: boolean
+      }
+      change_rating_scheme_rater: {
+        Args: {
+          p_change_date: string
+          p_entry_id: string
+          p_organization_id: string
+          p_rater_name?: string
+          p_rater_person_id?: string
+        }
+        Returns: string
       }
       check_account_setup_rate_limit: {
         Args: {
@@ -5360,6 +5367,10 @@ export type Database = {
           p_organization_id: string
           p_tasking_id: string
         }
+        Returns: boolean
+      }
+      transition_rating_scheme_entry: {
+        Args: { p_entry_id: string; p_organization_id: string; p_to?: string }
         Returns: boolean
       }
       undo_roster_swap: {

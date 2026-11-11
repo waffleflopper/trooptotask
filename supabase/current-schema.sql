@@ -1254,7 +1254,7 @@ BEGIN
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'rating_scheme.created' WHEN 'UPDATE' THEN 'rating_scheme.updated' WHEN 'DELETE' THEN 'rating_scheme.deleted' END;
   IF TG_OP = 'UPDATE' THEN
-    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "status": "status", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
     IF NEW.rater_person_id IS DISTINCT FROM OLD.rater_person_id OR NEW.rater_name IS DISTINCT FROM OLD.rater_name OR NEW.senior_rater_person_id IS DISTINCT FROM OLD.senior_rater_person_id OR NEW.senior_rater_name IS DISTINCT FROM OLD.senior_rater_name OR NEW.intermediate_rater_person_id IS DISTINCT FROM OLD.intermediate_rater_person_id OR NEW.intermediate_rater_name IS DISTINCT FROM OLD.intermediate_rater_name OR NEW.reviewer_person_id IS DISTINCT FROM OLD.reviewer_person_id OR NEW.reviewer_name IS DISTINCT FROM OLD.reviewer_name THEN
       v_change := v_change || pg_catalog.jsonb_build_object('raters', true);
     END IF;
@@ -6480,6 +6480,70 @@ $$;
 
 
 ALTER FUNCTION public.cancel_own_deletion_request(p_organization_id uuid, p_request_id uuid) OWNER TO postgres;
+
+--
+-- Name: change_rating_scheme_rater(uuid, uuid, date, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid DEFAULT NULL::uuid, p_rater_name text DEFAULT NULL::text) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.rating_scheme_entries;
+  v_rater_name text := NULLIF(pg_catalog.btrim(p_rater_name), '');
+  v_start date := p_change_date + 1;
+  v_successor uuid;
+BEGIN
+  IF (p_rater_person_id IS NULL) = (v_rater_name IS NULL) THEN
+    RAISE EXCEPTION 'Choose one new rater' USING ERRCODE = '22023';
+  END IF;
+  IF p_change_date IS NULL THEN
+    RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
+  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
+  FOR UPDATE;
+  IF NOT FOUND OR auth.uid() IS NULL
+    OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Changing this rater needs Evals operation access for its scope' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_row.workflow_status = 'completed' THEN
+    RETURN NULL;
+  END IF;
+  IF p_rater_person_id = v_row.rater_person_id THEN
+    RAISE EXCEPTION 'The new rater is already this evaluation''s rater' USING ERRCODE = '22023';
+  END IF;
+  IF p_change_date < v_row.rating_period_start OR p_change_date > v_row.rating_period_end THEN
+    RAISE EXCEPTION 'The last day with the current rater must fall within the rating period' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.rating_scheme_entries SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed'
+  WHERE organization_id = p_organization_id AND id = p_entry_id;
+
+  INSERT INTO public.rating_scheme_entries (
+    organization_id, rated_person_id, eval_type, rater_person_id, rater_name,
+    senior_rater_person_id, senior_rater_name, intermediate_rater_person_id, intermediate_rater_name,
+    reviewer_person_id, reviewer_name, rating_period_start, rating_period_end, report_type
+  ) VALUES (
+    p_organization_id, v_row.rated_person_id, v_row.eval_type, p_rater_person_id, v_rater_name,
+    v_row.senior_rater_person_id, v_row.senior_rater_name, v_row.intermediate_rater_person_id, v_row.intermediate_rater_name,
+    v_row.reviewer_person_id, v_row.reviewer_name, v_start,
+    -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
+    (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
+    'AN'
+  ) RETURNING id INTO v_successor;
+  RETURN v_successor;
+END;
+$$;
+
+
+ALTER FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) OWNER TO postgres;
 
 --
 -- Name: check_account_setup_rate_limit(text, integer, integer, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: postgres
@@ -12385,11 +12449,11 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
   ),
   active_evaluations AS (
     SELECT DISTINCT ON (r.rated_person_id)
-      r.rated_person_id, r.id, r.eval_type, r.report_type, r.rating_period_start, r.rating_period_end, r.status,
+      r.rated_person_id, r.id, r.eval_type, r.report_type, r.rating_period_start, r.rating_period_end,
       r.workflow_status
     FROM public.rating_scheme_entries r
     JOIN evaluation_cohort c ON c.id = r.rated_person_id
-    WHERE r.organization_id = p_organization_id AND r.status IS DISTINCT FROM 'completed'
+    WHERE r.organization_id = p_organization_id AND r.workflow_status IS DISTINCT FROM 'completed'
     ORDER BY r.rated_person_id, r.rating_period_end DESC, r.id DESC
   )
   SELECT jsonb_build_object(
@@ -12466,7 +12530,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
       'cohort', COALESCE((SELECT jsonb_agg(c.id ORDER BY c.id) FROM evaluation_cohort c), '[]'::jsonb),
       'entries', COALESCE((
         SELECT jsonb_agg(jsonb_build_array(
-          a.rated_person_id, a.id, a.eval_type, a.report_type, a.rating_period_start, a.rating_period_end, a.status,
+          a.rated_person_id, a.id, a.eval_type, a.report_type, a.rating_period_start, a.rating_period_end,
           a.workflow_status
         ) ORDER BY a.rated_person_id)
         FROM active_evaluations a
@@ -14485,6 +14549,77 @@ $$;
 ALTER FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text) OWNER TO postgres;
 
 --
+-- Name: transition_rating_scheme_entry(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text DEFAULT NULL::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
+    'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
+    'submitted-to-s1', 'completed'];
+  v_row public.rating_scheme_entries;
+  v_absent text[] := '{}';
+  v_at integer;
+  v_prev text;
+  v_next text;
+BEGIN
+  IF p_to IS NOT NULL AND NOT p_to = ANY (v_steps) THEN
+    RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
+  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
+  FOR UPDATE;
+  IF NOT FOUND OR auth.uid() IS NULL
+    OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Moving this evaluation needs Evals operation access for its scope' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
+    RETURN false;
+  END IF;
+
+  IF v_row.intermediate_rater_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.intermediate_rater_name), '') IS NULL THEN
+    v_absent := v_absent || ARRAY['with-intermediate-rater', 'ir-signed'];
+  END IF;
+  IF v_row.reviewer_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.reviewer_name), '') IS NULL THEN
+    v_absent := v_absent || ARRAY['with-reviewer', 'reviewer-signed'];
+  END IF;
+  v_at := pg_catalog.array_position(v_steps, v_row.workflow_status);
+  IF v_at IS NOT NULL THEN
+    SELECT s.step INTO v_prev FROM unnest(v_steps) WITH ORDINALITY AS s(step, n)
+    WHERE s.n < v_at AND NOT s.step = ANY (v_absent) ORDER BY s.n DESC LIMIT 1;
+    SELECT s.step INTO v_next FROM unnest(v_steps) WITH ORDINALITY AS s(step, n)
+    WHERE s.n > v_at AND NOT s.step = ANY (v_absent) ORDER BY s.n LIMIT 1;
+  END IF;
+
+  -- A missing neighbour is NULL, so the comparison must not decide the move by being NULL.
+  IF NOT COALESCE(
+    (v_row.workflow_status IS NULL AND p_to IN ('drafting', 'completed'))
+    OR (p_to IS NULL AND v_row.workflow_status IN ('drafting', 'completed'))
+    OR p_to = v_prev OR p_to = v_next,
+    false
+  ) THEN
+    RAISE EXCEPTION 'An evaluation at % cannot move to %',
+      COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_to, 'not tracked') USING ERRCODE = '55000';
+  END IF;
+
+  UPDATE public.rating_scheme_entries SET workflow_status = p_to
+  WHERE organization_id = p_organization_id AND id = p_entry_id;
+  RETURN true;
+END;
+$$;
+
+
+ALTER FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) OWNER TO postgres;
+
+--
 -- Name: undo_roster_swap(uuid, uuid, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -16022,14 +16157,12 @@ CREATE TABLE public.rating_scheme_entries (
     reviewer_name text,
     rating_period_start date NOT NULL,
     rating_period_end date NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     report_type text,
     workflow_status text,
     CONSTRAINT rating_scheme_entries_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text]))),
-    CONSTRAINT rating_scheme_entries_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'change-of-rater'::text]))),
     CONSTRAINT rating_scheme_entries_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'with-rater'::text, 'rater-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-s1'::text, 'completed'::text]))))
 );
 
@@ -23671,6 +23804,15 @@ GRANT ALL ON FUNCTION public.cancel_own_deletion_request(p_organization_id uuid,
 
 
 --
+-- Name: FUNCTION change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) TO authenticated;
+GRANT ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) TO service_role;
+
+
+--
 -- Name: FUNCTION check_account_setup_rate_limit(p_bucket_key text, p_window_seconds integer, p_max_requests integer, p_checked_at timestamp with time zone); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -25161,6 +25303,15 @@ GRANT ALL ON FUNCTION public.transfer_org_ownership(p_organization_id uuid, p_ne
 
 REVOKE ALL ON FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text) TO authenticated;
+
+
+--
+-- Name: FUNCTION transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) TO authenticated;
+GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_to text) TO service_role;
 
 
 --
@@ -26758,9 +26909,121 @@ GRANT SELECT ON TABLE public.platform_operators TO authenticated;
 -- Name: TABLE rating_scheme_entries; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE public.rating_scheme_entries TO anon;
-GRANT ALL ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT SELECT,MAINTAIN ON TABLE public.rating_scheme_entries TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.rating_scheme_entries TO authenticated;
 GRANT ALL ON TABLE public.rating_scheme_entries TO service_role;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(organization_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.rated_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(rated_person_id),UPDATE(rated_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.eval_type; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(eval_type),UPDATE(eval_type) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.rater_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(rater_person_id),UPDATE(rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.rater_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(rater_name),UPDATE(rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.senior_rater_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(senior_rater_person_id),UPDATE(senior_rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.senior_rater_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(senior_rater_name),UPDATE(senior_rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.intermediate_rater_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(intermediate_rater_person_id),UPDATE(intermediate_rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.intermediate_rater_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(intermediate_rater_name),UPDATE(intermediate_rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.reviewer_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(reviewer_person_id),UPDATE(reviewer_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.reviewer_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(reviewer_name),UPDATE(reviewer_name) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.rating_period_start; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(rating_period_start),UPDATE(rating_period_start) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.rating_period_end; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(rating_period_end),UPDATE(rating_period_end) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.notes; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE public.rating_scheme_entries TO authenticated;
+
+
+--
+-- Name: COLUMN rating_scheme_entries.report_type; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(report_type),UPDATE(report_type) ON TABLE public.rating_scheme_entries TO authenticated;
 
 
 --

@@ -27,13 +27,13 @@ INSERT INTO public.rating_scheme_entries (
   id, organization_id, rated_person_id, eval_type, rater_person_id, senior_rater_person_id,
   intermediate_rater_person_id, reviewer_person_id, rater_name, senior_rater_name,
   intermediate_rater_name, reviewer_name, rating_period_start, rating_period_end,
-  status, report_type, workflow_status, notes
+  report_type, workflow_status, notes
 ) VALUES (
   'd1601000-0000-4000-8000-000000000401', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER',
   'd1601000-0000-4000-8000-000000000302', 'd1601000-0000-4000-8000-000000000302',
   'd1601000-0000-4000-8000-000000000302', 'd1601000-0000-4000-8000-000000000302',
   'Retained Rater', 'Retained Senior', 'Retained Intermediate', 'Retained Reviewer',
-  '2026-01-01', '2026-12-31', 'change-of-rater', 'CR', 'with-rater', 'Retained evaluation history'
+  '2026-01-01', '2026-12-31', 'CR', 'with-rater', 'Retained evaluation history'
 );
 CREATE TEMP TABLE evaluator_write_before AS SELECT to_jsonb(e) AS row_data
   FROM public.rating_scheme_entries e WHERE id = 'd1601000-0000-4000-8000-000000000401';
@@ -41,8 +41,8 @@ CREATE TEMP TABLE evaluator_write_before AS SELECT to_jsonb(e) AS row_data
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd1601000-0000-4000-8000-000000000001', true);
 SELECT throws_ok(format($sql$ INSERT INTO public.rating_scheme_entries
-  (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, status, %I)
-  VALUES ('d1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'active', %L) $sql$, field, person_id),
+  (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, %I)
+  VALUES ('d1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', %L) $sql$, field, person_id),
   '23503', NULL, 'authenticated create rejects ' || label || ' in ' || field)
 FROM (VALUES ('rater_person_id'), ('senior_rater_person_id'), ('intermediate_rater_person_id'), ('reviewer_person_id')) AS fields(field)
 CROSS JOIN (VALUES ('d1601000-0000-4000-8000-000000000305', 'foreign'), ('d1601000-0000-4000-8000-000000000399', 'missing')) AS people(person_id, label);
@@ -59,15 +59,15 @@ SELECT throws_ok(format($sql$ UPDATE public.rating_scheme_entries SET %I = %L
 FROM (VALUES ('rater_person_id'), ('senior_rater_person_id'), ('intermediate_rater_person_id'), ('reviewer_person_id')) AS fields(field)
 CROSS JOIN (VALUES ('d1601000-0000-4000-8000-000000000305', 'foreign'), ('d1601000-0000-4000-8000-000000000399', 'missing')) AS people(person_id, label);
 SELECT throws_ok(format($sql$ INSERT INTO public.rating_scheme_entries
-  (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, status, %I)
-  VALUES ('d1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'active', %L) $sql$, field, person_id),
+  (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, %I)
+  VALUES ('d1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', %L) $sql$, field, person_id),
   '23503', NULL, 'privileged create rejects ' || label || ' ' || field)
 FROM (VALUES ('rater_person_id'), ('senior_rater_person_id'), ('intermediate_rater_person_id'), ('reviewer_person_id')) AS fields(field)
 CROSS JOIN (VALUES ('d1601000-0000-4000-8000-000000000305', 'foreign'), ('d1601000-0000-4000-8000-000000000399', 'missing')) AS people(person_id, label);
 SELECT throws_ok($$ INSERT INTO public.rating_scheme_entries
-  (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, status, rater_person_id) VALUES
-  ('d1601000-0000-4000-8000-000000000411', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'active', 'd1601000-0000-4000-8000-000000000302'),
-  ('d1601000-0000-4000-8000-000000000412', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'active', 'd1601000-0000-4000-8000-000000000305') $$,
+  (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, rater_person_id) VALUES
+  ('d1601000-0000-4000-8000-000000000411', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'd1601000-0000-4000-8000-000000000302'),
+  ('d1601000-0000-4000-8000-000000000412', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'd1601000-0000-4000-8000-000000000305') $$,
   '23503', NULL, 'a mixed multirow statement rejects its foreign evaluator');
 SELECT is((SELECT count(*)::integer FROM public.rating_scheme_entries WHERE id IN
   ('d1601000-0000-4000-8000-000000000411', 'd1601000-0000-4000-8000-000000000412')), 0,
@@ -104,7 +104,7 @@ SELECT results_eq($$ SELECT to_jsonb(e) - 'updated_at' FROM public.rating_scheme
   WHERE id = 'd1601000-0000-4000-8000-000000000401' $$,
   $$ SELECT (row_data - 'updated_at') || jsonb_build_object('rater_person_id', NULL, 'senior_rater_person_id', NULL,
     'intermediate_rater_person_id', NULL, 'reviewer_person_id', NULL) FROM evaluator_write_before $$,
-  'local evaluator deletion retains identity, Organization, names, dates, status, workflow and notes');
+  'local evaluator deletion retains identity, Organization, names, dates, workflow and notes');
 SET LOCAL ROLE service_role;
 SELECT lives_ok($$ DELETE FROM public.personnel WHERE id = 'd1601000-0000-4000-8000-000000000301' $$,
   'rated-Person deletion retains its existing evaluation cascade');

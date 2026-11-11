@@ -129,11 +129,11 @@ INSERT INTO public.personnel_ict_completions
 (pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), pg_temp.id('airway_task'), '2026-10-24', 'Practical Exercise', 'SFC Future', '2026-07-04 08:00+00'),
 (pg_temp.id('alpha_org'), pg_temp.id('alpha_two_person'), pg_temp.id('airway_task'), '2026-10-24', 'Practical Exercise', 'SFC Future', '2026-07-04 08:00+00');
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, status, workflow_status) VALUES
-(pg_temp.id('completed_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2026-01-01', '2027-01-01', 'completed', 'completed'),
-(pg_temp.id('current_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-12-01', '2026-12-01', 'active', 'drafting'),
-(pg_temp.id('older_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-06-01', '2026-06-01', 'active', NULL),
-(pg_temp.id('current_alpha_two_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_two_person'), 'NCOER', '2025-12-01', '2026-12-01', 'active', NULL);
+INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, workflow_status) VALUES
+(pg_temp.id('completed_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2026-01-01', '2027-01-01', 'completed'),
+(pg_temp.id('current_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-12-01', '2026-12-01', 'drafting'),
+(pg_temp.id('older_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-06-01', '2026-06-01', NULL),
+(pg_temp.id('current_alpha_two_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_two_person'), 'NCOER', '2025-12-01', '2026-12-01', NULL);
 
 INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, due_date, status, created_by, created_at) VALUES
 (pg_temp.id('undated_follow_up'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'Undated', NULL, 'open', 'SFC Lead', '2026-10-01 08:00+00'),
@@ -228,12 +228,12 @@ BEGIN
     p_label || ': Organization settings match the invoker read');
 
   SELECT COALESCE(jsonb_agg(jsonb_build_array(r.rated_person_id, r.id, r.eval_type, r.report_type,
-    r.rating_period_start, r.rating_period_end, r.status, r.workflow_status) ORDER BY r.rated_person_id), '[]'::jsonb)
+    r.rating_period_start, r.rating_period_end, r.workflow_status) ORDER BY r.rated_person_id), '[]'::jsonb)
     INTO expected
   FROM (
     SELECT DISTINCT ON (r.rated_person_id) r.*
     FROM public.rating_scheme_entries r JOIN public.personnel p ON p.id = r.rated_person_id
-    WHERE r.organization_id = org AND p.archived_at IS NULL AND r.status IS DISTINCT FROM 'completed'
+    WHERE r.organization_id = org AND p.archived_at IS NULL AND r.workflow_status IS DISTINCT FROM 'completed'
     ORDER BY r.rated_person_id, r.rating_period_end DESC, r.id DESC
   ) r;
   RETURN NEXT is(actual #> '{evaluations,entries}', expected, p_label || ': evaluations match the invoker read');
@@ -312,8 +312,8 @@ SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
   'critical tasks carry only the columns readiness reads');
 
 SELECT is(pg_temp.sig('evaluations') -> 'entries',
-  jsonb_build_array(jsonb_build_array(pg_temp.id('alpha_one_person'), pg_temp.id('current_alpha_one_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', 'active', 'drafting'),
-    jsonb_build_array(pg_temp.id('alpha_two_person'), pg_temp.id('current_alpha_two_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', 'active', NULL)),
+  jsonb_build_array(jsonb_build_array(pg_temp.id('alpha_one_person'), pg_temp.id('current_alpha_one_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', 'drafting'),
+    jsonb_build_array(pg_temp.id('alpha_two_person'), pg_temp.id('current_alpha_two_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', NULL)),
   'the active evaluation is the latest-ending entry not completed');
 
 SELECT is(pg_temp.sig('followUps') -> 'open',

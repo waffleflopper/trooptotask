@@ -57,8 +57,9 @@ UPDATE public.personnel_ict_completions SET validated_by = 'SSG Private' WHERE i
 INSERT INTO public.rating_scheme_entries (
   id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end
 ) VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
-UPDATE public.rating_scheme_entries SET rater_person_id = pg_temp.id('302'), status = 'completed',
-  notes = 'Private note' WHERE id = pg_temp.id('601');
+UPDATE public.rating_scheme_entries SET rater_person_id = pg_temp.id('302'), notes = 'Private note'
+WHERE id = pg_temp.id('601');
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), pg_temp.id('601'), 'completed');
 RESET ROLE;
 
 SELECT bag_eq(
@@ -114,8 +115,10 @@ SELECT bag_eq(
   $$ VALUES
     ('rating_scheme.created', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31"}'::jsonb),
     ('rating_scheme.updated', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31",
-      "change": {"status": {"from": "active", "to": "completed"}, "raters": true, "notes": true}}'::jsonb) $$,
-  'a Rating Scheme entry saves the rated person and period, and notes a change of raters and notes without them');
+      "change": {"raters": true, "notes": true}}'::jsonb),
+    ('rating_scheme.updated', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31",
+      "change": {"workflowStatus": {"from": null, "to": "completed"}}}'::jsonb) $$,
+  'a Rating Scheme entry saves the rated person and period, its step changes, and a change of raters and notes without them');
 
 UPDATE public.personnel SET last_name = 'Smith' WHERE id = pg_temp.id('301');
 -- A Training type with history rows is archived, not deleted; clear them so the type can be removed.

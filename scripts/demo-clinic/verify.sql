@@ -15,14 +15,14 @@ BEGIN
     GROUP BY expected.name,expected.n HAVING count(p.id) <> expected.n
   ) THEN RAISE EXCEPTION 'Expected demo Group distribution 10 Leadership / 20 Alpha / 20 Bravo'; END IF;
   IF (SELECT count(*) FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids)) <> 12
-    OR (SELECT count(*) FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND status='completed') <> 2 THEN
+    OR (SELECT count(*) FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status='completed') <> 2 THEN
     RAISE EXCEPTION 'Expected 12 evals including 2 completed'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND status='active' AND rating_period_end<CURRENT_DATE)
+  IF NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status IS DISTINCT FROM 'completed' AND rating_period_end<CURRENT_DATE)
     OR NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE AND CURRENT_DATE+30)
     OR NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE+31 AND CURRENT_DATE+60) THEN
     RAISE EXCEPTION 'Expected overdue, 30-day and 60-day evaluation examples'; END IF;
   IF (SELECT count(*) FROM public.personnel_onboardings WHERE organization_id=target AND personnel_id=ANY(demo_ids) AND status='in_progress') <> 6
-    OR (SELECT count(*) FROM public.personnel_onboardings WHERE organization_id=target AND personnel_id=ANY(demo_ids) AND status='completed') <> 2 THEN
+    OR (SELECT count(*) FROM public.personnel_onboardings WHERE organization_id=target AND personnel_id=ANY(demo_ids) AND workflow_status='completed') <> 2 THEN
     RAISE EXCEPTION 'Expected 6 active and 2 completed onboardings'; END IF;
   IF EXISTS (
     SELECT o.id FROM public.personnel_onboardings o LEFT JOIN public.onboarding_step_progress s ON s.onboarding_id=o.id

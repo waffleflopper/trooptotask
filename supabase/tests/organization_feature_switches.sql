@@ -125,10 +125,10 @@ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id,
 	(pg_temp.id('721'), pg_temp.id('101'), pg_temp.id('711'), 'Badge', 'checkbox', 2),
 	(pg_temp.id('722'), pg_temp.id('102'), pg_temp.id('712'), 'Badge', 'checkbox', 1);
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end, status) VALUES
-	(pg_temp.id('801'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', pg_temp.id('301'), '2026-01-01', '2026-12-31', 'active'),
-	(pg_temp.id('802'), pg_temp.id('101'), pg_temp.id('302'), 'NCOER', pg_temp.id('302'), '2026-01-01', '2026-12-31', 'active'),
-	(pg_temp.id('803'), pg_temp.id('102'), pg_temp.id('305'), 'NCOER', pg_temp.id('305'), '2026-01-01', '2026-12-31', 'active');
+INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
+	(pg_temp.id('801'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', pg_temp.id('301'), '2026-01-01', '2026-12-31'),
+	(pg_temp.id('802'), pg_temp.id('101'), pg_temp.id('302'), 'NCOER', pg_temp.id('302'), '2026-01-01', '2026-12-31'),
+	(pg_temp.id('803'), pg_temp.id('102'), pg_temp.id('305'), 'NCOER', pg_temp.id('305'), '2026-01-01', '2026-12-31');
 
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description) VALUES
 	(pg_temp.id('901'), pg_temp.id('101'), pg_temp.id('3'), 'switches-3@example.test', 'training_type', pg_temp.id('502'), 'Alpha Retired'),

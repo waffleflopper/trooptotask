@@ -199,7 +199,6 @@
 		);
 		return statusTypesStore.items.filter((status) => !status.archivedAt || inUse.has(status.id));
 	});
-	// Month and Week draw the grid; Agenda lists the same entries by day.
 	const showsGrid = $derived(ctx.viewMode === 'month' || ctx.viewMode === 'week');
 	// A touch screen cannot drag-select, so its hint teaches the two-tap range instead.
 	const coarsePointer = new MediaQuery('pointer: coarse', false);

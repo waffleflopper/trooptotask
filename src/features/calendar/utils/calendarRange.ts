@@ -62,7 +62,6 @@ function weekTitle(mondayKey: string, sundayKey: string): string {
 	return `${formatDayMonthYear(mondayKey)} – ${formatDayMonthYear(sundayKey)}`;
 }
 
-/** The first and last day a view shows from `anchor`. */
 function visibleDays(anchor: Date, view: CalendarViewMode): { first: Date; last: Date } {
 	const { span } = PERIODS[view];
 	if (span.unit === 'week') {
@@ -91,7 +90,6 @@ export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direct
 	return new Date(anchor.getFullYear(), anchor.getMonth() + direction * span.count, 1);
 }
 
-/** The seven days of the Monday-start week `anchor` falls in. */
 export function weekDates(anchor: Date): Date[] {
 	const monday = parseDate(mondayOf(formatDate(anchor)));
 	return Array.from(
@@ -134,7 +132,6 @@ function coverageThrough(firstVisible: string, lastVisible: string, today: strin
 	};
 }
 
-/** What a Calendar view needs: availability and assignments over its visible days. */
 export function calendarViewCoverage(
 	anchor: Date,
 	view: CalendarViewMode,

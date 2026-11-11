@@ -15,7 +15,6 @@ export interface AgendaDuty {
 
 export interface AgendaPerson {
 	readonly person: Personnel;
-	/** The entries covering the day, in the grid's order. */
 	readonly statuses: readonly CalendarSpan[];
 	readonly duties: readonly AgendaDuty[];
 }
@@ -27,11 +26,9 @@ export interface AgendaDay {
 	readonly specialDay?: SpecialDay;
 	readonly available: number;
 	readonly total: number;
-	/** Only people who are out or on duty, in roster order. */
 	readonly people: readonly AgendaPerson[];
 }
 
-/** Everyone the grid's bands list, once, in band order. */
 export function rosterPeople(bands: readonly { readonly personnel: readonly Personnel[] }[]): Personnel[] {
 	const seen = new Set<string>();
 	const people: Personnel[] = [];

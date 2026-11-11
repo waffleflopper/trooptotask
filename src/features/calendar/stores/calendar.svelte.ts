@@ -42,7 +42,6 @@ class CalendarStore {
 		return this.#focusDay;
 	}
 
-	/** The first of the focus day's month. */
 	get currentDate() {
 		return this.#currentDate;
 	}
@@ -59,7 +58,6 @@ class CalendarStore {
 		return this.#dates;
 	}
 
-	/** The seven days of the focus day's Monday-start week. */
 	get weekDates() {
 		return this.#weekDates;
 	}

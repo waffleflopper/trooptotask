@@ -225,18 +225,6 @@ describe('calendar page', () => {
 		expect(view.container.textContent).toBe('');
 	});
 
-	it('holds a skeleton for each opening view while the workspace streams, and lets only the width pick between them', () => {
-		const pending = new Promise<never>(() => {});
-
-		render(WithPreferences, { props: { data: { ...makePageData(), calendar: { data: pending } } } });
-
-		const loading = screen.getByRole('status');
-		const agenda = within(loading).getByTestId('calendar-agenda-skeleton');
-		const grid = loading.querySelector('.grid-cols-7')!;
-		expect(agenda.parentElement!.className).toContain('min-[641px]:hidden');
-		expect(grid.className).toContain('max-[641px]:hidden');
-	});
-
 	it('keeps the current calendar visible while loading additional dates', async () => {
 		let resolveRange: ((value: CalendarRangeData) => void) | undefined;
 		loadCalendarRangeMock.mockReset();

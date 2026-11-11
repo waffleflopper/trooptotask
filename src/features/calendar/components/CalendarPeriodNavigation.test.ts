@@ -37,14 +37,14 @@ describe('CalendarPeriodNavigation', () => {
 		expect(anchors).toEqual(['2027-02-01', '2026-08-01']);
 	});
 
-	it.each(['month', '3-month'] as const)('returns to the current month from Today in %s', async (view) => {
+	it.each(['agenda', 'week', 'month', '3-month'] as const)('returns to today from Today in %s', async (view) => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date(2026, 9, 31, 9));
 		const anchors = renderNavigation({ view, anchor: new Date(2027, 4, 1) });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
 
-		expect(anchors).toEqual(['2026-10-01']);
+		expect(anchors).toEqual(['2026-10-31']);
 	});
 
 	it('announces Today after moving, even when the current month is already shown', async () => {
@@ -56,7 +56,7 @@ describe('CalendarPeriodNavigation', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 
-		expect(anchors).toEqual(['2026-10-01', '2026-11-01']);
+		expect(anchors).toEqual(['2026-10-31', '2026-11-01']);
 		expect(events).toEqual(['today']);
 	});
 
@@ -97,6 +97,16 @@ describe('CalendarPeriodNavigation month picker', () => {
 		expect(anchors).toEqual(['2026-03-01']);
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(document.activeElement).toBe(trigger);
+	});
+
+	it.each(['agenda', 'week'] as const)('steps a week at a time in %s and names the shown week', async (view) => {
+		const anchors = renderNavigation({ view, anchor: new Date(2026, 10, 11) });
+
+		expect(screen.getByRole('button', { name: '9–15 Nov 2026' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Previous week' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+
+		expect(anchors).toEqual(['2026-11-04', '2026-11-18']);
 	});
 
 	it('starts the 3-Month view at a month chosen with Enter', async () => {

@@ -8,8 +8,8 @@
 	import type { SuspenseLaneDay } from './projection/SuspenseLaneCell.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from './GroupHeader.svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
+	import CalendarRosterEmpty from './CalendarRosterEmpty.svelte';
+	import type { RosterEmpty } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$lib/utils/dayNumber';
 	import { layoutBars, type LabelPolicy } from '$lib/components/patterns/calendar-bars';
@@ -44,6 +44,8 @@
 	interface Props {
 		dates: Date[];
 		personnelByGroup: GroupData[];
+		rosterEmpty: RosterEmpty | null;
+		onClearFilters: () => void;
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
 		pinnedGroupIds: readonly string[];
@@ -88,6 +90,8 @@
 	let {
 		dates,
 		personnelByGroup,
+		rosterEmpty,
+		onClearFilters,
 		tracks,
 		specialDays,
 		pinnedGroupIds,
@@ -202,7 +206,6 @@
 		}
 	}
 
-	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
 	const nested = $derived(personnelByGroup.some((grp) => (grp.level ?? 0) > 0));
 	const personRowHeight = $derived(showPersonnelRoles ? PERSON_ROW_HEIGHT_WITH_ROLES : PERSON_ROW_HEIGHT_WITHOUT_ROLES);
 	const rowOverscanPx = $derived(personRowHeight * ROW_OVERSCAN_COUNT);
@@ -407,18 +410,8 @@
 		onscroll={handleScroll}
 	>
 		<div class="calendar-grid flex min-h-full min-w-full flex-col">
-			{#if totalPersonnel === 0}
-				<Empty.Root class="min-h-52 border-0">
-					<Empty.Header>
-						<Empty.Title level={3}>No personnel added yet</Empty.Title>
-						<Empty.Description>Go to Personnel to add people to your roster.</Empty.Description>
-					</Empty.Header>
-					{#if personnelHref}
-						<Empty.Content>
-							<Button href={personnelHref} size="sm">Go to Personnel</Button>
-						</Empty.Content>
-					{/if}
-				</Empty.Root>
+			{#if rosterEmpty}
+				<CalendarRosterEmpty reason={rosterEmpty} class="min-h-52 border-0" {personnelHref} {onClearFilters} />
 			{:else}
 				<div
 					class="calendar-rows relative min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))]"

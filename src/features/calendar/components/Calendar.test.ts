@@ -120,6 +120,8 @@ function renderCalendar(
 		props: {
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
 			personnelByGroup: overrides.personnelByGroup ?? [{ groupId: 'group-1', group: 'Alpha', personnel }],
+			rosterEmpty: null,
+			onClearFilters: () => {},
 			tracks: buildAvailabilityTracks(overrides.availabilityEntries ?? [], statusTypes),
 			specialDays: overrides.specialDays ?? specialDays,
 			pinnedGroupIds: [],

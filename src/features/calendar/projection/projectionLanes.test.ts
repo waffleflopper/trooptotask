@@ -130,7 +130,7 @@ describe('buildProjectionLanes', () => {
 	});
 
 	it('keeps a Suspenses lane in the compact view only', () => {
-		const lanesOf = (density: 'month' | 'compact') =>
+		const lanesOf = (density: 'week' | 'month' | 'compact') =>
 			buildProjectionLanes({
 				dates: MAY,
 				region: { kind: 'ready', projection: EMPTY_PROJECTION, facts: EMPTY_TASKING_FACTS },
@@ -139,6 +139,7 @@ describe('buildProjectionLanes', () => {
 				today: TODAY
 			}).map((lane) => lane.kind);
 
+		expect(lanesOf('week')).toEqual(['events']);
 		expect(lanesOf('month')).toEqual(['events']);
 		expect(lanesOf('compact')).toEqual(['events', 'suspenses']);
 	});

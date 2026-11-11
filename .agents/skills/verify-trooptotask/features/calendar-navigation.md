@@ -1,19 +1,30 @@
 # Calendar navigation
 
-A member moves through the availability calendar, narrows the people shown, and switches between the month and
-long-range views.
+A member moves through the availability calendar, narrows the people shown, and switches between the agenda, week,
+month and long-range views.
 
 ## Sub-features
 
 - `calendar-entry`: enter Calendar from organization navigation.
 - `calendar-month`: move with `Today`, `Previous month`, the month picker on the title and `Next month`; the same
   controls drive the Duty planner's month.
-- `calendar-range`: switch between `Month` and `3-Month` with `Calendar view` in the title row.
+- `calendar-range`: switch between `Agenda`, `Week`, `Month` and `3-Month` with `Calendar view` in the title row, at
+  every width. Below 641px the Calendar opens on `Agenda`; at 641px and wider it opens on `Month`. Only the opening view
+  follows the width: resizing never switches it and a reload opens on the width's view again.
+- `calendar-week`: `Week` is the month grid over the seven days of one Monday-start week, titled `9–15 Nov 2026` (or
+  `27 Oct – 2 Nov 2026` across a month edge) with `Previous week` and `Next week`. It fits 390px with no horizontal
+  scroll.
+- `calendar-agenda`: `Agenda` lists the same week day by day. Each day shows its date, a Special Day's name, `N available`
+  and only the people who are out or on duty, one row per person with that day's statuses and duties together; a duty
+  whose person is out carries the conflict mark and reason. A day with no one says `No one out or on duty.` It follows
+  the group filter and the reader's scope and shows the entries the month grid shows.
 - `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display`, `Events & Taskings` (when enabled)
   and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings`
   and the exports always live in More, after any folded controls.
 - `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
-  Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization.
+  Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization. When the
+  search or the Group hides everyone while the roster has People, `Month`, `Week` and `Agenda` show `No one matches` with
+  `Clear filters`, which empties the searchbox and returns the filter to `Group: All`; `3-Month` has no such state. An empty roster says `No personnel added yet` with `Go to Personnel` and no `Clear filters`.
 - `calendar-today`: on load and on `Today` the grid scrolls so today's column sits just right of the personnel column,
   unless it is already fully visible.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
@@ -35,13 +46,17 @@ long-range views.
   the alphabet. Nested Groups draw as indented sub-bands under their parent's own people (step 19).
 - `calendar-grid-affordances`: a view-only member's day cells, date headers and Person names open no editor, and a
   status bar opens a popover with no actions.
-- `calendar-grid-states`: the empty roster and the in-page Access Restricted state fit both widths.
+- `calendar-grid-states`: the empty roster, the no-matches state and the in-page Access Restricted state fit both
+  widths.
 - `calendar-grid-volume`: a large roster keeps virtualized rendering and its request count on load, month navigation and
   long range. When Robert asks for a measurement, step 15's latency harness compares interaction latency between
   revisions.
 - `calendar-read-window`: a month's assignment and closure read covers only the shown days. Its availability read covers
   the shown days, and also today when today falls in the 90 days before them, for the title row's count. The server
-  bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet loaded.
+  bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet loaded. `Week`
+  and `Agenda` cover the Monday to Sunday shown and the whole focus month, because Export writes that month: a week
+  inside the loaded months sends no request, a week in an unloaded month requests that month once, and one that
+  straddles the loaded edge requests only its missing days.
 - `calendar-reload-anchor`: a reload opens the month the page last showed, the month the server bootstrapped, with no
   range read.
 - `calendar-markers`: Events, Suspenses and picked execution dates on the Month and 3-Month views behind the
@@ -59,7 +74,8 @@ long-range views.
 Sign in with Calendar access and choose `Calendar` in the sidebar. The title row holds the eyebrow
 (`Calendar · <Organization> · N personnel`) and the page title, which is the month/year button (opens the month picker;
 heading level 1, e.g. `October 2026`), then `Previous month`, `Next month` and `Today` in that order, today's
-`N of M available` count while today is in the loaded range, and `Calendar view` (`Month`, `3-Month`). The Duty
+`N of M available` count while today is in the loaded range, and `Calendar view` (`Agenda`, `Week`, `Month`,
+`3-Month`). In `Week` and `Agenda` the title names the week and the arrows are `Previous week` and `Next week`. The Duty
 planner's header (title `Duty planner`) carries `Today`, then a group of `Previous month`, the month/year button and
 `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title
 names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it
@@ -114,7 +130,10 @@ filters and request controls between cases.
 4. Open `Calendar group filter` (`Group: All`) and select `Alpha (1)`; confirm Able remains while Baker is absent and
    the address is unchanged. Clear the filter and confirm both groups return. Fill the searchbox with `Able`, confirm
    Baker is absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all
-   groups return; an empty native `fill` can leave the previous filter applied.
+   groups return; an empty native `fill` can leave the previous filter applied. Select `Alpha (1)` and fill the
+   searchbox with `Baker`, which no one in Alpha matches: the body reads `No one matches` with `Clear filters` and no
+   `Go to Personnel`. Repeat in `Agenda`. Press `Clear filters`: the searchbox is empty, `Group: All` is back and both
+   groups return.
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and
    Unassigned rows and `Verification Unit Closure` (a `Days` lane segment under the date headers, with a tint and the
    closure name as the title of its date header). Able's `Verification Leave` bar covers September 14–16 and Baker's
@@ -317,6 +336,33 @@ Suspenses` with a suspense due in the month (the Events lane and the header diam
     today's column starts at the personnel column's right edge. Scroll away, click `Today`: it returns without a jump,
     in `Month` and in `3-Month`. At widths where today is already visible nothing moves. Click `Today` on the current
     month: the grid still scrolls, because the click is its own request.
+22. **Week and Agenda at 390, 768 and 1280.** As `calendarOperate` on `/calendar` with `Group: All`, `resize_page` to
+    390x844 and reload: the `Calendar view` group reads `Agenda`, `Week`, `Month`, `3-Month` inside the title row with no
+    horizontal page scroll (`document.documentElement.scrollWidth` equals the viewport), `Agenda` is checked, the title
+    names the current week and the arrows read `Previous week` and `Next week`. Each day's card shows its date, a Special
+    Day's name, `N available` and only the people out or on duty; a day with no one says `No one out or on duty.`
+    Resize to 1280x800 without reloading: `Agenda` stays checked and nothing switches. Reload at 1280: `Month` is
+    checked. Click `Week`: the title reads like `9–15 Nov 2026`, the grid shows seven day columns and the same
+    status bars, duty codes and conflict marks the month shows for those days. At 390x844 click `Week` and read
+    `scrollWidth` of the page and of the grid's scroller: both equal the viewport, with the 120px name column and
+    seven day columns visible. At 768x1024 repeat `Agenda` and `Week` and confirm the layout holds. Click
+    `Next week` and `Previous week` and confirm the week moves by seven days; click `Today` and confirm today's week.
+    In `Agenda` click a status: the same entry popover as the month's bar opens with the status, dates and note. As a
+    reader who can edit assignments, click a duty: the Daily Assignments editor opens for that date; a view-only reader
+    sees the duty as text.
+23. **Week and Agenda match the month.** Pick September 2026 and a week with overlapping statuses and a duty (the fixed
+    September records). Record, in `Month`, each Person's status entries and duty codes for that week's days, then
+    read `Week` and `Agenda` for the same week: the same people carry the same entries and duties, and a person outside
+    the picked Group or the reader's scope appears in none of the three. Choose `Alpha (1)` in `Calendar group filter`:
+    all three views change the same way and the pick survives a reload (see step 21). Compare entries by accessible
+    name, not by row counts.
+24. **Week read window and in-place states.** As `calendarOperate`, clear resource timings in `Week` on a week inside
+    the loaded months and click `Next week` within them: no `calendar-range` request. Step to a week that straddles
+    the loaded edge: one read of only the missing days (`collections=availability%2Cassignments`, or one of them).
+    Arm `$V network arm-hold $PAGE calendar-range` and step to an unread week: the `Week` or `Agenda` body shows its
+    skeleton in place while the title row and toolbar stay, then release. Arm `$V network arm-fail $PAGE
+calendar-range` and step again: the body is replaced by `Additional calendar data is temporarily unavailable.` with
+    `Retry calendar load`, never a broken page. `Retry calendar load` reads again and restores the week.
 
 ## Gotchas
 
@@ -326,8 +372,8 @@ Suspenses` with a suspense due in the month (the Events lane and the header diam
   when `Events & Taskings` is enabled; otherwise omit `calendar-events` from `--expect`. Folding widths depend on the
   controls present; retain the sweep's observed widths rather than assuming fixed thresholds.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February
-  1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because the Calendar store opens on the first of
-  the anchor cookie's month, so no live route displays a day-31 anchor.
+  1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because a month move lands on the first of the
+  month, so no live month route displays a day-31 anchor.
 - A page keeps its anchor cookie across sign-ins in the same browser context, so a drive that left an actor on September
   reopens there. Press `Today` before a step that starts from the current month.
 - Month labels depend on the test date; compare before and after instead of hardcoding September 2026.

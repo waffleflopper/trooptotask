@@ -285,8 +285,32 @@ describe('CalendarPageContext', () => {
 	});
 
 	describe('viewMode', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
 		it('defaults to month', () => {
 			expect(ctx.viewMode).toBe('month');
+		});
+
+		it.each([
+			['a phone-width window', true, 'agenda'],
+			['a wider window', false, 'month']
+		])('opens on its width’s view for %s', (_, matches, expected) => {
+			const matchMedia = vi.fn((query: string) => ({ matches: matches && query === '(width < 641px)' }));
+			vi.stubGlobal('window', { matchMedia });
+
+			expect(makeContext(mockData, org).viewMode).toBe(expected);
+		});
+
+		it('keeps the opened view when the window is resized', () => {
+			const phone = { matches: true };
+			vi.stubGlobal('window', { matchMedia: () => phone });
+			const opened = makeContext(mockData, org);
+
+			phone.matches = false;
+
+			expect(opened.viewMode).toBe('agenda');
 		});
 
 		it('setViewMode shows the chosen view', () => {
@@ -373,6 +397,57 @@ describe('CalendarPageContext', () => {
 
 			expect(scoped.scopedGroups.map((group) => group.name)).toEqual(['Bravo']);
 			expect(unscoped.scopedGroups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		});
+	});
+
+	describe('rosterEmpty', () => {
+		const mutableGroups = groupsStore as unknown as {
+			items: { id: string; name: string; sortOrder: number; parentId: null; depth: number }[];
+		};
+
+		beforeEach(() => {
+			mutableGroups.items = [
+				{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+			];
+		});
+
+		afterEach(() => {
+			mutableGroups.items = [];
+		});
+
+		it('is null while the filters show someone', () => {
+			expect(ctx.rosterEmpty).toBeNull();
+		});
+
+		it('says no one matches after a search that matches nobody, and null again once it is cleared', () => {
+			ctx.setCalendarPersonnelSearch('Zed');
+			expect(ctx.rosterEmpty).toBe('no-matches');
+
+			ctx.setCalendarPersonnelSearch('');
+			expect(ctx.rosterEmpty).toBeNull();
+		});
+
+		it('says no one matches when the picked Group has nobody the search matches', () => {
+			ctx.setCalendarGroupFilter('g2');
+			expect(ctx.rosterEmpty).toBeNull();
+
+			ctx.setCalendarPersonnelSearch('Alice');
+			expect(ctx.rosterEmpty).toBe('no-matches');
+		});
+
+		it('says no personnel when the roster has no one, whatever the filters', () => {
+			const empty = makeContext({ ...mockData, personnel: [], allPersonnel: [] }, org);
+			expect(empty.rosterEmpty).toBe('no-personnel');
+
+			empty.setCalendarPersonnelSearch('Alice');
+			expect(empty.rosterEmpty).toBe('no-personnel');
+		});
+
+		it('says no personnel when the reader’s scope holds no one, though the Organization has people', () => {
+			const outOfScope = makeContext(mockData, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g3'] } }));
+
+			expect(outOfScope.rosterEmpty).toBe('no-personnel');
 		});
 	});
 

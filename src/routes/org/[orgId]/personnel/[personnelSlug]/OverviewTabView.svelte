@@ -80,8 +80,7 @@
 	}
 
 	function openCalendarToday() {
-		const today = new Date();
-		calendarStore.goToMonth(today.getFullYear(), today.getMonth());
+		calendarStore.goToDay(new Date());
 	}
 </script>
 

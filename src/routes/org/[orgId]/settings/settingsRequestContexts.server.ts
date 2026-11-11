@@ -15,7 +15,10 @@ import {
 	createRequestUnitCountsContext
 } from '$lib/server/adapters/requestContexts.server';
 import { fetchLatestAuditEvent } from '$lib/audit/index.server';
-import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
+import {
+	createSupabaseOrganizationOverviewCountsPort,
+	createSupabaseOrganizationSettingsReader
+} from '$features/organization/index.server';
 import type { loadMembersSettings } from '$features/organization/index.server';
 import { fetchTrainingBriefingReport } from '$features/training/index.server';
 import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
@@ -23,6 +26,7 @@ import type { listScopeGroups } from '$features/personnel/index.server';
 import type { SettingsNavCountsContext } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
+import type { SettingsOverviewPorts } from './settingsOverview.server';
 import type { DangerSettingsPorts } from './settingsDanger.server';
 import type { SettingsExportsPorts } from './settingsExports.server';
 import type { PoliciesSettingsPorts } from './settingsPolicies.server';
@@ -112,6 +116,14 @@ export function createSettingsFeaturesContext(request: AdmittedOrganizationReque
 		auth: request.auth,
 		disabledFeatures: request.disabledFeatures,
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		...createRequestUnitCountsContext(request)
+	};
+}
+
+export function createSettingsOverviewContext(request: AdmittedOrganizationRequest): SettingsOverviewPorts {
+	return {
+		disabledFeatures: request.disabledFeatures,
+		overviewCounts: createSupabaseOrganizationOverviewCountsPort(request.supabase, request.auth.orgId),
 		...createRequestUnitCountsContext(request)
 	};
 }

@@ -109,6 +109,7 @@ export {
 	type SetupFeatureKey
 } from './featuresSettings';
 export { availabilityPercent, isBelowStrengthFloor } from './strengthFloor';
+export type { OverviewSources, SettingsOverviewData } from './settingsOverview';
 
 export * from './setup/registry';
 export * from './setup/state';

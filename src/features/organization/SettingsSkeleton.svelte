@@ -14,7 +14,9 @@
 	{#each blocks as block, index (index)}
 		{@const opensSection = index > 0 && (block.kind === 'heading' || block.kind === 'strip')}
 		{@const followsFilters = index > 0 && blocks[index - 1].kind === 'filters'}
-		{#if block.kind === 'rows'}
+		{#if block.kind === 'summary'}
+			<div class="mb-7 flex h-6 items-center"><Skeleton class="h-4 w-64 max-w-full" /></div>
+		{:else if block.kind === 'rows'}
 			<div
 				class={cn(
 					'border-t-2',

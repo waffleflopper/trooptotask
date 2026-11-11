@@ -39,13 +39,18 @@ describe('Organization settings navigation', () => {
 	it('groups the pages, badges pending invitations and marks owner-only pages for an owner', async () => {
 		const view = render(SettingsShell, {
 			settingsShell: buildSettingsShell('owner', organization),
-			navCounts: { pendingInvitations: Promise.resolve(2), pendingApprovals: Promise.resolve(0) },
+			navCounts: {
+				pendingInvitations: Promise.resolve(2),
+				pendingApprovals: Promise.resolve(0),
+				invitationsToFollowUp: Promise.resolve({ deliveryFailed: 0, expiringSoon: 0 })
+			},
 			activePath: '/org/alpha/settings/policies',
 			orgUrlSegment: 'org-a',
 			children
 		});
 
 		expect(groupHrefs('Unit')).toEqual([
+			'/org/alpha/settings/overview',
 			'/org/alpha/settings/general',
 			'/org/alpha/settings/features',
 			'/org/alpha/settings/policies',
@@ -76,7 +81,11 @@ describe('Organization settings navigation', () => {
 	it('shows Logs but hides Danger zone from an admin and links with the canonical segment', async () => {
 		render(SettingsShell, {
 			settingsShell: buildSettingsShell('admin', { ...organization, urlSlug: null, urlSegment: 'org-b' }),
-			navCounts: { pendingInvitations: Promise.resolve(0), pendingApprovals: Promise.resolve(1) },
+			navCounts: {
+				pendingInvitations: Promise.resolve(0),
+				pendingApprovals: Promise.resolve(1),
+				invitationsToFollowUp: Promise.resolve({ deliveryFailed: 0, expiringSoon: 0 })
+			},
 			activePath: '/org/org-b/settings',
 			orgUrlSegment: 'wrong-segment',
 			children
@@ -97,7 +106,11 @@ describe('Organization settings navigation', () => {
 	function renderGeneral() {
 		return render(SettingsShell, {
 			settingsShell: buildSettingsShell('owner', organization),
-			navCounts: { pendingInvitations: Promise.resolve(1), pendingApprovals: Promise.resolve(1) },
+			navCounts: {
+				pendingInvitations: Promise.resolve(1),
+				pendingApprovals: Promise.resolve(1),
+				invitationsToFollowUp: Promise.resolve({ deliveryFailed: 0, expiringSoon: 0 })
+			},
 			activePath: '/org/alpha/settings/general',
 			orgUrlSegment: 'org-a',
 			children

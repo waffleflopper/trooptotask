@@ -447,6 +447,7 @@ function formatScopeSet(
 	tree: ScopeTree
 ): string {
 	if (scopeSet.kind === 'organization') return 'Whole unit';
-	if (scopeSet.groupIds.length === 0) return 'No groups';
-	return scopeSet.groupIds.map((groupId) => tree.path(groupId)).join(', ');
+	const liveGroupIds = scopeSet.groupIds.filter((groupId) => tree.has(groupId));
+	if (liveGroupIds.length === 0) return 'No groups';
+	return liveGroupIds.map((groupId) => tree.path(groupId)).join(', ');
 }

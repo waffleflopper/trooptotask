@@ -6,6 +6,8 @@ export interface ScopeTree {
 	readonly ordered: readonly (ScopeGroup & { level: number })[];
 	readonly options: TreeSelectOption[];
 	path(id: string): string;
+	/** Whether the Organization still has a Group with this id; a deleted Group leaves its id in stored scopes. */
+	has(id: string): boolean;
 	/** Drops ids an ancestor in the list already covers, and ids no Group has. */
 	canonical(ids: readonly string[]): string[];
 	summary(ids: readonly string[]): string;
@@ -60,6 +62,7 @@ export function scopeTree(groups: readonly ScopeGroup[]): ScopeTree {
 			count: counts.get(group.id)
 		})),
 		path,
+		has: (id) => byId.has(id),
 		canonical,
 		summary(ids) {
 			const roots = canonical(ids);

@@ -413,6 +413,21 @@ describe('members settings section shaping', () => {
 		expect(section.rows[0].scopeDisplayLabel).toBe('No groups');
 	});
 
+	it('reads a member whose only Groups were deleted as scoped to no groups, and names the Groups that remain', () => {
+		const section = buildSection({
+			groups: [{ id: 'alpha', name: 'Alpha', parentId: null, memberCount: 3 }],
+			members: [
+				memberRow({ id: 'orphan', access_scope_kind: 'groups', access_scope_group_ids: ['deleted-group'] }),
+				memberRow({ id: 'mixed', access_scope_kind: 'groups', access_scope_group_ids: ['deleted-group', 'alpha'] })
+			]
+		});
+
+		expect(section.rows.map((row) => [row.id, row.scopeDisplayLabel])).toEqual([
+			['orphan', 'No groups'],
+			['mixed', 'Alpha']
+		]);
+	});
+
 	it('withholds invite and access management from members who cannot manage members', () => {
 		const section = buildSection({ currentMemberRole: 'member', canManageMembers: false, isAdmin: false });
 

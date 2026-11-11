@@ -4,23 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 describe('themeStore', () => {
 	beforeEach(() => {
 		vi.resetModules();
-		Object.defineProperty(globalThis, 'localStorage', {
-			configurable: true,
-			value: {
-				getItem: vi.fn(() => 'dark'),
-				setItem: vi.fn(),
-				removeItem: vi.fn(),
-				clear: vi.fn()
-			}
+		vi.stubGlobal('localStorage', {
+			getItem: vi.fn(() => 'dark'),
+			setItem: vi.fn(),
+			removeItem: vi.fn(),
+			clear: vi.fn()
 		});
-		Object.defineProperty(window, 'localStorage', {
-			configurable: true,
-			value: globalThis.localStorage
-		});
-		Object.defineProperty(window, 'matchMedia', {
-			configurable: true,
-			value: vi.fn(() => ({ matches: false }))
-		});
+		vi.stubGlobal(
+			'matchMedia',
+			vi.fn(() => ({ matches: false }))
+		);
 	});
 
 	afterEach(() => {

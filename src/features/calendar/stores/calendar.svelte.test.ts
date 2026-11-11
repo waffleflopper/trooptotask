@@ -1,13 +1,16 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatDate } from '$lib/utils/dates';
 import { CALENDAR_ANCHOR_COOKIE } from '../utils/calendarAnchorDate';
 
 describe('calendarStore', () => {
+	beforeEach(() => {
+		vi.resetModules();
+	});
+
 	afterEach(() => {
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 		vi.useRealTimers();
-		vi.resetModules();
 	});
 
 	it('opens on the first of the month on the 31st', async () => {

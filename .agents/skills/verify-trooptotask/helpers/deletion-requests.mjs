@@ -66,7 +66,6 @@ export async function seedDeletionSources({ client, fixture, tag, ownedState, sa
 					senior_rater_name: 'Synthetic Senior Rater',
 					rating_period_start: '2026-01-01',
 					rating_period_end: '2026-12-31',
-					status: 'active',
 					notes: label
 				}
 			]

@@ -165,7 +165,7 @@ const tableSelect = {
 	deletion_requests:
 		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
 	rating_scheme_entries:
-		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -2273,18 +2273,18 @@ async function main() {
 				archived_at: key === 'archived' ? date(-100) + 'T00:00:00Z' : null
 			}));
 			const examples = [
-				['overdue', 'orgA', fixture.ids.personA, 'NCOER', -5, 'active'],
-				['due30', 'orgA', ids.nco, 'NCOER', 20, 'active'],
-				['due60', 'orgA', ids.officer, 'OER', 45, 'active'],
-				['current', 'orgA', ids.warrant, 'WOER', 90, 'active'],
+				['overdue', 'orgA', fixture.ids.personA, 'NCOER', -5, null],
+				['due30', 'orgA', ids.nco, 'NCOER', 20, 'with-rater'],
+				['due60', 'orgA', ids.officer, 'OER', 45, null],
+				['current', 'orgA', ids.warrant, 'WOER', 90, null],
 				['completed', 'orgA', ids.nco, 'NCOER', -90, 'completed'],
-				['changed', 'orgA', ids.officer, 'OER', 10, 'change-of-rater'],
-				['bravo', 'orgA', fixture.ids.personB, 'NCOER', 25, 'active'],
-				['unassigned', 'orgA', fixture.ids.personUnassigned, 'NCOER', 15, 'active'],
-				['archivedEntry', 'orgA', ids.archived, 'NCOER', -2, 'active'],
-				['foreign', 'orgB', fixture.ids.personForeign, 'NCOER', 18, 'active']
+				['changed', 'orgA', ids.officer, 'OER', 10, 'completed'],
+				['bravo', 'orgA', fixture.ids.personB, 'NCOER', 25, null],
+				['unassigned', 'orgA', fixture.ids.personUnassigned, 'NCOER', 15, null],
+				['archivedEntry', 'orgA', ids.archived, 'NCOER', -2, null],
+				['foreign', 'orgB', fixture.ids.personForeign, 'NCOER', 18, null]
 			];
-			const entries = examples.map(([key, orgKey, personId, evalType, offset, status]) => ({
+			const entries = examples.map(([key, orgKey, personId, evalType, offset, workflowStatus]) => ({
 				id: ids[key],
 				organization_id: org(orgKey),
 				rated_person_id: personId,
@@ -2296,9 +2296,8 @@ async function main() {
 				reviewer_name: key === 'current' ? 'External Reviewer' : null,
 				rating_period_start: date(-365),
 				rating_period_end: date(offset),
-				status,
 				report_type: key === 'changed' ? 'CR' : 'AN',
-				workflow_status: key === 'due30' ? 'with-rater' : null,
+				workflow_status: workflowStatus,
 				notes: `Synthetic Evals ${key} ${tag}`
 			}));
 			const batches = [

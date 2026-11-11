@@ -134,7 +134,7 @@ records do not add to the expired/orange attention count. Do not silently redefi
    not-required cells. The optional type does not add a required cell. Critical Tasks has seven applicable Person/task
    cells (the general task for four People, the 68W task for three), with Able's one current completion, so rounded
    readiness is 14%. Alpha has four applicable cells and one current, 25%. Rating entries carry the entry ID, rated
-   Person ID, evaluation type, end date and status, plus `ratedPersonName` (rank and name) only under
+   Person ID, evaluation type, end date and workflow step, plus `ratedPersonName` (rank and name) only under
    `ratingScheme.readRosterReferences`, which Needs you uses to name and link an overdue evaluation; evaluator names and
    notes are absent. The Training summary's `expiredByType` lists each type with expired People, their IDs and the
    longest days late. This HTTP observation complements native counts; it does not prove a visible Critical Tasks widget
@@ -570,10 +570,13 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    Personnel `none`) still sees both `Fill 7 days`, and its Group Duty panel suggests Groups. `rosterScoped` and
    `onboardingScoped` load no People, so their queue is empty.
 2. **Update status.** Focus `Update status` on `NCOER for SPC Able, Synthetic` and press Enter. The Evals entry editor
-   opens on that entry (one `GET api/rating-scheme?entry=ID`). Arm `$V network arm-fail PAGE rating-scheme`, set Status
-   to Completed and save: `Rating entry was not saved` shows in the editor and the row stays. Restore and save: one
-   `PUT api/rating-scheme`, the row leaves and focus moves on. `$V rows rating_scheme_entries orgA id ID` reads
-   `completed`; after reload the row stays gone and Evals shows the entry Completed.
+   opens on that entry (one `GET api/rating-scheme?entry=ID`) with its Workflow section at Not tracked. `network` does
+   not match the workflow endpoint, so make the refusal real: open the entry on Evals in a second page and press
+   `Start tracking` there, then press `Mark completed` in the editor. One `POST api/rating-scheme/ID/workflow` returns
+   409, `The workflow did not move` shows in the editor and the row stays. Press `Stop tracking` in the second page and
+   `Mark completed` again: the POST returns 200, the row leaves, the count drops by one and focus moves to the next
+   row's action. `$V rows rating_scheme_entries orgA id ID` reads `completed`; after reload the row stays gone and Evals
+   shows the entry Completed. `Start tracking` or another step keeps the editor open with the row in place.
 3. **Record class.** Press `Record class` on Baker's Expired row. (A Due soon row opens the same dialog for the
    Soldiers inside that type's warning window, all checked; the saved row leaves the queue and stays gone after reload.) `Record class` lists the expired People the viewer may
    record, all checked, with today's completion date. Arm `arm-fail PAGE personnel-trainings/batch` and choose

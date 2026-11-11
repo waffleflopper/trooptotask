@@ -182,7 +182,6 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 					reviewer_name: 'Retained synthetic reviewer',
 					rating_period_start: '2026-01-01',
 					rating_period_end: '2026-12-31',
-					status: 'active',
 					notes: 'Retained evaluation ' + tag
 				}
 			]

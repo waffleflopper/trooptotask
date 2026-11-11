@@ -2,6 +2,9 @@
 -- Where the two columns disagree, the later state wins, so a completed or change-of-rater entry becomes completed.
 -- A change-of-rater entry also keeps its label as the Change of Rater (CR) report, which is what the Change rater action
 -- writes.
+-- The intermediate rater now signs before the senior rater. An open entry with an intermediate rater that was past
+-- the senior rater under the old order steps back to the last step that is still true, so its intermediate rater is
+-- not skipped: with or signed by the senior rater becomes rater-signed, and signed by both becomes sr-signed.
 -- The mapping is a repair, not a person's edit: with the stamp trigger off it leaves updated_at alone. The audit
 -- trigger stays on, so the change is still recorded.
 ALTER TABLE public.rating_scheme_entries DISABLE TRIGGER update_rating_scheme_entries_updated_at;
@@ -14,6 +17,12 @@ BEGIN
     OR (status = 'change-of-rater' AND report_type IS DISTINCT FROM 'CR');
   GET DIAGNOSTICS v_mapped = ROW_COUNT;
   RAISE NOTICE 'Mapped % evaluations whose status was closed', v_mapped;
+  UPDATE public.rating_scheme_entries
+  SET workflow_status = CASE WHEN workflow_status = 'ir-signed' THEN 'sr-signed' ELSE 'rater-signed' END
+  WHERE workflow_status IN ('with-senior-rater', 'sr-signed', 'ir-signed')
+    AND (intermediate_rater_person_id IS NOT NULL OR NULLIF(pg_catalog.btrim(intermediate_rater_name), '') IS NOT NULL);
+  GET DIAGNOSTICS v_mapped = ROW_COUNT;
+  RAISE NOTICE 'Moved % evaluations to the intermediate-rater-first order', v_mapped;
 END;
 $$;
 ALTER TABLE public.rating_scheme_entries ENABLE TRIGGER update_rating_scheme_entries_updated_at;

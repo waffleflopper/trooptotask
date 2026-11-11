@@ -31,13 +31,19 @@ export interface ProjectionLaneInput {
 	region: ProjectionRegion;
 	links: ProjectionLinks;
 	/**
-	 * The month draws suspenses as diamonds in the date headers. Ten pixel columns have no header room, so the
-	 * compact view keeps a Suspenses lane whose day offers one control that opens a list.
+	 * The month and week draw suspenses as diamonds in the date headers. Ten pixel columns have no header room, so
+	 * the compact view keeps a Suspenses lane whose day offers one control that opens a list.
 	 */
-	density: 'month' | 'compact';
+	density: 'week' | 'month' | 'compact';
 	/** The reader's day, after which an active suspense is overdue. */
 	today: string;
 }
+
+const PERIOD_WORDS: Record<ProjectionLaneInput['density'], string> = {
+	week: 'this week',
+	month: 'this month',
+	compact: 'in view'
+};
 
 const SUMMARY_LIMIT = 6;
 const EVENT_ROWS = 2;
@@ -154,7 +160,7 @@ function eventsLane(
 		};
 	});
 
-	const period = input.density === 'month' ? 'this month' : 'in view';
+	const period = PERIOD_WORDS[input.density];
 	return {
 		key: 'events',
 		kind: 'events',

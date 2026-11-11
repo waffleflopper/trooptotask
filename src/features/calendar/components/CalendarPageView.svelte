@@ -248,7 +248,7 @@
 					dates: viewDates,
 					region: projectionRegion,
 					links: projectionLinks,
-					density: ctx.viewMode === '3-month' ? 'compact' : 'month',
+					density: ctx.viewMode === '3-month' ? 'compact' : ctx.viewMode === 'month' ? 'month' : 'week',
 					today
 				})
 			: []

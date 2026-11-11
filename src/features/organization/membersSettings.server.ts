@@ -1,3 +1,4 @@
+import { expiresSoon } from './adminAttention.server';
 import { scopeTree, type ScopeTree } from './scopeGroups';
 import { memberNameText, type OrganizationMemberLabelRow } from './memberLabels.server';
 import {
@@ -179,7 +180,7 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 	const invitations = pendingInvitations
 		.filter((invitation) => isActionableInvitation(invitation, now))
 		.map((invitation) => shapeInvitationRow(invitation, tree, latestDeliveryByInvitationId, now))
-		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
+		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates, now));
 	const lapsedInvitations = pendingInvitations.filter((invitation) => !isActionableInvitation(invitation, now));
 	const offLanes = disabledFeatureLanes(input.disabledFeatures);
 	const namesByUserId = new Map((input.memberNames ?? []).map((row) => [row.user_id, row]));
@@ -277,7 +278,8 @@ const CREDENTIAL_IN_HAND_SETUP_STATES: ReadonlySet<AccessRequestSetupState> = ne
  */
 function withInvitationFunnelStatus(
 	invitation: SettingsInvitationRow,
-	setupStateByInvitationId: Map<string, AccessRequestSetupState> | undefined
+	setupStateByInvitationId: Map<string, AccessRequestSetupState> | undefined,
+	now: Date
 ): SettingsPendingInvitationRow {
 	const setupState = setupStateByInvitationId?.get(invitation.id);
 	const funnelStatus: SettingsInvitationFunnelStatus =
@@ -292,6 +294,8 @@ function withInvitationFunnelStatus(
 	return {
 		...invitation,
 		funnelStatus,
+		expiringSoon:
+			invitation.deliveryStatus !== 'failed' && !!invitation.expiresAt && expiresSoon(invitation.expiresAt, now),
 		funnelStatusLabel: INVITATION_FUNNEL_COPY[funnelStatus].label,
 		funnelStatusDetail:
 			setupState === 'claimed' && funnelStatus === 'waiting_on_them'

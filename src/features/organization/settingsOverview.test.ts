@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OVERVIEW_CHECKS, summarizeOverview, type OverviewSources } from './settingsOverview';
+import { OVERVIEW_CHECKS, readOverviewChecks, summarizeOverview, type OverviewSources } from './settingsOverview';
 
 describe('summarizeOverview', () => {
 	it('waits for every check to settle, whatever the settled ones say', () => {
@@ -53,5 +53,29 @@ describe('overview checks', () => {
 		expect((await features.read(sources)).items).toEqual([
 			{ text: 'Evaluations: no rating scheme', fix: { label: 'Add an entry', path: 'evals' } }
 		]);
+	});
+
+	it('names only the invitation causes that apply', async () => {
+		const invitations = OVERVIEW_CHECKS[1];
+		const onlyExpiring = { ...sources, invitationsToFollowUp: Promise.resolve({ deliveryFailed: 0, expiringSoon: 2 }) };
+
+		expect((await invitations.read(onlyExpiring)).breakdown).toBe('2 expiring soon');
+	});
+
+	it('leaves no unhandled rejection when a source fails, as server rendering attaches no handler', async () => {
+		const unhandled: unknown[] = [];
+		const record = (reason: unknown) => unhandled.push(reason);
+		process.on('unhandledRejection', record);
+		try {
+			const failure = new Error('Invitations unavailable');
+			const reads = readOverviewChecks({ ...sources, invitationsToFollowUp: Promise.reject(failure) });
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(unhandled).toEqual([]);
+			await expect(reads[1]).rejects.toBe(failure);
+			expect((await reads[0]).count).toBe(4);
+		} finally {
+			process.off('unhandledRejection', record);
+		}
 	});
 });

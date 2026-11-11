@@ -101,6 +101,18 @@ export const OVERVIEW_CHECKS: readonly OverviewCheck[] = [
 	}
 ];
 
+/**
+ * Each check's read, in `OVERVIEW_CHECKS` order. Server rendering runs no effects, so nothing else handles a derived
+ * read there, and an unhandled rejection would stop the server; each is observed here, and callers still see it fail.
+ */
+export function readOverviewChecks(sources: OverviewSources): Promise<OverviewResult>[] {
+	return OVERVIEW_CHECKS.map((check) => {
+		const read = check.read(sources);
+		read.catch(() => {});
+		return read;
+	});
+}
+
 export type OverviewCheckState = 'pending' | 'failed' | { count: number };
 
 export type OverviewSummary =

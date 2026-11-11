@@ -6,6 +6,7 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import {
 		OVERVIEW_CHECKS,
+		readOverviewChecks,
 		summarizeOverview,
 		type OverviewCheck,
 		type OverviewCheckState,
@@ -15,7 +16,7 @@
 
 	let { orgUrlSegment, sources }: { orgUrlSegment: string; sources: OverviewSources } = $props();
 
-	const reads = $derived(OVERVIEW_CHECKS.map((check) => check.read(sources)));
+	const reads = $derived(readOverviewChecks(sources));
 	const results = OVERVIEW_CHECKS.map((_, index) => new StreamedValue<OverviewResult>(() => reads[index]));
 
 	const states = $derived(

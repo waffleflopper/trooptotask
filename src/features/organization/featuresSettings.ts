@@ -42,15 +42,12 @@ function count(n: number, one: string, many = `${one}s`): string {
 type SetupCountKey = 'trainingTypes' | 'criticalTaskLists' | 'ratingSchemeEntries' | 'onboardingTemplates';
 
 interface FeatureSetup {
-	/** The count that is zero while the feature has nothing to work with. */
 	count: SetupCountKey;
-	/** What Settings › Features names as missing, and the Overview lists. */
 	missing: string;
 	/** Where to fix it; `path` is under `/org/<segment>/`. */
 	fix: { label: string; path: string };
 }
 
-/** The features that hold nothing until someone sets them up, with the one rule for "not set up" and where to fix it. */
 export const FEATURE_SETUP = {
 	training: {
 		count: 'trainingTypes',
@@ -128,14 +125,12 @@ export const FEATURE_ROWS: readonly FeatureRow[] = (
 
 const isSetupFeature = (key: FeatureKey): key is SetupFeatureKey => key in FEATURE_SETUP;
 
-/** The features that are on and have a "not set up" state, in Features order. Their counts are all a check needs. */
 export function setupFeaturesOn(disabledFeatures: readonly FeatureKey[]): SetupFeatureKey[] {
 	return FEATURE_ROWS.map((row) => row.key).filter(
 		(key): key is SetupFeatureKey => isSetupFeature(key) && !disabledFeatures.includes(key)
 	);
 }
 
-/** The enabled features Settings › Features marks "Not set up", in Features order. A count not read is not a gap. */
 export function featuresNotSetUp(
 	disabledFeatures: readonly FeatureKey[],
 	counts: Partial<Record<SetupCountKey, number>>

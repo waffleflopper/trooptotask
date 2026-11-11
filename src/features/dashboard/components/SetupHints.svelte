@@ -6,7 +6,6 @@
 
 	interface Props {
 		hints: readonly SetupHint[];
-		/** Where every Organization check is listed; linked once, after the hints, while any hint shows. */
 		overviewHref: string;
 		onDismiss: (feature: FeatureKey) => void;
 		/** Takes focus once the last hint is gone. */

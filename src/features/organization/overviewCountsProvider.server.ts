@@ -2,13 +2,12 @@ import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { countScopesCoveringNoGroups, type OrganizationOverviewCountsPort } from './overviewCounts.server';
 
-/** Reads under the request's own client, so Organization RLS decides what an owner or admin sees. */
 export function createSupabaseOrganizationOverviewCountsPort(
 	supabase: SupabaseClient,
 	orgId: string
 ): OrganizationOverviewCountsPort {
 	return {
-		async countUngroupedPeople() {
+		async countActiveUngroupedPeople() {
 			const { count, error } = await supabase
 				.from('personnel')
 				.select('id', { count: 'exact', head: true })

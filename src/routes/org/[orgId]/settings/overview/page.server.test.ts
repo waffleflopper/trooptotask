@@ -69,7 +69,7 @@ function admit(role: 'owner' | 'admin' | 'member', overviewCounts: OrganizationO
 
 describe('overview settings page server', () => {
 	it.each(['owner', 'admin'] as const)('streams the three checks to an %s', async (role) => {
-		admit(role, { countUngroupedPeople: async () => 4, countMembersCoveringNoGroups: async () => 2 });
+		admit(role, { countActiveUngroupedPeople: async () => 4, countMembersCoveringNoGroups: async () => 2 });
 
 		const data = (await load(event(role))) as {
 			settingsOverview: {
@@ -86,17 +86,17 @@ describe('overview settings page server', () => {
 
 	it('answers before any count settles', async () => {
 		const never = new Promise<number>(() => {});
-		admit('owner', { countUngroupedPeople: () => never, countMembersCoveringNoGroups: () => never });
+		admit('owner', { countActiveUngroupedPeople: () => never, countMembersCoveringNoGroups: () => never });
 
 		await expect(load(event('owner'))).resolves.toHaveProperty('settingsOverview');
 	});
 
 	it('denies a member with configure authority before any port is built or read', async () => {
-		const countUngroupedPeople = vi.fn(async () => 1);
-		admit('member', { countUngroupedPeople, countMembersCoveringNoGroups: async () => 1 });
+		const countActiveUngroupedPeople = vi.fn(async () => 1);
+		admit('member', { countActiveUngroupedPeople, countMembersCoveringNoGroups: async () => 1 });
 
 		await expect(load(event('member'))).rejects.toMatchObject({ status: 403 });
 		expect(createOverviewContextMock).not.toHaveBeenCalled();
-		expect(countUngroupedPeople).not.toHaveBeenCalled();
+		expect(countActiveUngroupedPeople).not.toHaveBeenCalled();
 	});
 });

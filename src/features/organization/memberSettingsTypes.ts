@@ -49,7 +49,6 @@ export type SettingsPendingInvitationRow = SettingsInvitationRow & {
 	funnelStatus: SettingsInvitationFunnelStatus;
 	funnelStatusLabel: string;
 	funnelStatusDetail: string;
-	/** Counted as expiring soon wherever invitations needing follow-up are counted. */
 	expiringSoon: boolean;
 };
 

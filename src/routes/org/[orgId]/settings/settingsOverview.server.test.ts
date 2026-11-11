@@ -14,7 +14,7 @@ function unitCounts(ratingSchemeEntries: number): OrganizationUnitCountsPort & {
 }
 
 const overviewCounts: OrganizationOverviewCountsPort = {
-	countUngroupedPeople: async () => 4,
+	countActiveUngroupedPeople: async () => 4,
 	countMembersCoveringNoGroups: async () => 2
 };
 
@@ -64,7 +64,7 @@ describe('loadSettingsOverview', () => {
 				countRatingSchemeEntries: () => (started.push('rating'), never)
 			},
 			overviewCounts: {
-				countUngroupedPeople: () => (started.push('ungrouped'), never),
+				countActiveUngroupedPeople: () => (started.push('ungrouped'), never),
 				countMembersCoveringNoGroups: () => (started.push('scopes'), never)
 			}
 		});
@@ -78,7 +78,7 @@ describe('loadSettingsOverview', () => {
 			disabledFeatures: [],
 			unitCounts: unitCounts(21),
 			overviewCounts: {
-				countUngroupedPeople: async () => {
+				countActiveUngroupedPeople: async () => {
 					throw new Error('Count unavailable');
 				},
 				countMembersCoveringNoGroups: async () => 2

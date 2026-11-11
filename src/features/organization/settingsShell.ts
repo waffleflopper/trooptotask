@@ -22,16 +22,11 @@ export interface SettingsShell {
 	};
 }
 
-/** Pending invitations that need an admin, split by why: the same list the Dashboard shows. */
 export interface InvitationFollowUpCounts {
 	deliveryFailed: number;
 	expiringSoon: number;
 }
 
-/**
- * The counts the nav shows as badges, and the Overview lists. Each streams on its own, so one failed read leaves
- * the others intact.
- */
 export interface SettingsNavCounts {
 	pendingInvitations: Promise<number>;
 	pendingApprovals: Promise<number>;
@@ -45,7 +40,6 @@ export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;
  * starts a new section, 40 px below the one above, as the pages set their sections apart.
  */
 export type SettingsSkeletonBlock =
-	/** One line of status text above the rows, 24 px tall with the 28 px page gap below it. */
 	| { kind: 'summary' }
 	/** Rows under a 2px rule, one height in px per row; `endRule` closes them as FactSection's does. */
 	| { kind: 'rows'; heights: readonly number[]; rule?: 'destructive'; endRule?: boolean }

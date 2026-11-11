@@ -8,7 +8,6 @@ type Row = Record<string, unknown>;
 const ORG = 'org-a';
 const OTHER = 'org-b';
 
-/** Answers the PostgREST requests the port makes from `tables`, honoring eq, is.null, order, offset and limit. */
 function fakeClient(tables: Record<string, Row[]>) {
 	const requests: Array<{ method: string; table: string }> = [];
 	const client = createClient('http://overview.invalid', 'ordinary-request-key', {
@@ -64,13 +63,13 @@ describe('people without a Group', () => {
 			]
 		});
 
-		expect(await port.countUngroupedPeople()).toBe(2);
+		expect(await port.countActiveUngroupedPeople()).toBe(2);
 	});
 
 	it('answers with an exact head count and reads no rows', async () => {
 		const { port, requests } = fakeClient({ personnel: [] });
 
-		expect(await port.countUngroupedPeople()).toBe(0);
+		expect(await port.countActiveUngroupedPeople()).toBe(0);
 		expect(requests).toEqual([{ method: 'HEAD', table: 'personnel' }]);
 	});
 
@@ -80,7 +79,9 @@ describe('people without a Group', () => {
 			global: { fetch: async () => Response.json({ message: 'permission denied' }, { status: 403 }) }
 		});
 
-		await expect(createSupabaseOrganizationOverviewCountsPort(client, ORG).countUngroupedPeople()).rejects.toThrow();
+		await expect(
+			createSupabaseOrganizationOverviewCountsPort(client, ORG).countActiveUngroupedPeople()
+		).rejects.toThrow();
 	});
 });
 

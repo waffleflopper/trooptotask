@@ -18,7 +18,6 @@ export interface SettingsOverviewPorts {
 	overviewCounts: OrganizationOverviewCountsPort;
 }
 
-/** Counts only the features that are on, so a unit with every checked feature off runs no count at all. */
 async function readFeaturesNotSetUp({ disabledFeatures, unitCounts }: SettingsOverviewPorts) {
 	const features = setupFeaturesOn(disabledFeatures);
 	if (features.length === 0) return [];
@@ -29,10 +28,9 @@ async function readFeaturesNotSetUp({ disabledFeatures, unitCounts }: SettingsOv
 	return featuresNotSetUp(disabledFeatures, counts);
 }
 
-/** Starts every read at once and awaits none, so the page shows each check as its own count settles. */
 export function loadSettingsOverview(ports: SettingsOverviewPorts): SettingsOverviewData {
 	return {
-		ungroupedPeople: keepStreamedRejectionObserved(ports.overviewCounts.countUngroupedPeople()),
+		ungroupedPeople: keepStreamedRejectionObserved(ports.overviewCounts.countActiveUngroupedPeople()),
 		membersCoveringNoGroups: keepStreamedRejectionObserved(ports.overviewCounts.countMembersCoveringNoGroups()),
 		featuresNotSetUp: keepStreamedRejectionObserved(readFeaturesNotSetUp(ports))
 	};

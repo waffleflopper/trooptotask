@@ -90,7 +90,6 @@
 				{/if}
 			{/snippet}
 			{#snippet control()}
-				<!-- Every row keeps the same control width so the counts line up whether or not a row has a link. -->
 				<span class="flex md:w-36 md:justify-end">
 					{#if current.state === 'ready' && current.value.count > 0 && check.fix}
 						<Button variant="link" class="-mr-2 -ml-2.5" href={href(check.fix.path)}>

@@ -9,13 +9,16 @@
 	import { formatWeekdayDayMonth } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as Empty from '$lib/components/ui/empty';
+	import type { RosterEmpty } from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import CalendarRosterEmpty from '../CalendarRosterEmpty.svelte';
 	import AssignmentCodeChip from '../AssignmentCodeChip.svelte';
 	import { CalendarStatusBadge } from '../calendar-status-badge';
 	import AgendaDayCard from './AgendaDayCard.svelte';
 
 	interface Props {
 		days: readonly AgendaDay[];
+		rosterEmpty: RosterEmpty | null;
+		onClearFilters: () => void;
 		personnelHref?: string;
 		/** Without it, a duty is plain text, as a row marker is for a reader who cannot edit assignments. */
 		onDutyClick?: (date: Date) => void;
@@ -23,7 +26,15 @@
 		popoverEntry?: { personId: string; entryId: string } | null;
 	}
 
-	let { days, personnelHref, onDutyClick, onOpenEntry, popoverEntry = null }: Props = $props();
+	let {
+		days,
+		rosterEmpty,
+		onClearFilters,
+		personnelHref,
+		onDutyClick,
+		onOpenEntry,
+		popoverEntry = null
+	}: Props = $props();
 
 	const label = (person: Personnel) => `${person.rank} ${person.lastName}, ${person.firstName}`;
 
@@ -37,18 +48,13 @@
 	}
 </script>
 
-{#if days[0]?.total === 0}
-	<Empty.Root class="min-h-52 rounded-lg border bg-card">
-		<Empty.Header>
-			<Empty.Title level={3}>No personnel added yet</Empty.Title>
-			<Empty.Description>Go to Personnel to add people to your roster.</Empty.Description>
-		</Empty.Header>
-		{#if personnelHref}
-			<Empty.Content>
-				<Button href={personnelHref} size="sm">Go to Personnel</Button>
-			</Empty.Content>
-		{/if}
-	</Empty.Root>
+{#if rosterEmpty}
+	<CalendarRosterEmpty
+		reason={rosterEmpty}
+		class="min-h-52 rounded-lg border bg-card"
+		{personnelHref}
+		{onClearFilters}
+	/>
 {:else}
 	<div
 		class="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"

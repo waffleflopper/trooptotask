@@ -405,6 +405,29 @@ describe('Calendar views over one week', () => {
 
 		expect(document.querySelector('a[href="/org/org1/personnel"]')).toBeTruthy();
 		expect(document.querySelector('[data-testid="calendar-agenda"]')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+	});
+
+	describe.each<View>(['Month', 'Agenda'])('%s when the filters hide everyone', (view) => {
+		it('shows no one and no Personnel link, and clearing the filters brings the same people back', async () => {
+			const ctx = await renderAt(view);
+			const everyone = await shownIn(view);
+			expect(everyone).toEqual(ALL_GROUPS);
+
+			ctx.setCalendarGroupFilter('g2');
+			ctx.setCalendarPersonnelSearch('Adams');
+			await tick();
+
+			expect(await shownIn(view)).toEqual({ statuses: [], duties: [], conflicts: [] });
+			expect(document.querySelector('[data-person-id]')).toBeNull();
+			expect(document.querySelector('a[href="/org/org1/personnel"]')).toBeNull();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+			expect(ctx.calendarPersonnelSearch).toBe('');
+			expect(ctx.calendarGroupFilter).toBe('');
+			expect(await shownIn(view)).toEqual(everyone);
+		});
 	});
 
 	describe.each<View>(['Week', 'Agenda'])('%s while its dates are read', (view) => {

@@ -298,6 +298,11 @@
 			});
 	}
 
+	function clearFilters() {
+		ctx.setCalendarPersonnelSearch('');
+		ctx.setCalendarGroupFilter('');
+	}
+
 	const scopedPeopleById = $derived(new Map(ctx.allPersonnelFlat.map((person) => [person.id, person])));
 
 	function personLabel(personnelId: string): string {
@@ -615,6 +620,8 @@
 				{:else if ctx.viewMode === 'agenda'}
 					<CalendarAgenda
 						days={agenda}
+						rosterEmpty={ctx.rosterEmpty}
+						onClearFilters={clearFilters}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
 						onDutyClick={ctx.canManageAssignments ? (date) => ctx.handleDateClick(date) : undefined}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
@@ -624,6 +631,8 @@
 					<Calendar
 						dates={viewDates}
 						personnelByGroup={ctx.filteredPBG}
+						rosterEmpty={ctx.rosterEmpty}
+						onClearFilters={clearFilters}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
 						pinnedGroupIds={pinnedGroupsStore.list}

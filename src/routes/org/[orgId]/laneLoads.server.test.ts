@@ -101,10 +101,8 @@ describe.each(lanes)('$name request admission', ({ name, load }) => {
 	});
 	it('preserves the suspended Organization response', async () => {
 		const result = load(eventFor('suspended'));
-		if (name === 'Settings layout' || name === 'Settings index') {
+		if (name.startsWith('Settings')) {
 			await expect(result).rejects.toMatchObject({ status: 303, location: '/org/alpha' });
-		} else if (name === 'Settings section' || name === 'Settings logs') {
-			await expect(result).resolves.toEqual({});
 		} else {
 			await expect(result).rejects.toMatchObject({ status: 403, body: { message: 'Organization is suspended' } });
 		}

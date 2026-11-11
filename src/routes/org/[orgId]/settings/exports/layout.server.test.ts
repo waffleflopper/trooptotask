@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createReadyAppShellRouteData,
-	createSuspendedAppShellRouteData,
-	createOrganizationLoadEventData
-} from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
@@ -56,10 +52,5 @@ describe('Exports layout load', () => {
 			at: '2026-10-20T14:05:00.000Z',
 			actor: 'whitaker@example.com'
 		});
-	});
-
-	it('returns no last export for a suspended unit', async () => {
-		expect(await run(createSuspendedAppShellRouteData()).result).toEqual({ lastExport: null });
-		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 });

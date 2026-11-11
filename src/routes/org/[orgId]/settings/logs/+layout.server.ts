@@ -1,3 +1,5 @@
+import { redirect } from '@sveltejs/kit';
+import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
 import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -12,7 +14,7 @@ import type { LogsFilterOptions } from '../settingsSectionTypes';
  */
 export const load: LayoutServerLoad = async (event) => {
 	const organization = await loadSettingsOrganization(event);
-	if (organization.suspendedAt) return {};
+	if (organization.suspendedAt) redirect(303, `/org/${getPreferredOrganizationUrlSegment(organization)}`);
 
 	return loadWithContext<
 		{ filterOptions: Promise<LogsFilterOptions> },

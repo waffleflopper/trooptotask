@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createReadyAppShellRouteData,
-	createSuspendedAppShellRouteData,
-	createOrganizationLoadEventData
-} from '../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 vi.mock('$lib/server/adapters/httpAdapter', () => ({ loadWithContext: loadWithContextMock }));
@@ -74,18 +70,5 @@ describe('settings load helpers', () => {
 			isAdmin: false,
 			sectionSettings: { authOrgId: 'org-1', commonOrgId: 'org-1', organizationUrlSegment: 'org-1' }
 		});
-	});
-	it('returns no section data for a suspended Organization', async () => {
-		const result = await loadSettingsPage(
-			{
-				depends: () => undefined,
-				...createOrganizationLoadEventData(createSuspendedAppShellRouteData()),
-				cookies: {} as import('@sveltejs/kit').Cookies
-			},
-			() => ({ auth: { role: 'owner' as const } }),
-			() => ({ sectionSettings: true })
-		);
-		expect(result).toEqual({});
-		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 });

@@ -1,4 +1,4 @@
-import { error, type Cookies } from '@sveltejs/kit';
+import { error, redirect, type Cookies } from '@sveltejs/kit';
 import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
 import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -45,11 +45,11 @@ export async function loadSettingsPage<TContext, TSectionData extends Record<str
 	event: SettingsSubrouteLoadEvent,
 	context: RequestContextBuilder<TContext>,
 	loadSectionData: SettingsSectionLoader<TContext, TSectionData>
-): Promise<(CommonSettingsPageData & TSectionData) | Record<string, never>> {
+): Promise<CommonSettingsPageData & TSectionData> {
 	event.depends('app:org-core');
 	const identity = await loadSettingsOrganization(event);
-	if (identity.suspendedAt) return {};
 	const organization = buildSettingsPageOrganization(identity);
+	if (identity.suspendedAt) redirect(303, `/org/${organization.urlSegment}`);
 	const request = await buildLayoutRequest(event.locals, identity.id);
 	const common = buildCommonSettingsPageData(identity, request.auth);
 

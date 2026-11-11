@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import { resolve } from '$app/paths';
+	import { cn } from '$lib/utils';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -80,7 +81,9 @@
 						<span data-check-state="outstanding" class="font-semibold text-warning-foreground"
 							>{total(current.value.count, check)}</span
 						>
-						{#if current.value.breakdown}<span class="block">{current.value.breakdown}</span>{/if}
+						{#if current.value.breakdown}<span class="max-md:before:content-['_·_'] md:block"
+								>{current.value.breakdown}</span
+							>{/if}
 					{/if}
 				{:else if current.state === 'failed'}
 					<span data-check-state="failed">Couldn't load</span>
@@ -90,7 +93,7 @@
 				{/if}
 			{/snippet}
 			{#snippet control()}
-				<span class="flex md:w-36 md:justify-end">
+				<span class={cn('flex md:w-36 md:justify-end', check.fix && 'max-md:min-h-8')}>
 					{#if current.state === 'ready' && current.value.count > 0 && check.fix}
 						<Button variant="link" class="-mr-2 -ml-2.5" href={href(check.fix.path)}>
 							{check.fix.label}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { countScopesCoveringNoGroups, type OrganizationOverviewCountsPort } from './overviewCounts.server';
+import type { OrganizationOverviewCountsPort } from './overviewCounts.server';
 
 export function createSupabaseOrganizationOverviewCountsPort(
 	supabase: SupabaseClient,
@@ -18,33 +18,26 @@ export function createSupabaseOrganizationOverviewCountsPort(
 			return count ?? 0;
 		},
 		async countMembersCoveringNoGroups() {
-			const [groups, scopes] = await Promise.all([
-				selectAllSupabaseRows<{ id: string }>(async (from, to) =>
-					supabase
-						.from('groups')
-						.select('id')
-						.eq('organization_id', orgId)
-						.order('id')
-						.range(from, to)
-						.returns<{ id: string }[]>()
-				),
-				selectAllSupabaseRows<{ access_scope_group_ids: string[] | null }>(async (from, to) =>
-					supabase
-						.from('organization_memberships')
-						.select('access_scope_group_ids')
-						.eq('organization_id', orgId)
-						.eq('role', 'member')
-						.eq('access_scope_kind', 'groups')
-						.order('id')
-						.range(from, to)
-						.returns<{ access_scope_group_ids: string[] | null }[]>()
-				)
-			]);
-			if (groups.error || scopes.error) throw new Error("Couldn't read member scopes.");
-			return countScopesCoveringNoGroups(
-				(groups.data ?? []).map((group) => group.id),
-				(scopes.data ?? []).map((row) => row.access_scope_group_ids)
+			const groups = await selectAllSupabaseRows<{ id: string }>(async (from, to) =>
+				supabase
+					.from('groups')
+					.select('id')
+					.eq('organization_id', orgId)
+					.order('id')
+					.range(from, to)
+					.returns<{ id: string }[]>()
 			);
+			if (groups.error) throw new Error("Couldn't read the unit's Groups.");
+			const liveGroupIds = (groups.data ?? []).map((group) => group.id);
+			const { count, error } = await supabase
+				.from('organization_memberships')
+				.select('id', { count: 'exact', head: true })
+				.eq('organization_id', orgId)
+				.eq('role', 'member')
+				.eq('access_scope_kind', 'groups')
+				.not('access_scope_group_ids', 'ov', `{${liveGroupIds.join(',')}}`);
+			if (error) throw new Error(error.message);
+			return count ?? 0;
 		}
 	};
 }

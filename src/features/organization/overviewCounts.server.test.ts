@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseOrganizationOverviewCountsPort } from './overviewCountsProvider.server';
-import { countScopesCoveringNoGroups } from './overviewCounts.server';
 
 type Row = Record<string, unknown>;
 
@@ -25,6 +24,9 @@ function fakeClient(tables: Record<string, Row[]>) {
 							if (String(row[column]) !== filter.slice(3)) return false;
 						} else if (filter === 'is.null') {
 							if (row[column] != null) return false;
+						} else if (filter.startsWith('not.ov.{')) {
+							const ids = filter.slice('not.ov.{'.length, -1).split(',').filter(Boolean);
+							if ((row[column] as string[]).some((id) => ids.includes(id))) return false;
 						} else throw new Error(`Unexpected predicate ${column}=${filter}`);
 					}
 					return true;
@@ -111,17 +113,26 @@ describe('members whose scope covers no Groups', () => {
 		expect(await port.countMembersCoveringNoGroups()).toBe(3);
 	});
 
-	it('counts past one page of members and never reads the roster', async () => {
-		const stale = Array.from({ length: 1203 }, (_, i) =>
-			member(`stale-${String(i).padStart(4, '0')}`, { access_scope_group_ids: ['gone'] })
-		);
-		const { port, requests } = fakeClient({
-			groups,
-			organization_memberships: [...stale, member('live', { access_scope_group_ids: ['alpha'] })]
+	it('reads the Group ids, then answers with an exact head count of memberships', async () => {
+		const { port, requests } = fakeClient({ groups, organization_memberships: [] });
+
+		expect(await port.countMembersCoveringNoGroups()).toBe(0);
+		expect(requests).toEqual([
+			{ method: 'GET', table: 'groups' },
+			{ method: 'HEAD', table: 'organization_memberships' }
+		]);
+	});
+
+	it('counts every member scoped to Groups when the unit has no Groups left', async () => {
+		const { port } = fakeClient({
+			groups: [],
+			organization_memberships: [
+				member('empty', { access_scope_group_ids: [] }),
+				member('stale', { access_scope_group_ids: ['gone'] })
+			]
 		});
 
-		expect(await port.countMembersCoveringNoGroups()).toBe(1203);
-		expect(requests.some((request) => request.table === 'personnel')).toBe(false);
+		expect(await port.countMembersCoveringNoGroups()).toBe(2);
 	});
 
 	it('counts none when the unit has no members scoped to Groups', async () => {
@@ -139,11 +150,5 @@ describe('members whose scope covers no Groups', () => {
 		await expect(
 			createSupabaseOrganizationOverviewCountsPort(client, ORG).countMembersCoveringNoGroups()
 		).rejects.toThrow();
-	});
-});
-
-describe('countScopesCoveringNoGroups', () => {
-	it('counts a scope exactly when none of its ids is a live Group', () => {
-		expect(countScopesCoveringNoGroups(['a', 'b'], [[], ['x'], ['x', 'a'], ['b'], null])).toBe(3);
 	});
 });

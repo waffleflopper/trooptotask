@@ -260,8 +260,8 @@ CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_
   p_to text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
-  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
-    'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
+  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
+    'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
     'submitted-to-s1', 'completed'];
   v_row public.rating_scheme_entries;
   v_absent text[] := '{}';

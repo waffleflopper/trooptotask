@@ -296,7 +296,9 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        `POST api/rating-scheme/<id>/workflow` and `rows` reads the new `workflow_status`; completing or reopening
        updates the header counts at once (`5 of 8 shown`, then `6 of 8`). With no intermediate rater or reviewer,
        `SR Signed` moves to `With Rated Soldier` and back. Add an external reviewer and save: the step stays, and
-       `SR Signed` now moves to `With Reviewer`. While the draft is dirty every move is disabled with
+       `SR Signed` now moves to `With Reviewer`. An entry with an intermediate rater (the seeded `current` Warrant entry)
+       signs before the senior rater: `Rater Signed` moves to `With Intermediate Rater`, `IR Signed` to
+       `With Senior Rater`, and `SR Signed` to `With Reviewer`. While the draft is dirty every move is disabled with
        `Save or cancel your edits before moving the workflow.` Move the entry forward in the second page, then step back
        in the first: the POST returns 409, the section shows `The workflow did not move` with
        `This evaluation has changed since you opened it. Refresh it and try again.`, and the row keeps the second

@@ -364,15 +364,15 @@ describe('Rating scheme entry — workflow', () => {
 	it('stops at a present reviewer instead of skipping it', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		seedEntry(ctx, { workflow_status: 'ir-signed', reviewer_name: 'COL Reviewer' });
+		seedEntry(ctx, { workflow_status: 'sr-signed', reviewer_name: 'COL Reviewer' });
 
 		await expect(
-			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'ir-signed', to: 'with-rated-soldier' })
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sr-signed', to: 'with-rated-soldier' })
 		).rejects.toMatchObject({
 			status: 409
 		});
 		await expect(
-			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'ir-signed', to: 'with-reviewer' })
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sr-signed', to: 'with-reviewer' })
 		).resolves.toMatchObject({
 			moved: true
 		});

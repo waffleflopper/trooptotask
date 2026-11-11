@@ -182,16 +182,17 @@ describe('RatingSchemeEntryModal', () => {
 	});
 
 	it.each([
-		[{}, 'with-rated-soldier'],
-		[{ intermediateRaterName: 'LTC Intermediate' }, 'with-intermediate-rater'],
-		[{ reviewerPersonId: 'senior-1' }, 'with-reviewer']
-	] as const)('moves forward from SR Signed to the next present role %j', async (roles, expected) => {
+		['sr-signed', {}, 'with-rated-soldier'],
+		['sr-signed', { reviewerPersonId: 'senior-1' }, 'with-reviewer'],
+		['rater-signed', {}, 'with-senior-rater'],
+		['rater-signed', { intermediateRaterName: 'LTC Intermediate' }, 'with-intermediate-rater']
+	] as const)('moves forward from %s to the next present role %j', async (from, roles, expected) => {
 		const onMove = vi.fn().mockResolvedValue(expected);
-		renderWorkflow({ ...entry, ...roles, workflowStatus: 'sr-signed' }, { onMove });
+		renderWorkflow({ ...entry, ...roles, workflowStatus: from }, { onMove });
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
 
-		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'sr-signed', to: expected }, expect.any(Function));
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from, to: expected }, expect.any(Function));
 	});
 
 	it('steps back to the previous step', async () => {

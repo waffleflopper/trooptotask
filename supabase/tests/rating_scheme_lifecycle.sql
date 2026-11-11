@@ -19,8 +19,8 @@ CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
     set_config('request.jwt.claims', json_build_object('sub', pg_temp.id(p_user), 'role', 'authenticated')::text, true);
 $$;
 CREATE FUNCTION pg_temp.steps() RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
-  SELECT ARRAY['not tracked', 'drafting', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
-    'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
+  SELECT ARRAY['not tracked', 'drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
+    'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
     'submitted-to-s1', 'completed'];
 $$;
 CREATE FUNCTION pg_temp.step(p_label text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
@@ -128,12 +128,12 @@ INSERT INTO matrix (roles, from_step, allowed) VALUES
   ('both', 'not tracked', ARRAY['drafting', 'completed']),
   ('both', 'drafting', ARRAY['not tracked', 'with-rater']),
   ('both', 'with-rater', ARRAY['drafting', 'rater-signed']),
-  ('both', 'rater-signed', ARRAY['with-rater', 'with-senior-rater']),
-  ('both', 'with-senior-rater', ARRAY['rater-signed', 'sr-signed']),
-  ('both', 'sr-signed', ARRAY['with-senior-rater', 'with-intermediate-rater']),
-  ('both', 'with-intermediate-rater', ARRAY['sr-signed', 'ir-signed']),
-  ('both', 'ir-signed', ARRAY['with-intermediate-rater', 'with-reviewer']),
-  ('both', 'with-reviewer', ARRAY['ir-signed', 'reviewer-signed']),
+  ('both', 'rater-signed', ARRAY['with-rater', 'with-intermediate-rater']),
+  ('both', 'with-intermediate-rater', ARRAY['rater-signed', 'ir-signed']),
+  ('both', 'ir-signed', ARRAY['with-intermediate-rater', 'with-senior-rater']),
+  ('both', 'with-senior-rater', ARRAY['ir-signed', 'sr-signed']),
+  ('both', 'sr-signed', ARRAY['with-senior-rater', 'with-reviewer']),
+  ('both', 'with-reviewer', ARRAY['sr-signed', 'reviewer-signed']),
   ('both', 'reviewer-signed', ARRAY['with-reviewer', 'with-rated-soldier']),
   ('both', 'with-rated-soldier', ARRAY['reviewer-signed', 'sm-signed']),
   ('both', 'sm-signed', ARRAY['with-rated-soldier', 'submitted-to-s1']),
@@ -143,7 +143,7 @@ INSERT INTO matrix (roles, from_step, allowed) VALUES
   ('reviewer', 'with-reviewer', ARRAY['sr-signed', 'reviewer-signed']),
   ('reviewer', 'reviewer-signed', ARRAY['with-reviewer', 'with-rated-soldier']),
   ('reviewer', 'with-rated-soldier', ARRAY['reviewer-signed', 'sm-signed']),
-  ('legacy', 'with-intermediate-rater', ARRAY['sr-signed', 'with-rated-soldier']);
+  ('legacy', 'with-intermediate-rater', ARRAY['rater-signed', 'with-senior-rater']);
 UPDATE matrix SET entry = pg_temp.at_step(roles, from_step);
 
 SELECT is((SELECT count(*)::int FROM matrix m JOIN public.rating_scheme_entries r ON r.id = m.entry

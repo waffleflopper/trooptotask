@@ -365,8 +365,8 @@ calendar-range` and step again: the body is replaced by `Additional calendar dat
   when `Events & Taskings` is enabled; otherwise omit `calendar-events` from `--expect`. Folding widths depend on the
   controls present; retain the sweep's observed widths rather than assuming fixed thresholds.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February
-  1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because the Calendar store opens on the first of
-  the anchor cookie's month, so no live route displays a day-31 anchor.
+  1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because a month move lands on the first of the
+  month, so no live month route displays a day-31 anchor.
 - A page keeps its anchor cookie across sign-ins in the same browser context, so a drive that left an actor on September
   reopens there. Press `Today` before a step that starts from the current month.
 - Month labels depend on the test date; compare before and after instead of hardcoding September 2026.

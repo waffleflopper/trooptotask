@@ -234,7 +234,7 @@ describe('calendar page', () => {
 		const agenda = within(loading).getByTestId('calendar-agenda-skeleton');
 		const grid = loading.querySelector('.grid-cols-7')!;
 		expect(agenda.parentElement!.className).toContain('min-[641px]:hidden');
-		expect(grid.className).toContain('max-[640px]:hidden');
+		expect(grid.className).toContain('max-[641px]:hidden');
 	});
 
 	it('keeps the current calendar visible while loading additional dates', async () => {

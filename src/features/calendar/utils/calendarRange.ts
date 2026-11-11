@@ -17,7 +17,7 @@ export interface CalendarBufferedRange {
 
 export type CalendarViewMode = 'agenda' | 'week' | 'month' | '3-month';
 
-/** Below this width a month grid needs sideways scrolling, so the Calendar opens on Agenda; matches Tailwind's `max-[640px]`. */
+/** Below this width a month grid needs sideways scrolling, so the Calendar opens on Agenda; matches Tailwind's `max-[641px]`. */
 export const PHONE_WIDTH_QUERY = '(width < 641px)';
 
 /** The view a Calendar opens on. Only the opening view depends on width; the view is never switched on resize. */

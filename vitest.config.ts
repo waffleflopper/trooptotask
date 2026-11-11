@@ -7,7 +7,9 @@ const include = ['src/**/*.test.ts', 'scripts/**/*.test.ts'];
 
 // A module mock binds into whatever imports the mocked module, so a file that mocks keeps its own module graph;
 // every other file shares one graph per worker.
-const mocksModules = globSync(include).filter((file) => /\bvi\.(?:mock|doMock)\(/.test(readFileSync(file, 'utf8')));
+const mocksModules = globSync(include).filter((file) =>
+	/\bvi\.(?:mock|doMock)\s*[<(]/.test(readFileSync(file, 'utf8'))
+);
 
 export default mergeConfig(
 	viteConfig,

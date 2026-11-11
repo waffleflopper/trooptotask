@@ -96,22 +96,23 @@
 	type OpenAction = Extract<NeedsYouAction, { open: unknown }>;
 
 	// Pointing at or focusing an action starts its panel loading; the click takes that promise. A load that fails
-	// before the click is dropped, so the click tries again. Rendering never reads it, so it is a plain Map.
-	const warm = new Map<string, Promise<NeedsYouPanel>>();
+	// before the click is dropped, so the click tries again. Keyed by the action, so a refreshed row never opens the
+	// panel its previous action loaded.
+	const warm = new WeakMap<OpenAction, Promise<NeedsYouPanel>>();
 
 	function warmUp(id: string, action: OpenAction) {
 		const state = stateOf(id);
-		if (warm.has(id) || state.status === 'opening' || state.status === 'saving' || panelOf(state)) return;
+		if (warm.has(action) || state.status === 'opening' || state.status === 'saving' || panelOf(state)) return;
 		const loading = action.open();
-		warm.set(id, loading);
+		warm.set(action, loading);
 		loading.catch(() => {
-			if (warm.get(id) === loading) warm.delete(id);
+			if (warm.get(action) === loading) warm.delete(action);
 		});
 	}
 
-	function takePanel(id: string, action: OpenAction): Promise<NeedsYouPanel> {
-		const loading = warm.get(id) ?? action.open();
-		warm.delete(id);
+	function takePanel(action: OpenAction): Promise<NeedsYouPanel> {
+		const loading = warm.get(action) ?? action.open();
+		warm.delete(action);
 		return loading;
 	}
 
@@ -123,7 +124,7 @@
 					send(other, { type: 'close' });
 		send(id, { type: 'open' });
 		try {
-			send(id, { type: 'opened', panel: await takePanel(id, action) });
+			send(id, { type: 'opened', panel: await takePanel(action) });
 		} catch (error) {
 			send(id, { type: 'failed', message: messageOf(error, `${action.label} did not open`) });
 		}

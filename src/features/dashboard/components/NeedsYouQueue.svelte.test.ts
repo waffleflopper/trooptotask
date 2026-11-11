@@ -169,6 +169,22 @@ describe('NeedsYouQueue actions', () => {
 		expect(open).toHaveBeenCalledTimes(2);
 	});
 
+	it('opens the refreshed action, not the load its previous action warmed', async () => {
+		const stale = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		const fresh = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		const { rerender } = show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open: stale })]);
+
+		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Update status' }));
+		await rerender({
+			queue: buildNeedsYouQueue([[leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open: fresh })]])
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(stale).toHaveBeenCalledTimes(1);
+		expect(fresh).toHaveBeenCalledTimes(1);
+	});
+
 	it('loads a fresh panel on the next click once a warmed load has been used', async () => {
 		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
 		show([leaving('sd', { label: 'Fill 2 days', policy, mode: 'expand', open })]);

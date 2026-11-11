@@ -5,6 +5,8 @@ import { createTestContext } from '$features/rating-scheme/server/ratingSchemePe
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
+import { _postConfig as _changeRaterConfig } from './[entryId]/change-rater/+server';
+import { _postConfig as _workflowConfig } from './[entryId]/workflow/+server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
 const OTHER_GROUP_PERSON = '00000000-0000-4000-8000-0000000000a2';
@@ -14,8 +16,7 @@ const validInput = {
 	ratedPersonId: RATED_PERSON,
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
-	ratingPeriodEnd: '2026-06-30',
-	status: 'active'
+	ratingPeriodEnd: '2026-06-30'
 };
 
 describe('POST /api/rating-scheme', () => {
@@ -28,10 +29,10 @@ describe('POST /api/rating-scheme', () => {
 		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion);
 	});
 
-	it('rejects an unsupported status before a database mutation', async () => {
+	it('rejects an unsupported evaluation type before a database mutation', async () => {
 		const ctx = createTestContext();
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { ...validInput, status: 'draft' }, () => ctx)
+			handleUseCaseRequest(_postConfig, ctx, { ...validInput, evalType: 'DRAFT' }, () => ctx)
 		).rejects.toMatchObject({
 			status: 400
 		});
@@ -167,14 +168,90 @@ describe('POST /api/rating-scheme', () => {
 			});
 		}
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: created.id, status: 'completed' }, () => ctx)
+			handleUseCaseRequest(_putConfig, ctx, { id: created.id, notes: 'In-Group edit' }, () => ctx)
 		).resolves.toMatchObject({
-			status: 'completed'
+			notes: 'In-Group edit'
 		});
 		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id }, () => selected)).resolves.toEqual({
 			requiresApproval: true
 		});
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+});
+
+describe('POST /api/rating-scheme/[entryId] lifecycle', () => {
+	const IN_GROUP_ENTRY = '00000000-0000-4000-8000-0000000000e1';
+	const OTHER_GROUP_ENTRY = '00000000-0000-4000-8000-0000000000e2';
+
+	function groupOperator() {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: RATED_PERSON, organization_id: ctx.auth.orgId, group_id: 'group-alpha' },
+			{ id: OTHER_GROUP_PERSON, organization_id: ctx.auth.orgId, group_id: 'group-bravo' }
+		]);
+		const evaluation = {
+			organization_id: ctx.auth.orgId,
+			eval_type: 'NCOER',
+			rater_name: 'SSG Current',
+			rating_period_start: '2026-01-01',
+			rating_period_end: '2026-12-31',
+			workflow_status: 'drafting'
+		};
+		ctx.store.seed('rating_scheme_entries', [
+			{ ...evaluation, id: IN_GROUP_ENTRY, rated_person_id: RATED_PERSON },
+			{ ...evaluation, id: OTHER_GROUP_ENTRY, rated_person_id: OTHER_GROUP_PERSON }
+		]);
+		return ctx;
+	}
+
+	it('authorizes both lifecycle routes as Rating Scheme entry updates', () => {
+		expect(_workflowConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+		expect(_changeRaterConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+	});
+
+	it('lets a Group operator move an in-Group evaluation and denies one outside the Group', async () => {
+		const ctx = groupOperator();
+
+		await expect(
+			handleUseCaseRequest(_workflowConfig, ctx, { id: IN_GROUP_ENTRY, body: { to: 'with-rater' } }, () => ctx)
+		).resolves.toMatchObject({ moved: true, entry: { workflowStatus: 'with-rater' } });
+		await expect(
+			handleUseCaseRequest(_workflowConfig, ctx, { id: OTHER_GROUP_ENTRY, body: { to: 'with-rater' } }, () => ctx)
+		).rejects.toMatchObject({ status: 403 });
+		const other = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: OTHER_GROUP_ENTRY
+		});
+		expect(other?.workflow_status).toBe('drafting');
+	});
+
+	it('lets a Group operator change the rater of an in-Group evaluation and denies one outside the Group', async () => {
+		const ctx = groupOperator();
+		const body = { changeDate: '2026-06-30', raterName: 'SSG Incoming' };
+
+		await expect(
+			handleUseCaseRequest(_changeRaterConfig, ctx, { id: IN_GROUP_ENTRY, body }, () => ctx)
+		).resolves.toMatchObject({
+			entry: { workflowStatus: 'completed', reportType: 'CR' },
+			successor: { ratedPersonId: RATED_PERSON, raterName: 'SSG Incoming', ratingPeriodStart: '2026-07-01' }
+		});
+		await expect(
+			handleUseCaseRequest(_changeRaterConfig, ctx, { id: OTHER_GROUP_ENTRY, body }, () => ctx)
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(3);
 	});
 });
 
@@ -204,8 +281,7 @@ describe('GET /api/rating-scheme', () => {
 				rated_person_id: RATED_PERSON,
 				eval_type: 'NCOER',
 				rating_period_start: '2025-07-01',
-				rating_period_end: '2026-06-30',
-				status: 'active'
+				rating_period_end: '2026-06-30'
 			}
 		]);
 		return ctx;

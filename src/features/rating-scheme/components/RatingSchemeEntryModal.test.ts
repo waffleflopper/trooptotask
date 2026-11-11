@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemeEntryModal from './RatingSchemeEntryModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
@@ -19,7 +20,6 @@ const entry: RatingSchemeEntry = {
 	reviewerName: null,
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
-	status: 'active',
 	notes: null,
 	reportType: 'AN',
 	workflowStatus: null
@@ -38,6 +38,23 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 });
+
+function renderWorkflow(
+	value: RatingSchemeEntry,
+	handlers: Pick<ComponentProps<typeof RatingSchemeEntryModal>, 'onMove' | 'onChangeRater'> & { onClose?: () => void }
+) {
+	return render(RatingSchemeEntryModal, {
+		props: {
+			entry: value,
+			personnel,
+			isCurrentWorkspace: () => true,
+			onSave: vi.fn(),
+			onMove: handlers.onMove,
+			onChangeRater: handlers.onChangeRater,
+			onClose: handlers.onClose ?? vi.fn()
+		}
+	});
+}
 
 describe('RatingSchemeEntryModal', () => {
 	it('locks the draft while a save is held and unlocks it with the draft after a failure', async () => {
@@ -151,5 +168,140 @@ describe('RatingSchemeEntryModal', () => {
 		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'SGT Rated, Riley' }), { key: 'Escape' });
 
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('starts tracking a not-tracked evaluation and offers the moves from the step it reached', async () => {
+		const onMove = vi.fn().mockResolvedValue('drafting');
+		renderWorkflow(entry, { onMove });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Start tracking' }));
+
+		expect(onMove).toHaveBeenCalledWith('entry-1', 'drafting', expect.any(Function));
+		expect(await screen.findByRole('button', { name: 'Stop tracking' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Start tracking' })).toBeNull();
+	});
+
+	it.each([
+		[{}, 'with-rated-soldier'],
+		[{ intermediateRaterName: 'LTC Intermediate' }, 'with-intermediate-rater'],
+		[{ reviewerPersonId: 'senior-1' }, 'with-reviewer']
+	] as const)('moves forward from SR Signed to the next present role %j', async (roles, expected) => {
+		const onMove = vi.fn().mockResolvedValue(expected);
+		renderWorkflow({ ...entry, ...roles, workflowStatus: 'sr-signed' }, { onMove });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
+
+		expect(onMove).toHaveBeenCalledWith('entry-1', expected, expect.any(Function));
+	});
+
+	it('steps back to the previous step', async () => {
+		const onMove = vi.fn().mockResolvedValue('with-rater');
+		renderWorkflow({ ...entry, workflowStatus: 'rater-signed' }, { onMove });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Back to/ }));
+
+		expect(onMove).toHaveBeenCalledWith('entry-1', 'with-rater', expect.any(Function));
+	});
+
+	it('reopens a completed evaluation as not tracked and offers no change of rater', async () => {
+		const onMove = vi.fn().mockResolvedValue(null);
+		renderWorkflow({ ...entry, workflowStatus: 'completed' }, { onMove, onChangeRater: vi.fn() });
+		expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+
+		expect(onMove).toHaveBeenCalledWith('entry-1', null, expect.any(Function));
+		expect(await screen.findByRole('button', { name: 'Start tracking' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Change rater' })).toBeTruthy();
+	});
+
+	it('keeps the step and explains a refused move inside the dialog', async () => {
+		const onMove = vi.fn().mockRejectedValue(new Error('This evaluation has changed since you opened it.'));
+		renderWorkflow({ ...entry, workflowStatus: 'drafting' }, { onMove });
+		const dialog = screen.getByRole('dialog', { name: 'SGT Rated, Riley' });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
+
+		expect((await within(dialog).findByRole('alert')).textContent).toContain(
+			'This evaluation has changed since you opened it.'
+		);
+		expect(screen.getByRole('button', { name: 'Stop tracking' })).toBeTruthy();
+	});
+
+	it('holds workflow moves while the draft has unsaved edits', async () => {
+		const onMove = vi.fn();
+		renderWorkflow({ ...entry, workflowStatus: 'drafting' }, { onMove });
+
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Unsaved' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
+
+		expect(onMove).not.toHaveBeenCalled();
+		expect((screen.getByRole('button', { name: /^Move to/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	describe('change of rater', () => {
+		beforeEach(() => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2027-03-01T12:00:00'));
+		});
+		afterEach(() => vi.useRealTimers());
+
+		async function openChangeRater() {
+			await fireEvent.click(screen.getByRole('button', { name: 'Change rater' }));
+			return screen.findByRole('alertdialog', { name: 'Change rater' });
+		}
+
+		async function chooseExternalRater(name: string, confirm?: HTMLElement) {
+			confirm ??= await openChangeRater();
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'New rater' }));
+			const search = screen
+				.getAllByPlaceholderText('Search unit or type a name...')
+				.find((input) => input.closest('[data-state="open"]'));
+			await fireEvent.input(search!, { target: { value: name } });
+			await fireEvent.click(await screen.findByRole('option', { name: `Use "${name}" as an external rater` }));
+			return confirm;
+		}
+
+		it('sends one new rater with the last day clamped to the rating period, then closes', async () => {
+			const onChangeRater = vi.fn().mockResolvedValue(true);
+			const onClose = vi.fn();
+			vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+			renderWorkflow({ ...entry, workflowStatus: 'with-rater' }, { onChangeRater, onClose });
+
+			const confirm = await chooseExternalRater('SSG Incoming');
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'Change rater' }));
+
+			await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+			expect(onChangeRater).toHaveBeenCalledWith(
+				'entry-1',
+				{ changeDate: '2026-12-31', raterPersonId: null, raterName: 'SSG Incoming' },
+				expect.any(Function)
+			);
+		});
+
+		it('asks for the new rater and drops the ask once one is chosen', async () => {
+			const onChangeRater = vi.fn();
+			renderWorkflow({ ...entry, workflowStatus: 'with-rater' }, { onChangeRater });
+
+			const confirm = await openChangeRater();
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'Change rater' }));
+
+			expect(within(confirm).getByRole('alert')).toBeTruthy();
+			await chooseExternalRater('SSG Incoming', confirm);
+			expect(within(confirm).queryByRole('alert')).toBeNull();
+			expect(onChangeRater).not.toHaveBeenCalled();
+		});
+
+		it('keeps the change open and explains a refused change', async () => {
+			const onChangeRater = vi.fn().mockRejectedValue(new Error('The new rater is already this rater'));
+			const onClose = vi.fn();
+			renderWorkflow({ ...entry, workflowStatus: 'with-rater' }, { onChangeRater, onClose });
+
+			const confirm = await chooseExternalRater('SSG Incoming');
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'Change rater' }));
+
+			expect((await within(confirm).findByRole('alert')).textContent).toContain('The new rater is already this rater');
+			expect(onClose).not.toHaveBeenCalled();
+		});
 	});
 });

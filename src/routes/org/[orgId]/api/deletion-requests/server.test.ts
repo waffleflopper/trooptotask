@@ -97,8 +97,8 @@ function createRequesterContext(
 		{ id: RECORD_BRAVO, organization_id: orgId, personnel_id: PERSON_BRAVO, training_type_id: TRAINING_TYPE }
 	]);
 	ctx.rawStore.seed('rating_scheme_entries', [
-		{ id: ENTRY_ALPHA, organization_id: orgId, rated_person_id: PERSON_ALPHA, eval_type: 'NCOER', status: 'active' },
-		{ id: ENTRY_BRAVO, organization_id: orgId, rated_person_id: PERSON_BRAVO, eval_type: 'NCOER', status: 'active' }
+		{ id: ENTRY_ALPHA, organization_id: orgId, rated_person_id: PERSON_ALPHA, eval_type: 'NCOER' },
+		{ id: ENTRY_BRAVO, organization_id: orgId, rated_person_id: PERSON_BRAVO, eval_type: 'NCOER' }
 	]);
 	const store = createDeletionRequestTestStore(ctx.rawStore);
 	return { ctx, config: _createPostConfig(store) };

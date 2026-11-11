@@ -33,8 +33,8 @@ function workspace(
 	} as unknown as DashboardWorkspaceResult;
 }
 
-function entry(status: RatingSchemeDueEntry['status']): RatingSchemeDueEntry {
-	return { id: 'e1', ratedPersonId: 'alpha', evalType: 'NCOER', ratingPeriodEnd: '2026-09-30', status };
+function entry(workflowStatus: RatingSchemeDueEntry['workflowStatus']): RatingSchemeDueEntry {
+	return { id: 'e1', ratedPersonId: 'alpha', evalType: 'NCOER', ratingPeriodEnd: '2026-09-30', workflowStatus };
 }
 
 function expiredSummary(
@@ -168,7 +168,7 @@ describe('the Dashboard record overlay', () => {
 
 	it('replaces a saved evaluation and adds an acknowledged award once', () => {
 		const base = workspace([], {
-			ratingSchemeEntries: [entry('active')],
+			ratingSchemeEntries: [entry(null)],
 			awardTrackingAcknowledgedPersonnelIds: ['bravo']
 		});
 		let overlay = put(null, base, { list: 'ratingSchemeEntries', record: entry('completed') });

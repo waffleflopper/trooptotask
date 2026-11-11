@@ -11,7 +11,7 @@ type ProviderRow = {
 	rated_person_id: string;
 	eval_type: RatingSchemeDueEntry['evalType'];
 	rating_period_end: string;
-	status: RatingSchemeDueEntry['status'];
+	workflow_status?: string | null;
 } & Record<string, unknown>;
 
 function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueActor {
@@ -81,8 +81,7 @@ function pageRows(): ProviderRow[] {
 			organization_id: 'org-a',
 			rated_person_id: 'person-a',
 			eval_type: 'NCOER' as const,
-			rating_period_end: '2026-01-01',
-			status: 'active' as const
+			rating_period_end: '2026-01-01'
 		})),
 		{
 			id: 'evaluation-1000',
@@ -90,7 +89,7 @@ function pageRows(): ProviderRow[] {
 			rated_person_id: 'person-a',
 			eval_type: 'NCOER' as const,
 			rating_period_end: '2030-12-31',
-			status: 'completed' as const
+			workflow_status: 'completed'
 		}
 	].reverse();
 }
@@ -102,7 +101,6 @@ describe('Rating Scheme due projection', () => {
 				id: 'evaluation-1',
 				organization_id: 'org-a',
 				rating_period_end: '2026-09-25',
-				status: 'active',
 				rated_person_id: 'person-a',
 				eval_type: 'NCOER',
 				rater_name: 'Private evaluator name',
@@ -114,7 +112,7 @@ describe('Rating Scheme due projection', () => {
 				rated_person_id: 'person-b',
 				eval_type: 'OER',
 				rating_period_end: '2026-10-10',
-				status: 'change-of-rater'
+				workflow_status: 'completed'
 			},
 			{
 				id: 'evaluation-3',
@@ -122,15 +120,14 @@ describe('Rating Scheme due projection', () => {
 				rated_person_id: 'person-c',
 				eval_type: 'NCOER',
 				rating_period_end: '2026-01-01',
-				status: 'completed'
+				workflow_status: 'completed'
 			},
 			{
 				id: 'foreign-evaluation',
 				organization_id: 'org-b',
 				rated_person_id: 'person-d',
 				eval_type: 'NCOER',
-				rating_period_end: '2026-08-01',
-				status: 'active'
+				rating_period_end: '2026-08-01'
 			}
 		]);
 
@@ -140,21 +137,21 @@ describe('Rating Scheme due projection', () => {
 				ratedPersonId: 'person-a',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-09-25',
-				status: 'active'
+				workflowStatus: null
 			},
 			{
 				id: 'evaluation-2',
 				ratedPersonId: 'person-b',
 				evalType: 'OER',
 				ratingPeriodEnd: '2026-10-10',
-				status: 'change-of-rater'
+				workflowStatus: 'completed'
 			},
 			{
 				id: 'evaluation-3',
 				ratedPersonId: 'person-c',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-01-01',
-				status: 'completed'
+				workflowStatus: 'completed'
 			}
 		]);
 		expect(selections).toHaveLength(1);
@@ -163,7 +160,7 @@ describe('Rating Scheme due projection', () => {
 				.split(',')
 				.map((column) => column.trim())
 				.sort()
-		).toEqual(['eval_type', 'id', 'rated_person_id', 'rating_period_end', 'status']);
+		).toEqual(['eval_type', 'id', 'rated_person_id', 'rating_period_end', 'workflow_status']);
 	});
 
 	it('names the rated Person for a Rating-only reader through Rating roster references', async () => {
@@ -173,8 +170,7 @@ describe('Rating Scheme due projection', () => {
 				organization_id: 'org-a',
 				rated_person_id: 'person-a',
 				eval_type: 'NCOER',
-				rating_period_end: '2026-09-25',
-				status: 'active'
+				rating_period_end: '2026-09-25'
 			}
 		]);
 		listActiveReferences.mockResolvedValue([{ id: 'person-a', rank: 'SGT', lastName: 'Able', firstName: 'Synthetic' }]);
@@ -185,7 +181,7 @@ describe('Rating Scheme due projection', () => {
 				ratedPersonName: 'SGT Able, Synthetic',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-09-25',
-				status: 'active'
+				workflowStatus: null
 			}
 		]);
 	});
@@ -197,8 +193,7 @@ describe('Rating Scheme due projection', () => {
 				organization_id: 'org-a',
 				rated_person_id: 'person-a',
 				eval_type: 'NCOER',
-				rating_period_end: '2026-09-25',
-				status: 'active'
+				rating_period_end: '2026-09-25'
 			}
 		]);
 		listActiveReferences.mockRejectedValue(new Error('Roster references must not be read'));
@@ -216,16 +211,14 @@ describe('Rating Scheme due projection', () => {
 					organization_id: 'org-a',
 					rated_person_id: 'person-active',
 					eval_type: 'NCOER',
-					rating_period_end: '2026-09-25',
-					status: 'active'
+					rating_period_end: '2026-09-25'
 				},
 				{
 					id: 'evaluation-archived',
 					organization_id: 'org-a',
 					rated_person_id: 'person-archived',
 					eval_type: 'NCOER',
-					rating_period_end: '2026-10-10',
-					status: 'active'
+					rating_period_end: '2026-10-10'
 				},
 				{
 					id: 'evaluation-archived-upper',
@@ -233,7 +226,7 @@ describe('Rating Scheme due projection', () => {
 					rated_person_id: 'PERSON-ARCHIVED-TWO',
 					eval_type: 'NCOER',
 					rating_period_end: '2026-10-11',
-					status: 'change-of-rater'
+					workflow_status: 'completed'
 				}
 			],
 			undefined,
@@ -246,7 +239,7 @@ describe('Rating Scheme due projection', () => {
 				ratedPersonId: 'person-active',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-09-25',
-				status: 'active'
+				workflowStatus: null
 			}
 		]);
 		expect(listArchivedRatedPersonIds).toHaveBeenCalledWith(reader);
@@ -310,8 +303,7 @@ describe('Rating Scheme due projection', () => {
 				organization_id: 'org-a',
 				rated_person_id: 'person-a',
 				eval_type: 'NCOER',
-				rating_period_end: '2026-10-20',
-				status: 'active'
+				rating_period_end: '2026-10-20'
 			}
 		]);
 		const reader = actor();
@@ -336,7 +328,7 @@ describe('Rating Scheme due projection', () => {
 				ratedPersonId: 'person-a',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-10-20',
-				status: 'active'
+				workflowStatus: null
 			}
 		]);
 	});
@@ -345,8 +337,12 @@ describe('Rating Scheme due projection', () => {
 		const { port } = provider(pageRows());
 		const entries = await port.listDueEntries(actor());
 		expect(entries).toHaveLength(1001);
-		expect(entries[0]).toMatchObject({ id: 'evaluation-0000', ratingPeriodEnd: '2026-01-01', status: 'active' });
-		expect(entries[1000]).toMatchObject({ id: 'evaluation-1000', ratingPeriodEnd: '2030-12-31', status: 'completed' });
+		expect(entries[0]).toMatchObject({ id: 'evaluation-0000', ratingPeriodEnd: '2026-01-01' });
+		expect(entries[1000]).toMatchObject({
+			id: 'evaluation-1000',
+			ratingPeriodEnd: '2030-12-31',
+			workflowStatus: 'completed'
+		});
 	});
 
 	it.each([0, 1000])(

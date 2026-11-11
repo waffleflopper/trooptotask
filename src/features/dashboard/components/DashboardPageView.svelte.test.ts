@@ -342,7 +342,7 @@ describe('Dashboard sections', () => {
 							ratedPersonId: 'p-1',
 							evalType: 'NCOER',
 							ratingPeriodEnd: '2027-06-30',
-							status: 'completed'
+							workflowStatus: 'completed'
 						}
 					],
 					personnel: [],

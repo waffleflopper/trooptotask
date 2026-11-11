@@ -346,15 +346,15 @@ describe('evaluationsReadiness', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-11-30T00:00:00'));
 		const ratingSchemeEntries = [
-			{ ratingPeriodEnd: '2026-09-25', status: 'active' },
-			{ ratingPeriodEnd: '2026-09-28', status: 'active' },
-			{ ratingPeriodEnd: '2026-10-20', status: 'active' },
-			{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
-			{ ratingPeriodEnd: '2026-10-25', status: 'active' },
-			{ ratingPeriodEnd: '2026-10-15', status: 'active' },
-			{ ratingPeriodEnd: '2026-11-14', status: 'active' },
-			{ ratingPeriodEnd: '2026-12-29', status: 'active' },
-			{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
+			{ ratingPeriodEnd: '2026-09-25', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-09-28', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-10-20', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-10-10', workflowStatus: 'sr-signed' },
+			{ ratingPeriodEnd: '2026-10-25', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-10-15', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-11-14', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-12-29', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-07-02', workflowStatus: 'completed' }
 		] as Partial<RatingSchemeDueEntry>[];
 
 		expect(evaluationsReadiness(inputs({ today: '2026-09-30', ratingSchemeEntries }), everything)).toEqual({
@@ -380,8 +380,8 @@ describe('evaluationsReadiness', () => {
 
 	it('counts an evaluation due in 45 days as thru in 31 to 60 days and one due in 20 days as thru in 30 days', () => {
 		const ratingSchemeEntries = [
-			{ ratingPeriodEnd: '2026-12-03', status: 'active' },
-			{ ratingPeriodEnd: '2026-11-08', status: 'active' }
+			{ ratingPeriodEnd: '2026-12-03', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-11-08', workflowStatus: null }
 		] as Partial<RatingSchemeDueEntry>[];
 
 		expect(evaluationsReadiness(inputs({ today: '2026-10-19', ratingSchemeEntries }), everything)).toMatchObject({

@@ -20,7 +20,6 @@ const cases = [
 			reviewer_name: null,
 			rating_period_start: '2025-09-30',
 			rating_period_end: '2026-09-29',
-			status: 'completed',
 			notes: 17,
 			report_type: '02',
 			workflow_status: null,
@@ -37,7 +36,7 @@ function provider(table: string, saved: Row) {
 		organization_id: ORG,
 		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] }
 	}));
-	owned[1000] = { ...owned[1000], status: 'change-of-rater', workflow_status: 'with-rater' };
+	owned[1000] = { ...owned[1000], workflow_status: 'with-rater' };
 	const rows: Row[] = [{ ...owned[0], id: 'foreign-row', organization_id: 'org-b' }, ...owned.toReversed()];
 
 	const state = { failFrom: null as number | null, nullData: false };

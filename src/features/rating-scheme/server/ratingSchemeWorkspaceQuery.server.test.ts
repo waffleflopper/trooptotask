@@ -37,7 +37,6 @@ function row(id: string, ratedPersonId = person.id) {
 		reviewer_name: null,
 		rating_period_start: '2026-01-01',
 		rating_period_end: '2026-12-31',
-		status: 'active',
 		notes: 'Saved note',
 		report_type: 'AN',
 		workflow_status: 'with-rater'

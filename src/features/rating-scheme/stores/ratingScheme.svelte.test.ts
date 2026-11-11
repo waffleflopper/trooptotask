@@ -17,7 +17,6 @@ const mockEntries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2025-04-01',
 		ratingPeriodEnd: '2026-03-31',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting'
@@ -36,7 +35,6 @@ const mockEntries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2025-06-01',
 		ratingPeriodEnd: '2026-05-31',
-		status: 'completed',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'completed'
@@ -99,7 +97,6 @@ describe('ratingSchemeStore', () => {
 				reviewerName: null,
 				ratingPeriodStart: '2025-04-01',
 				ratingPeriodEnd: '2026-03-31',
-				status: 'active',
 				notes: null,
 				reportType: 'AN',
 				workflowStatus: 'drafting'
@@ -113,9 +110,9 @@ describe('ratingSchemeStore', () => {
 
 	describe('update', () => {
 		it('updates an existing entry and returns true', async () => {
-			stubFetch({ ...mockEntries[0], status: 'completed' });
+			stubFetch({ ...mockEntries[0], notes: 'Updated' });
 
-			const result = await ratingSchemeStore.update('1', { status: 'completed' });
+			const result = await ratingSchemeStore.update('1', { notes: 'Updated' });
 
 			expect(result).toBe(true);
 		});

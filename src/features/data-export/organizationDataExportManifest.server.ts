@@ -477,7 +477,6 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				reviewer: lookup(labels.personnel, entry.reviewer_person_id) || entry.reviewer_name,
 				rating_period_start: entry.rating_period_start,
 				rating_period_end: entry.rating_period_end,
-				status: entry.status,
 				workflow_status: entry.workflow_status,
 				notes: entry.notes
 			}))

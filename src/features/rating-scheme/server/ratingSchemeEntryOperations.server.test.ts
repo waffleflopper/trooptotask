@@ -2,9 +2,11 @@ import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import {
+	changeRatingSchemeRater,
 	createRatingSchemeEntry,
-	updateRatingSchemeEntry,
-	removeRatingSchemeEntry
+	removeRatingSchemeEntry,
+	transitionRatingSchemeEntry,
+	updateRatingSchemeEntry
 } from './ratingSchemeEntryOperations.server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
@@ -36,8 +38,7 @@ const validInput = {
 	ratedPersonId: RATED_PERSON,
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
-	ratingPeriodEnd: '2026-06-30',
-	status: 'active'
+	ratingPeriodEnd: '2026-06-30'
 };
 
 describe('Rating scheme entry — create', () => {
@@ -83,8 +84,7 @@ describe('Rating scheme entry — create', () => {
 
 		expect(result).toMatchObject({
 			ratedPersonId: RATED_PERSON,
-			evalType: 'OER',
-			status: 'active'
+			evalType: 'OER'
 		});
 
 		const stored = await ctx.store.findMany('rating_scheme_entries', 'test-org');
@@ -260,13 +260,26 @@ describe('Rating scheme entry — update', () => {
 				eval_type: 'OER',
 				rating_period_start: '2026-01-01',
 				rating_period_end: '2026-06-30',
-				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
 
-		const result = await update(ctx, { id: ENTRY, status: 'completed' });
-		expect(result.status).toBe('completed');
+		const result = await update(ctx, { id: ENTRY, notes: 'Counseling scheduled' });
+		expect(result.notes).toBe('Counseling scheduled');
+	});
+
+	it('refuses an edit that carries a workflow step and keeps the stored step', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(
+			updateRatingSchemeEntry(ctx, { id: ENTRY, notes: 'n', workflowStatus: 'completed' })
+		).rejects.toMatchObject({ status: 400 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored).toMatchObject({ workflow_status: null, notes: 'Keep with the closed report' });
 	});
 
 	it('coerces empty strings to null on update', async () => {
@@ -281,7 +294,6 @@ describe('Rating scheme entry — update', () => {
 				eval_type: 'OER',
 				rating_period_start: '2026-01-01',
 				rating_period_end: '2026-06-30',
-				status: 'active',
 				rater_name: 'Old Rater',
 				organization_id: 'test-org'
 			}
@@ -297,6 +309,200 @@ describe('Rating scheme entry — update', () => {
 	});
 });
 
+function seedEntry(ctx: ReturnType<typeof buildContext>, values: Record<string, unknown> = {}) {
+	ctx.store.seed('rating_scheme_entries', [
+		{
+			id: ENTRY,
+			organization_id: ctx.auth.orgId,
+			rated_person_id: RATED_PERSON,
+			eval_type: 'NCOER',
+			rater_person_id: null,
+			rater_name: 'SSG Current',
+			senior_rater_person_id: null,
+			senior_rater_name: 'MSG Senior',
+			intermediate_rater_person_id: null,
+			intermediate_rater_name: null,
+			reviewer_person_id: null,
+			reviewer_name: null,
+			rating_period_start: '2026-01-01',
+			rating_period_end: '2026-12-31',
+			notes: 'Keep with the closed report',
+			report_type: 'AN',
+			workflow_status: null,
+			...values
+		}
+	]);
+}
+
+const viewOnly = {
+	auth: {
+		role: 'member' as const,
+		isPrivileged: false,
+		capabilityMap: {
+			calendar: 'none' as const,
+			personnel: 'none' as const,
+			training: 'none' as const,
+			criticalTasks: 'none' as const,
+			onboarding: 'none' as const,
+			ratingScheme: 'view' as const
+		}
+	}
+};
+
+describe('Rating scheme entry — workflow', () => {
+	it('moves forward past an absent intermediate rater and back again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'rater-signed' });
+
+		const forward = await transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-senior-rater' });
+		expect(forward).toMatchObject({ moved: true, entry: { workflowStatus: 'with-senior-rater' } });
+		const back = await transitionRatingSchemeEntry(ctx, ENTRY, { to: 'rater-signed' });
+		expect(back).toMatchObject({ moved: true, entry: { workflowStatus: 'rater-signed' } });
+	});
+
+	it('stops at a present reviewer instead of skipping it', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'ir-signed', reviewer_name: 'COL Reviewer' });
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-rated-soldier' })).rejects.toMatchObject({
+			status: 409
+		});
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'with-reviewer' })).resolves.toMatchObject({
+			moved: true
+		});
+	});
+
+	it('refuses a step jump and keeps the stored step', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'drafting' });
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'sr-signed' })).rejects.toMatchObject({ status: 409 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored?.workflow_status).toBe('drafting');
+	});
+
+	it('answers a repeated move to the current step without moving it again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'completed' });
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'completed' })).resolves.toMatchObject({
+			moved: false,
+			entry: { workflowStatus: 'completed' }
+		});
+	});
+
+	it('rejects an unknown step before reading the evaluation', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'active' })).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('denies a move without Rating Scheme operate access', async () => {
+		const ctx = buildContext(viewOnly);
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { to: 'drafting' })).rejects.toMatchObject({ status: 403 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored?.workflow_status).toBeNull();
+	});
+
+	it('answers 404 for an evaluation outside the Organization', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+
+		await expect(transitionRatingSchemeEntry(ctx, FOREIGN_ENTRY, { to: 'drafting' })).rejects.toMatchObject({
+			status: 404
+		});
+	});
+});
+
+describe('Rating scheme entry — change of rater', () => {
+	it('completes the current evaluation and opens the next one for the new rater', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'with-rater' });
+
+		const result = await changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG New' });
+
+		expect(result.entry).toMatchObject({
+			ratingPeriodEnd: '2026-06-30',
+			reportType: 'CR',
+			workflowStatus: 'completed',
+			raterName: 'SSG Current',
+			notes: 'Keep with the closed report'
+		});
+		expect(result.successor).toMatchObject({
+			ratedPersonId: RATED_PERSON,
+			evalType: 'NCOER',
+			raterName: 'SSG New',
+			raterPersonId: null,
+			seniorRaterName: 'MSG Senior',
+			ratingPeriodStart: '2026-07-01',
+			ratingPeriodEnd: '2027-06-30',
+			reportType: 'AN',
+			workflowStatus: null,
+			notes: null
+		});
+	});
+
+	it('opens no second successor when the change is sent again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+		const change = { changeDate: '2026-06-30', raterName: 'SSG New' };
+
+		await changeRatingSchemeRater(ctx, ENTRY, change);
+		const repeated = await changeRatingSchemeRater(ctx, ENTRY, change);
+
+		expect(repeated.successor).toBeNull();
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(2);
+	});
+
+	it('refuses a change date outside the rating period and changes nothing', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(
+			changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2027-01-01', raterName: 'SSG New' })
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+
+	it('requires a new rater who belongs to the Organization', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(
+			changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterPersonId: FOREIGN_ENTRY })
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+
+	it('denies a change of rater without Rating Scheme operate access', async () => {
+		const ctx = buildContext(viewOnly);
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(
+			changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG New' })
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+});
+
 describe('Rating scheme entry — delete', () => {
 	it('deletes entry and notifies admins', async () => {
 		const ctx = buildContext();
@@ -308,7 +514,6 @@ describe('Rating scheme entry — delete', () => {
 				id: ENTRY,
 				rated_person_id: RATED_PERSON,
 				eval_type: 'OER',
-				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
@@ -343,7 +548,6 @@ describe('Rating scheme entry — delete', () => {
 				id: ENTRY,
 				rated_person_id: RATED_PERSON,
 				eval_type: 'OER',
-				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
@@ -378,7 +582,6 @@ describe('Rating scheme entry — delete', () => {
 				id: ENTRY,
 				rated_person_id: RATED_PERSON,
 				eval_type: 'OER',
-				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
@@ -471,7 +674,6 @@ function evaluatorContext() {
 			eval_type: 'OER',
 			rating_period_start: '2026-01-01',
 			rating_period_end: '2026-06-30',
-			status: 'active',
 			notes: 'Retained note',
 			rater_person_id: null,
 			senior_rater_person_id: null,
@@ -577,7 +779,6 @@ describe('Rating Scheme evaluator integrity', () => {
 				organization_id: 'foreign-org',
 				rated_person_id: foreignEvaluator,
 				eval_type: 'OER',
-				status: 'active',
 				notes: 'Foreign retained note'
 			}
 		]);

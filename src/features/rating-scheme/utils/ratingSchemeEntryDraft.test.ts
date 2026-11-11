@@ -27,7 +27,6 @@ const baseEntry: RatingSchemeEntry = {
 	reviewerName: null,
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
-	status: 'active',
 	notes: null,
 	reportType: 'AN',
 	workflowStatus: null
@@ -53,10 +52,8 @@ describe('Rating Scheme entry draft', () => {
 				reviewerName: null,
 				ratingPeriodStart: '2026-01-01',
 				ratingPeriodEnd: '2026-12-31',
-				status: 'active',
 				notes: null,
-				reportType: 'AN',
-				workflowStatus: null
+				reportType: 'AN'
 			}
 		},
 		{
@@ -77,10 +74,8 @@ describe('Rating Scheme entry draft', () => {
 				reviewerName: null,
 				ratingPeriodStart: '2026-01-01',
 				ratingPeriodEnd: '2026-12-31',
-				status: 'active',
 				notes: null,
-				reportType: 'AN',
-				workflowStatus: null
+				reportType: 'AN'
 			}
 		},
 		{
@@ -101,10 +96,8 @@ describe('Rating Scheme entry draft', () => {
 				reviewerName: 'MAJ Smith, S3',
 				ratingPeriodStart: '2026-01-01',
 				ratingPeriodEnd: '2026-12-31',
-				status: 'active',
 				notes: null,
-				reportType: 'AN',
-				workflowStatus: null
+				reportType: 'AN'
 			}
 		}
 	])(
@@ -129,12 +122,11 @@ describe('Rating Scheme entry draft', () => {
 		}
 	);
 
-	it('omits hidden optional roles and workflow while preserving all other save fields', () => {
+	it('omits hidden optional roles while preserving all other save fields', () => {
 		const draft = createRatingSchemeEntryDraft({
 			...baseEntry,
 			evalType: 'OER',
 			reportType: 'CR',
-			status: 'change-of-rater',
 			intermediateRaterName: 'MAJ Hidden IR',
 			reviewerPersonId: 'hidden-reviewer',
 			workflowStatus: 'with-reviewer',
@@ -142,7 +134,6 @@ describe('Rating Scheme entry draft', () => {
 		});
 		draft.showIntermediate = false;
 		draft.showReviewer = false;
-		draft.showWorkflow = false;
 		expect(buildRatingSchemeEntrySaveData(draft)).toEqual({
 			ratedPersonId: 'rated-1',
 			evalType: 'OER',
@@ -156,10 +147,8 @@ describe('Rating Scheme entry draft', () => {
 			reviewerName: null,
 			ratingPeriodStart: '2026-01-01',
 			ratingPeriodEnd: '2026-12-31',
-			status: 'change-of-rater',
 			notes: 'command-directed change',
-			reportType: 'CR',
-			workflowStatus: null
+			reportType: 'CR'
 		});
 	});
 
@@ -200,25 +189,6 @@ describe('Rating Scheme entry draft', () => {
 		expect(getRatingSchemeEntryDraftView(draft).canSave).toBe(true);
 	});
 
-	it('only offers optional workflow steps for a visible populated evaluator', () => {
-		const draft = createRatingSchemeEntryDraft(baseEntry);
-		draft.intermediateRater = { kind: 'person', personId: 'ir-1' };
-		draft.reviewer = { kind: 'external', name: '  ' };
-		draft.showReviewer = true;
-		let options = getRatingSchemeEntryDraftView(draft).filteredWorkflowOptions.map((option) => option.value);
-		expect(options).not.toContain('with-intermediate-rater');
-		expect(options).not.toContain('ir-signed');
-		expect(options).not.toContain('with-reviewer');
-		expect(options).not.toContain('reviewer-signed');
-		draft.showIntermediate = true;
-		draft.reviewer = setEvaluatorFromPicker({ externalName: 'CSM Reviewer' });
-		options = getRatingSchemeEntryDraftView(draft).filteredWorkflowOptions.map((option) => option.value);
-		expect(options).toContain('with-intermediate-rater');
-		expect(options).toContain('ir-signed');
-		expect(options).toContain('with-reviewer');
-		expect(options).toContain('reviewer-signed');
-	});
-
 	it('keeps report type and automatic Annual thru-date rules in one module', () => {
 		const draft = createRatingSchemeEntryDraft(null);
 		draft.evalType = 'OER';
@@ -232,7 +202,7 @@ describe('Rating Scheme entry draft', () => {
 		expect(draft.autoFilledEnd).toBe(true);
 	});
 
-	it('applies rank only for new entries and clears removed evaluators and their workflow steps', () => {
+	it('applies rank only for new entries and clears removed evaluators', () => {
 		const draft = createRatingSchemeEntryDraft(baseEntry);
 		const personnel = [{ id: 'rated-1', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }];
 		applyRatedPersonToNewRatingSchemeEntryDraft(draft, baseEntry, personnel);
@@ -241,17 +211,13 @@ describe('Rating Scheme entry draft', () => {
 		expect(draft.evalType).toBe('OER');
 		draft.showIntermediate = true;
 		draft.intermediateRater = { kind: 'person', personId: 'ir-1' };
-		draft.workflowStatus = 'ir-signed';
 		removeIntermediateRaterFromDraft(draft);
 		expect(draft.showIntermediate).toBe(false);
 		expect(draft.intermediateRater).toEqual({ kind: 'empty' });
-		expect(draft.workflowStatus).toBe('');
 		draft.showReviewer = true;
 		draft.reviewer = { kind: 'external', name: 'COL Reviewer' };
-		draft.workflowStatus = 'with-reviewer';
 		removeReviewerFromDraft(draft);
 		expect(draft.showReviewer).toBe(false);
 		expect(draft.reviewer).toEqual({ kind: 'empty' });
-		expect(draft.workflowStatus).toBe('');
 	});
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { SavedRatingSchemeEntry } from '../contracts';
 import type { WorkflowStatus } from '../rating-scheme.types';
-import { evaluationPhase } from '../utils/evaluationPhase';
+import { evaluationPhase } from '../utils/evaluationWorkflow';
 import { loadPersonnelActiveEvaluation } from './personnelActiveEvaluation.server';
 
 const person = { id: 'okafor' } as Personnel;
@@ -23,7 +23,6 @@ function entry(overrides: Partial<SavedRatingSchemeEntry>): SavedRatingSchemeEnt
 		reviewerName: null,
 		ratingPeriodStart: '2025-12-01',
 		ratingPeriodEnd: '2026-11-30',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting',
@@ -38,7 +37,7 @@ describe('loadPersonnelActiveEvaluation', () => {
 		const evaluation = await loadPersonnelActiveEvaluation({
 			ratingScheme: {
 				listPersonReadiness: async () => [
-					entry({ id: 'done', status: 'completed', ratingPeriodEnd: '2027-01-01' }),
+					entry({ id: 'done', workflowStatus: 'completed', ratingPeriodEnd: '2027-01-01' }),
 					entry({
 						raterPersonId: 'alvarez',
 						seniorRaterPersonId: 'whitaker',
@@ -77,7 +76,7 @@ describe('loadPersonnelActiveEvaluation', () => {
 
 	it('resolves to null when every entry is completed', async () => {
 		const evaluation = await loadPersonnelActiveEvaluation({
-			ratingScheme: { listPersonReadiness: async () => [entry({ status: 'completed' })] },
+			ratingScheme: { listPersonReadiness: async () => [entry({ workflowStatus: 'completed' })] },
 			asOf: '2026-10-06',
 			loadAuthorizedPerson: async () => person,
 			findPersonNames: async () => new Map()
@@ -107,7 +106,7 @@ describe('evaluationPhase', () => {
 		];
 
 		expect(statuses.map((status) => evaluationPhase(status))).toEqual([
-			{ step: 0, label: 'Not started' },
+			{ step: 0, label: 'Not tracked' },
 			{ step: 1, label: 'Drafting' },
 			{ step: 2, label: 'With Rater' },
 			{ step: 2, label: 'Rater Signed' },

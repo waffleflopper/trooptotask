@@ -63,7 +63,6 @@ const entries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2025-01-01',
 		ratingPeriodEnd: '2025-12-31',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting'
@@ -82,7 +81,6 @@ const entries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2026-04-01',
 		ratingPeriodEnd: '2026-05-15',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'with-rater'
@@ -368,7 +366,7 @@ describe('RatingSchemePageView', () => {
 			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
 		});
 		it('offers no clear action when only completed entries exist under the default filters', () => {
-			const completed = ordered.map((entry) => ({ ...entry, status: 'completed' as const }));
+			const completed = ordered.map((entry) => ({ ...entry, workflowStatus: 'completed' as const }));
 			const ctx = new RatingSchemePageContext(
 				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: completed, personnelLookup: people },
 				new ModalRegistry(),

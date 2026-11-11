@@ -582,8 +582,8 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		});
 		ctx.ratingSchemeDue = {
 			listDueEntries: vi.fn().mockResolvedValue([
-				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
-				{ ratingPeriodEnd: '2026-10-20', status: 'change-of-rater' }
+				{ ratingPeriodEnd: '2026-09-25', workflowStatus: null },
+				{ ratingPeriodEnd: '2026-10-20', workflowStatus: 'with-rater' }
 			])
 		};
 		const findMany = ctx.store.findMany.bind(ctx.store);
@@ -593,8 +593,8 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		});
 		const result = await load(ctx);
 		expect(result.ratingSchemeEntries).toEqual([
-			{ ratingPeriodEnd: '2026-09-25', status: 'active' },
-			{ ratingPeriodEnd: '2026-10-20', status: 'change-of-rater' }
+			{ ratingPeriodEnd: '2026-09-25', workflowStatus: null },
+			{ ratingPeriodEnd: '2026-10-20', workflowStatus: 'with-rater' }
 		]);
 		expect(ctx.ratingSchemeDue.listDueEntries).toHaveBeenCalledWith(ctx.auth);
 	});
@@ -638,7 +638,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				rated_person_id: 'p-active',
 				eval_type: 'NCOER',
 				rating_period_end: '2026-09-25',
-				status: 'active'
+				workflow_status: null
 			},
 			{
 				id: 'e-archived',
@@ -646,7 +646,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				rated_person_id: 'p-archived',
 				eval_type: 'NCOER',
 				rating_period_end: '2026-09-20',
-				status: 'active'
+				workflow_status: null
 			}
 		]);
 		const result = await load(ctx);
@@ -657,7 +657,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				ratedPersonName: 'SGT Able, Synthetic',
 				evalType: 'NCOER',
 				ratingPeriodEnd: '2026-09-25',
-				status: 'active'
+				workflowStatus: null
 			}
 		]);
 	});

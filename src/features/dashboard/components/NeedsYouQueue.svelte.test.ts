@@ -169,6 +169,39 @@ describe('NeedsYouQueue actions', () => {
 		expect(open).toHaveBeenCalledTimes(2);
 	});
 
+	it.each([
+		[
+			'the pointer leaves',
+			(button: HTMLElement) => fireEvent.pointerEnter(button),
+			(button: HTMLElement) => fireEvent.pointerLeave(button)
+		],
+		['focus leaves', (button: HTMLElement) => fireEvent.focus(button), (button: HTMLElement) => fireEvent.blur(button)]
+	])('loads again on click once %s the action it warmed', async (_, reach, leave) => {
+		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await reach(button);
+		await leave(button);
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(open).toHaveBeenCalledTimes(2);
+	});
+
+	it('loads once for a tap, whose pointer leaves before the click', async () => {
+		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await fireEvent.pointerEnter(button, { pointerType: 'touch' });
+		await fireEvent.pointerLeave(button, { pointerType: 'touch' });
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(open).toHaveBeenCalledTimes(1);
+	});
+
 	it('opens the refreshed action, not the load its previous action warmed', async () => {
 		const stale = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
 		const fresh = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));

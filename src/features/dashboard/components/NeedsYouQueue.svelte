@@ -95,9 +95,10 @@
 
 	type OpenAction = Extract<NeedsYouAction, { open: unknown }>;
 
-	// Pointing at or focusing an action starts its panel loading; the click takes that promise. A load that fails
-	// before the click is dropped, so the click tries again. Keyed by the action, so a refreshed row never opens the
-	// panel its previous action loaded.
+	// Pointing at or focusing an action starts its panel loading; the click takes that promise. A load that fails, or
+	// whose action the pointer or focus has left, is dropped, so a later click loads fresh data. A touch has no hover
+	// and leaves before its click, so it does not warm. Keyed by the action, so a refreshed row never opens its
+	// previous action's panel.
 	const warm = new WeakMap<OpenAction, Promise<NeedsYouPanel>>();
 
 	function warmUp(id: string, action: OpenAction) {
@@ -238,8 +239,10 @@
 						aria-haspopup={act.mode === 'dialog' ? 'dialog' : undefined}
 						aria-expanded={act.mode === 'expand' ? panel !== null : undefined}
 						aria-controls={act.mode === 'expand' && panel ? panelId : undefined}
-						onpointerenter={() => warmUp(item.id, act)}
+						onpointerenter={(event) => event.pointerType !== 'touch' && warmUp(item.id, act)}
 						onfocus={() => warmUp(item.id, act)}
+						onpointerleave={(event) => event.pointerType !== 'touch' && warm.delete(act)}
+						onblur={() => warm.delete(act)}
 						onclick={() => (busy ? undefined : panel ? send(item.id, { type: 'close' }) : open(item.id, act))}
 					>
 						{act.label}

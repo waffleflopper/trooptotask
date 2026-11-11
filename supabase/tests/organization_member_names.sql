@@ -198,5 +198,20 @@ SELECT throws_ok(
   '42501', NULL, 'the owner of a suspended Organization cannot name a member');
 RESET ROLE;
 
+-- A member's own "left" entry is written after their membership is gone, as the server does it: the leaver's request
+-- deletes the row and records the entry through the service role, and the owner reads it back.
+SELECT pg_temp.act_as('4');
+SET LOCAL ROLE service_role;
+DELETE FROM public.organization_memberships WHERE organization_id = pg_temp.id('101') AND user_id = pg_temp.id('4');
+SELECT public.record_app_audit_entry('member.left', 'organization', 'info', '{}'::jsonb, pg_temp.id('4'),
+  pg_temp.id('101'), pg_temp.id('4'));
+RESET ROLE;
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT is(
+  (SELECT actor_label FROM public.audit_logs WHERE org_id = pg_temp.id('101') AND action = 'member.left'),
+  'SFC Whitaker, Dana', 'a member who left is named by their account on their own leave entry');
+RESET ROLE;
+
 SELECT * FROM finish();
 ROLLBACK;

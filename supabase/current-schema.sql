@@ -1669,6 +1669,9 @@ CREATE FUNCTION audit_private.member_label(p_organization_id uuid, p_user_id uui
     CASE WHEN n.name_source IS NOT NULL
       THEN pg_catalog.concat_ws(' ', NULLIF(n.rank, ''), pg_catalog.concat_ws(', ', n.last_name, n.first_name))
     END,
+    (SELECT pg_catalog.concat_ws(' ', NULLIF(profile.rank, ''), pg_catalog.concat_ws(', ', profile.last_name, profile.first_name))
+      FROM public.user_profiles profile
+      WHERE profile.user_id = p_user_id AND (profile.first_name IS NOT NULL OR profile.last_name IS NOT NULL)),
     NULLIF(pg_catalog.btrim(n.email), ''),
     (SELECT account.email::text FROM auth.users account WHERE account.id = p_user_id)
   )

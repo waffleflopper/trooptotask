@@ -60,7 +60,12 @@ export const OVERVIEW_CHECKS: readonly OverviewCheck[] = [
 		read: (sources) =>
 			sources.invitationsToFollowUp.then(({ deliveryFailed, expiringSoon }) => ({
 				count: deliveryFailed + expiringSoon,
-				breakdown: `${deliveryFailed} failed · ${expiringSoon} expiring soon`
+				breakdown: [
+					deliveryFailed > 0 && `${deliveryFailed} failed`,
+					expiringSoon > 0 && `${expiringSoon} expiring soon`
+				]
+					.filter(Boolean)
+					.join(' · ')
 			}))
 	},
 	{

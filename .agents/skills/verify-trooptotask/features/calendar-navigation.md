@@ -22,7 +22,9 @@ month and long-range views.
   and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings`
   and the exports always live in More, after any folded controls.
 - `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
-  Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization.
+  Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization. When the
+  search or the Group hides everyone while the roster has People, `Month`, `Week` and `Agenda` show `No one matches` with
+  `Clear filters`, which empties the searchbox and returns the filter to `Group: All`; `3-Month` has no such state. An empty roster says `No personnel added yet` with `Go to Personnel` and no `Clear filters`.
 - `calendar-today`: on load and on `Today` the grid scrolls so today's column sits just right of the personnel column,
   unless it is already fully visible.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
@@ -44,7 +46,8 @@ month and long-range views.
   the alphabet. Nested Groups draw as indented sub-bands under their parent's own people (step 19).
 - `calendar-grid-affordances`: a view-only member's day cells, date headers and Person names open no editor, and a
   status bar opens a popover with no actions.
-- `calendar-grid-states`: the empty roster and the in-page Access Restricted state fit both widths.
+- `calendar-grid-states`: the empty roster, the no-matches state and the in-page Access Restricted state fit both
+  widths.
 - `calendar-grid-volume`: a large roster keeps virtualized rendering and its request count on load, month navigation and
   long range. When Robert asks for a measurement, step 15's latency harness compares interaction latency between
   revisions.
@@ -127,7 +130,10 @@ filters and request controls between cases.
 4. Open `Calendar group filter` (`Group: All`) and select `Alpha (1)`; confirm Able remains while Baker is absent and
    the address is unchanged. Clear the filter and confirm both groups return. Fill the searchbox with `Able`, confirm
    Baker is absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all
-   groups return; an empty native `fill` can leave the previous filter applied.
+   groups return; an empty native `fill` can leave the previous filter applied. Select `Alpha (1)` and fill the
+   searchbox with `Baker`, which no one in Alpha matches: the body reads `No one matches` with `Clear filters` and no
+   `Go to Personnel`. Repeat in `Agenda`. Press `Clear filters`: the searchbox is empty, `Group: All` is back and both
+   groups return.
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and
    Unassigned rows and `Verification Unit Closure` (a `Days` lane segment under the date headers, with a tint and the
    closure name as the title of its date header). Able's `Verification Leave` bar covers September 14–16 and Baker's

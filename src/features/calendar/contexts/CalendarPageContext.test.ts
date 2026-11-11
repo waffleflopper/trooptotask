@@ -400,6 +400,57 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	describe('rosterEmpty', () => {
+		const mutableGroups = groupsStore as unknown as {
+			items: { id: string; name: string; sortOrder: number; parentId: null; depth: number }[];
+		};
+
+		beforeEach(() => {
+			mutableGroups.items = [
+				{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+			];
+		});
+
+		afterEach(() => {
+			mutableGroups.items = [];
+		});
+
+		it('is null while the filters show someone', () => {
+			expect(ctx.rosterEmpty).toBeNull();
+		});
+
+		it('says no one matches after a search that matches nobody, and null again once it is cleared', () => {
+			ctx.setCalendarPersonnelSearch('Zed');
+			expect(ctx.rosterEmpty).toBe('no-matches');
+
+			ctx.setCalendarPersonnelSearch('');
+			expect(ctx.rosterEmpty).toBeNull();
+		});
+
+		it('says no one matches when the picked Group has nobody the search matches', () => {
+			ctx.setCalendarGroupFilter('g2');
+			expect(ctx.rosterEmpty).toBeNull();
+
+			ctx.setCalendarPersonnelSearch('Alice');
+			expect(ctx.rosterEmpty).toBe('no-matches');
+		});
+
+		it('says no personnel when the roster has no one, whatever the filters', () => {
+			const empty = makeContext({ ...mockData, personnel: [], allPersonnel: [] }, org);
+			expect(empty.rosterEmpty).toBe('no-personnel');
+
+			empty.setCalendarPersonnelSearch('Alice');
+			expect(empty.rosterEmpty).toBe('no-personnel');
+		});
+
+		it('says no personnel when the reader’s scope holds no one, though the Organization has people', () => {
+			const outOfScope = makeContext(mockData, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g3'] } }));
+
+			expect(outOfScope.rosterEmpty).toBe('no-personnel');
+		});
+	});
+
 	describe('handlePersonClick', () => {
 		it('opens the editor on today when Calendar operate policy allows availability changes', () => {
 			const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }), '2026-03-20');

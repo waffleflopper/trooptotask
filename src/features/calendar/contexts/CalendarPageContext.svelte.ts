@@ -43,6 +43,8 @@ export interface CalendarRosterFilterOption {
 	count?: number;
 }
 
+export type RosterEmpty = 'no-personnel' | 'no-matches';
+
 export type CalendarPopover =
 	| {
 			readonly kind: 'quick-add';
@@ -277,6 +279,14 @@ export class CalendarPageContext {
 
 	readonly filteredPBG: NestedRosterBand[] = $derived(
 		nestRosterBands(this.groupTree, this.#filteredSections, showSubGroups.current)
+	);
+
+	readonly rosterEmpty: RosterEmpty | null = $derived(
+		this.filteredPBG.some((band) => band.personnel.length > 0)
+			? null
+			: this.allPersonnelFlat.length > 0
+				? 'no-matches'
+				: 'no-personnel'
 	);
 
 	/** Exports always write each Group's own people under its path, whatever the screen shows. */

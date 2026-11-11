@@ -51,8 +51,9 @@ month and long-range views.
 - `calendar-read-window`: a month's assignment and closure read covers only the shown days. Its availability read covers
   the shown days, and also today when today falls in the 90 days before them, for the title row's count. The server
   bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet loaded. `Week`
-  and `Agenda` cover the Monday to Sunday shown the same way: a week inside the loaded months sends no request, and one
-  that straddles the edge requests only its missing days.
+  and `Agenda` cover the Monday to Sunday shown and the whole focus month, because Export writes that month: a week
+  inside the loaded months sends no request, a week in an unloaded month requests that month once, and one that
+  straddles the loaded edge requests only its missing days.
 - `calendar-reload-anchor`: a reload opens the month the page last showed, the month the server bootstrapped, with no
   range read.
 - `calendar-markers`: Events, Suspenses and picked execution dates on the Month and 3-Month views behind the

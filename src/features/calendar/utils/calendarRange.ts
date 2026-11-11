@@ -138,7 +138,14 @@ export function calendarViewCoverage(
 	today: string = formatDate(new Date())
 ): BaseCoverage {
 	const { first, last } = visibleDays(anchor, view);
-	return coverageThrough(formatDate(first), formatDate(last), today);
+	if (PERIODS[view].span.unit !== 'week') return coverageThrough(formatDate(first), formatDate(last), today);
+	// Export from a week writes the focus month, so a week reads that whole month as well as its own days.
+	const month = visibleDays(anchor, 'month');
+	return coverageThrough(
+		formatDate(first < month.first ? first : month.first),
+		formatDate(last > month.last ? last : month.last),
+		today
+	);
 }
 
 /** Every day of the three months a 3-Month view shows, from the anchor's month. */

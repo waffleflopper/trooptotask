@@ -250,15 +250,23 @@ describe('week periods', () => {
 		expect(formatDate(weekDates(new Date(2026, 10, 16))[0])).toBe('2026-11-16');
 	});
 
-	it('covers the anchor week through the same read-back as the months', () => {
+	it('covers the whole focus month with the anchor week, so exporting that month from a week is complete', () => {
 		expect(calendarViewCoverage(new Date(2026, 10, 18), 'week', '2026-11-18')).toEqual({
-			availability: { rangeStart: '2026-11-16', rangeEnd: '2026-11-22' },
-			assignments: { rangeStart: '2026-11-16', rangeEnd: '2026-11-22' }
+			availability: { rangeStart: '2026-11-01', rangeEnd: '2026-11-30' },
+			assignments: { rangeStart: '2026-11-01', rangeEnd: '2026-11-30' }
 		});
-		expect(calendarViewCoverage(new Date(2026, 10, 25), 'agenda', '2026-11-18').availability).toEqual({
-			rangeStart: '2026-11-18',
-			rangeEnd: '2026-11-29'
+		expect(calendarViewCoverage(new Date(2026, 10, 1), 'agenda', '2026-10-20')).toEqual({
+			availability: { rangeStart: '2026-10-20', rangeEnd: '2026-11-30' },
+			assignments: { rangeStart: '2026-10-26', rangeEnd: '2026-11-30' }
 		});
+	});
+
+	it('reads the whole focus month of a week outside the loaded months', () => {
+		const november = calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-11-10');
+
+		expect(planCalendarRangeReads(november, calendarViewCoverage(new Date(2026, 11, 9), 'week', '2026-11-10'))).toEqual(
+			[{ rangeStart: '2026-12-01', rangeEnd: '2026-12-31', collections: ['availability', 'assignments'] }]
+		);
 	});
 
 	it('needs no read for a week inside the loaded month', () => {

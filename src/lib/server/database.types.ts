@@ -2928,6 +2928,8 @@ export type Database = {
       }
       rating_scheme_entries: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           eval_type: string
           id: string
@@ -2949,6 +2951,8 @@ export type Database = {
           workflow_status: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           eval_type: string
           id?: string
@@ -2970,6 +2974,8 @@ export type Database = {
           workflow_status?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           eval_type?: string
           id?: string
@@ -5201,6 +5207,14 @@ export type Database = {
           saved_last_name: string
           saved_rank: string
         }[]
+      }
+      set_rating_scheme_entry_archived: {
+        Args: {
+          p_archived: boolean
+          p_entry_id: string
+          p_organization_id: string
+        }
+        Returns: Json
       }
       set_roster_excusals: {
         Args: {

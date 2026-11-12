@@ -13,7 +13,7 @@ SELECT results_eq(
     ('e7c10000-0000-4000-8000-000000000404'::uuid, NULL::text)$$,
   'the entry submitted to S1 is submitted to HRC, and the other steps are untouched');
 SELECT results_eq(
-  $$SELECT id, to_jsonb(e) - 'workflow_status' FROM public.rating_scheme_entries e
+  $$SELECT id, to_jsonb(e) - ARRAY['workflow_status', 'archived_at', 'archived_by'] FROM public.rating_scheme_entries e
     WHERE organization_id = 'e7c10000-0000-4000-8000-000000000101' ORDER BY id$$,
   $$SELECT id, saved - ARRAY['workflow_status', 'status'] FROM upgrade_fixture.evaluation_jump_steps_before ORDER BY id$$,
   'the upgrade keeps every period, note and update time');

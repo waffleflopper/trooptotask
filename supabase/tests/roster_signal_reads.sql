@@ -38,6 +38,7 @@ BEGIN
     ('completed_evaluation', 'c9000000-0000-4000-8000-000000000801'),
     ('current_alpha_one_evaluation', 'c9000000-0000-4000-8000-000000000802'),
     ('older_alpha_one_evaluation', 'c9000000-0000-4000-8000-000000000803'),
+    ('archived_alpha_one_evaluation', 'c9000000-0000-4000-8000-000000000805'),
     ('current_alpha_two_evaluation', 'c9000000-0000-4000-8000-000000000804'),
     ('undated_follow_up', 'c9000000-0000-4000-8000-000000000901'),
     ('overdue_follow_up', 'c9000000-0000-4000-8000-000000000902'),
@@ -134,6 +135,8 @@ INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, 
 (pg_temp.id('current_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-12-01', '2026-12-01', 'drafting'),
 (pg_temp.id('older_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2025-06-01', '2026-06-01', NULL),
 (pg_temp.id('current_alpha_two_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_two_person'), 'NCOER', '2025-12-01', '2026-12-01', NULL);
+INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, workflow_status, archived_at) VALUES
+(pg_temp.id('archived_alpha_one_evaluation'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'NCOER', '2026-02-01', '2027-02-01', 'drafting', '2026-09-01 08:00+00');
 
 INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, due_date, status, created_by, created_at) VALUES
 (pg_temp.id('undated_follow_up'), pg_temp.id('alpha_org'), pg_temp.id('alpha_one_person'), 'Undated', NULL, 'open', 'SFC Lead', '2026-10-01 08:00+00'),
@@ -233,7 +236,8 @@ BEGIN
   FROM (
     SELECT DISTINCT ON (r.rated_person_id) r.*
     FROM public.rating_scheme_entries r JOIN public.personnel p ON p.id = r.rated_person_id
-    WHERE r.organization_id = org AND p.archived_at IS NULL AND r.workflow_status IS DISTINCT FROM 'completed'
+    WHERE r.organization_id = org AND p.archived_at IS NULL AND r.archived_at IS NULL
+      AND r.workflow_status IS DISTINCT FROM 'completed'
     ORDER BY r.rated_person_id, r.rating_period_end DESC, r.id DESC
   ) r;
   RETURN NEXT is(actual #> '{evaluations,entries}', expected, p_label || ': evaluations match the invoker read');
@@ -314,7 +318,7 @@ SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
 SELECT is(pg_temp.sig('evaluations') -> 'entries',
   jsonb_build_array(jsonb_build_array(pg_temp.id('alpha_one_person'), pg_temp.id('current_alpha_one_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', 'drafting'),
     jsonb_build_array(pg_temp.id('alpha_two_person'), pg_temp.id('current_alpha_two_evaluation'), 'NCOER', NULL, '2025-12-01', '2026-12-01', NULL)),
-  'the active evaluation is the latest-ending entry not completed');
+  'the active evaluation is the latest-ending entry that is on the scheme and not completed');
 
 SELECT is(pg_temp.sig('followUps') -> 'open',
   jsonb_build_array(jsonb_build_array(pg_temp.id('overdue_follow_up'), pg_temp.id('alpha_one_person'), 'Call home', '2026-10-20'),

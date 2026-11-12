@@ -21,7 +21,7 @@ SELECT results_eq(
     ('e7b10000-0000-4000-8000-000000000411'::uuid, 'with-intermediate-rater'::text)$$,
   'an entry whose status was closed becomes completed, and an entry past its senior rater reaches its intermediate rater next');
 SELECT results_eq(
-  $$SELECT id, to_jsonb(e) - 'workflow_status' FROM public.rating_scheme_entries e
+  $$SELECT id, to_jsonb(e) - ARRAY['workflow_status', 'archived_at', 'archived_by'] FROM public.rating_scheme_entries e
     WHERE organization_id = 'e7b10000-0000-4000-8000-000000000101' ORDER BY id$$,
   $$SELECT id, CASE WHEN id IN ('e7b10000-0000-4000-8000-000000000405', 'e7b10000-0000-4000-8000-000000000407')
       THEN saved - ARRAY['workflow_status', 'status'] || '{"report_type": "CR"}'

@@ -115,7 +115,7 @@ END;
 $$;
 ALTER TABLE public.rating_scheme_entries ENABLE TRIGGER update_rating_scheme_entries_updated_at;
 
--- Only an entry that is still on the scheme can be an Evaluation to act on.
+-- roster_signals reads an evaluation only while its entry is listed on the scheme.
 CREATE OR REPLACE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_since date, p_sources text[], p_personnel_ids uuid[] DEFAULT NULL::uuid[]) RETURNS jsonb
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''

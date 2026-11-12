@@ -5,7 +5,7 @@ import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSche
 import { parseWorkflowStatus } from '../utils/evaluationWorkflow';
 import { WORKFLOW_STEPS, type WorkflowStatus } from '../rating-scheme.types';
 
-/** archived_by is read through the audit log, never selected. */
+/** archived_by is stamped by the database and never part of the entry a client sees. */
 export type RatingSchemeRow = Omit<Database['public']['Tables']['rating_scheme_entries']['Row'], 'archived_by'>;
 
 export const RATING_SCHEME_SELECT =

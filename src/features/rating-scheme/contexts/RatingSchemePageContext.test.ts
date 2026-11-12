@@ -21,7 +21,6 @@ const entries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2025-01-01',
 		ratingPeriodEnd: '2025-12-31',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting'
@@ -40,7 +39,6 @@ const entries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2026-04-01',
 		ratingPeriodEnd: '2026-05-15',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'with-rater'
@@ -59,10 +57,9 @@ const entries: RatingSchemeEntry[] = [
 		reviewerName: null,
 		ratingPeriodStart: '2026-01-01',
 		ratingPeriodEnd: '2026-06-20',
-		status: 'completed',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: null
+		workflowStatus: 'completed'
 	}
 ];
 

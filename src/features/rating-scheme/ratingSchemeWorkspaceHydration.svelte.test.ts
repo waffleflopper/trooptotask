@@ -54,7 +54,6 @@ function entry(id: string): RatingSchemeEntry {
 		reviewerName: null,
 		ratingPeriodStart: '2024-01-01',
 		ratingPeriodEnd: '2024-12-31',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting'

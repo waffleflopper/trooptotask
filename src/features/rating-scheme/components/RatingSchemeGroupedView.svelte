@@ -43,7 +43,7 @@
 </script>
 
 {#snippet rowBody(entry: RatingSchemeEntry)}
-	{@const due = getRatingDueLabel(entry.ratingPeriodEnd, entry.status)}
+	{@const due = getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus)}
 	{@const tone = ratingDueTone[due.status]}
 	<span class="absolute inset-y-0 left-0 w-0.75 {tone.rail}" aria-hidden="true"></span>
 	<span class="truncate text-[15px] font-semibold @max-3xl:col-start-1 @max-3xl:row-start-1"

@@ -56,7 +56,7 @@
 	}
 
 	function dueLabel(entry: RatingSchemeEntry) {
-		return getRatingDueLabel(entry.ratingPeriodEnd, entry.status);
+		return getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus);
 	}
 
 	const columns: ColumnDef<RatingSchemeEntry>[] = [

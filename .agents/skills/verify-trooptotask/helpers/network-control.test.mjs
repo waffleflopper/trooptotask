@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { installNetworkControl } from './network-control.mjs';
+import { installNetworkControl, ratingEntryNetworkTarget } from './network-control.mjs';
 import { parse } from 'devalue';
 
 for (const mode of ['hold', 'hold-fail', 'fail', 'observe']) {
@@ -633,4 +633,57 @@ test('held dispatch sends the selected mutation only after release and passes re
 	assert.equal(page.__mapNetwork.calls[0].dispatch, 'released');
 	await page.fetch(suffix, { method: 'POST' });
 	assert.deepEqual(dispatched, ['GET', 'DELETE', 'POST']);
+});
+
+const entry = '30000000-0000-4000-8000-000000000001';
+const otherEntry = '30000000-0000-4000-8000-000000000002';
+
+for (const move of ['workflow', 'change-rater']) {
+	test(`an Evaluation ${move} failure selects only that entry's POST and leaves the rest alone`, async () => {
+		const dispatched = [];
+		const page = {
+			location: { href: 'http://localhost/org/a/evals' },
+			fetch: async (url, init) => {
+				dispatched.push(`${init?.method ?? 'GET'} ${url}`);
+				return Response.json({ ok: true });
+			}
+		};
+		const suffix = `/org/a/api/rating-scheme/${entry}/${move}`;
+		installNetworkControl(page, {
+			...ratingEntryNetworkTarget(`rating-scheme/${entry}/${move}`),
+			mode: 'fail',
+			ordinal: 1,
+			suffix,
+			sameOrigin: true
+		});
+		await page.fetch(suffix);
+		await page.fetch(`/org/a/api/rating-scheme/${otherEntry}/${move}`, { method: 'POST' });
+		await page.fetch(`/org/a/api/rating-scheme/${entry}/${move === 'workflow' ? 'change-rater' : 'workflow'}`, {
+			method: 'POST'
+		});
+		await page.fetch('/org/a/api/rating-scheme', { method: 'POST' });
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		assert.equal(dispatched.length, 4);
+
+		const failed = await page.fetch(suffix, { method: 'POST', body: '{}' });
+		assert.equal(failed.status, 503);
+		assert.equal(dispatched.length, 4);
+		assert.equal((await page.fetch(suffix, { method: 'POST', body: '{}' })).status, 200);
+		assert.equal(dispatched.length, 5);
+	});
+}
+
+test('only a uuid-named workflow or change-rater path is an Evaluation move family', () => {
+	assert.deepEqual(ratingEntryNetworkTarget(`rating-scheme/${entry}/workflow`), { requestMethod: 'POST' });
+	assert.deepEqual(ratingEntryNetworkTarget(`rating-scheme/${entry}/change-rater`), { requestMethod: 'POST' });
+	for (const family of [
+		'rating-scheme',
+		'rating-scheme/workflow',
+		`rating-scheme/${entry}`,
+		`rating-scheme/${entry}/workflow/extra`,
+		`rating-scheme/${entry}/delete`,
+		'rating-scheme/not-an-id/workflow',
+		`personnel/${entry}/workflow`
+	])
+		assert.equal(ratingEntryNetworkTarget(family), null, family);
 });

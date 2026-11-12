@@ -78,11 +78,11 @@ export function groupRatingSchemeEntries(
 		}
 		rater.entries.push(entry);
 		senior.group.entryCount++;
-		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
+		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today);
 		if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 			senior.group.dueCounts[status]++;
 		}
-		if (entry.status !== 'completed') {
+		if (status !== 'completed') {
 			for (const group of [senior.group, rater]) {
 				const previous = earliestOpenEnd.get(group);
 				if (!previous || entry.ratingPeriodEnd < previous) earliestOpenEnd.set(group, entry.ratingPeriodEnd);

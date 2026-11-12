@@ -24,7 +24,6 @@ function entry(id: string, overrides: Partial<RatingSchemeEntry> = {}): RatingSc
 		reviewerName: null,
 		ratingPeriodStart: '2025-01-01',
 		ratingPeriodEnd: '2026-05-31',
-		status: 'active',
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: null,
@@ -33,16 +32,24 @@ function entry(id: string, overrides: Partial<RatingSchemeEntry> = {}): RatingSc
 }
 
 const entries = [
-	entry('completed-senior', { seniorRaterName: 'Alpha senior', status: 'completed', ratingPeriodEnd: '2025-01-01' }),
+	entry('completed-senior', {
+		seniorRaterName: 'Alpha senior',
+		workflowStatus: 'completed',
+		ratingPeriodEnd: '2025-01-01'
+	}),
 	entry('bravo', { seniorRaterPersonId: 'senior-bravo', seniorRaterName: 'ignored name' }),
 	entry('delta', { seniorRaterName: 'Delta senior' }),
 	entry('later-in-alpha', { ratingPeriodEnd: '2026-06-30' }),
 	entry('beta-rater', { raterName: 'Beta rater' }),
-	entry('completed-rater', { raterName: 'A completed rater', status: 'completed', ratingPeriodEnd: '2025-01-01' }),
+	entry('completed-rater', {
+		raterName: 'A completed rater',
+		workflowStatus: 'completed',
+		ratingPeriodEnd: '2025-01-01'
+	}),
 	entry('urgent-later', { raterPersonId: 'rater-zulu', raterName: 'ignored rater', ratingPeriodEnd: '2026-04-20' }),
 	entry('earlier-in-alpha'),
 	entry('current', { raterName: 'Current rater', ratingPeriodEnd: '2026-07-01' }),
-	entry('urgent-first', { raterPersonId: 'rater-zulu', ratingPeriodEnd: '2026-01-01', status: 'change-of-rater' }),
+	entry('urgent-first', { raterPersonId: 'rater-zulu', ratingPeriodEnd: '2026-01-01', workflowStatus: 'with-rater' }),
 	entry('unassigned-rater', { raterName: null, ratingPeriodEnd: '2025-12-01' }),
 	entry('unassigned-senior', { seniorRaterName: null, ratingPeriodEnd: '2025-01-01' })
 ];

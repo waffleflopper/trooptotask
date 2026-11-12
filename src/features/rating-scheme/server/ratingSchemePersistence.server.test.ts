@@ -19,7 +19,6 @@ const saved: Row = {
 	reviewer_name: null,
 	rating_period_start: '2025-10-05',
 	rating_period_end: '2026-10-04',
-	status: 'change-of-rater',
 	notes: 'Saved historical notes',
 	report_type: 'CR',
 	workflow_status: 'with-rater',
@@ -43,7 +42,6 @@ const expected = {
 	reviewerName: null,
 	ratingPeriodStart: '2025-10-05',
 	ratingPeriodEnd: '2026-10-04',
-	status: 'change-of-rater',
 	notes: 'Saved historical notes',
 	reportType: 'CR',
 	workflowStatus: 'with-rater',
@@ -66,7 +64,6 @@ const savedFields = new Set([
 	'reviewer_name',
 	'rating_period_start',
 	'rating_period_end',
-	'status',
 	'notes',
 	'report_type',
 	'workflow_status',
@@ -78,8 +75,7 @@ const input = {
 	ratedPersonId: 'person-a',
 	evalType: 'NCOER' as const,
 	ratingPeriodStart: '2026-10-05',
-	ratingPeriodEnd: '2027-10-04',
-	status: 'active' as const
+	ratingPeriodEnd: '2027-10-04'
 };
 
 function provider(initial: Row[] = []) {
@@ -273,7 +269,7 @@ describe('owned Rating Scheme provider', () => {
 			raterName: '',
 			seniorRaterName: 'COL Synthetic Senior',
 			reportType: 'historical-report',
-			workflowStatus: 'historical-workflow'
+			workflowStatus: 'completed'
 		};
 		const result = await ratingScheme.create(supplied);
 		expect(result).toEqual({
@@ -291,17 +287,18 @@ describe('owned Rating Scheme provider', () => {
 			reviewerName: null,
 			ratingPeriodStart: '2026-10-05',
 			ratingPeriodEnd: '2027-10-04',
-			status: 'active',
 			notes: null,
 			reportType: 'historical-report',
-			workflowStatus: 'historical-workflow',
+			workflowStatus: null,
 			created_at: '2026-10-06T12:00:00.123456+00:00',
 			updated_at: '2026-10-06T12:00:00.123456+00:00'
 		});
 		expect(rows[0].organization_id).toBe('org-a');
 		expect(rows[0]).not.toHaveProperty('extra_saved_field');
 		expect(new Set(Object.keys(state.requests[0].body as Row))).toEqual(
-			new Set([...savedFields].filter((field) => !['id', 'created_at', 'updated_at'].includes(field)))
+			new Set(
+				[...savedFields].filter((field) => !['id', 'workflow_status', 'created_at', 'updated_at'].includes(field))
+			)
 		);
 	});
 
@@ -362,5 +359,50 @@ describe('owned Rating Scheme provider', () => {
 			expect(url.searchParams.has('select')).toBe(false);
 			expect(prefer ?? '').not.toContain('return=representation');
 		}
+	});
+});
+
+describe('Rating Scheme lifecycle functions', () => {
+	function lifecycleProvider(result: unknown) {
+		const calls: string[] = [];
+		const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(new Request(input, init).url);
+					calls.push(url.pathname);
+					if (!url.pathname.startsWith('/rest/v1/rpc/')) throw new Error('Unexpected Rating provider operation');
+					return Response.json(result);
+				}
+			}
+		});
+		return { calls, ratingScheme: createSupabaseRatingSchemePersistence(client, 'org-a') };
+	}
+
+	it('answers a move from the function result with no second read', async () => {
+		const { calls, ratingScheme } = lifecycleProvider({ moved: false, entry: saved });
+		expect(await ratingScheme.transition('entry-a', { from: 'with-rater', to: 'with-rater' })).toEqual({
+			entry: expected,
+			moved: false
+		});
+		expect(calls).toEqual(['/rest/v1/rpc/transition_rating_scheme_entry']);
+	});
+
+	it('answers a change of rater with both rows from the function result', async () => {
+		const completed = { ...saved, workflow_status: 'completed' };
+		const successor = { ...saved, id: 'entry-b', workflow_status: null, report_type: 'AN' };
+		const change = { changeDate: '2026-06-01', raterPersonId: 'rater-b', raterName: null };
+		const open = lifecycleProvider({ entry: completed, successor });
+		expect(await open.ratingScheme.changeRater('entry-a', change)).toEqual({
+			entry: { ...expected, workflowStatus: 'completed' },
+			successor: { ...expected, id: 'entry-b', workflowStatus: null, reportType: 'AN' }
+		});
+		expect(open.calls).toEqual(['/rest/v1/rpc/change_rating_scheme_rater']);
+
+		const repeat = lifecycleProvider({ entry: completed, successor: null });
+		expect(await repeat.ratingScheme.changeRater('entry-a', change)).toEqual({
+			entry: { ...expected, workflowStatus: 'completed' },
+			successor: null
+		});
 	});
 });

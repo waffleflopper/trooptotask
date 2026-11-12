@@ -93,7 +93,31 @@
 		return error instanceof Error && error.message ? error.message : fallback;
 	}
 
-	async function open(id: string, action: Extract<NeedsYouAction, { open: unknown }>) {
+	type OpenAction = Extract<NeedsYouAction, { open: unknown }>;
+
+	// Pointing at or focusing an action starts its panel loading; the click takes that promise. A load that fails, or
+	// whose action the pointer or focus has left, is dropped, so a later click loads fresh data. A touch has no hover
+	// and leaves before its click, so it does not warm. Keyed by the action, so a refreshed row never opens its
+	// previous action's panel.
+	const warm = new WeakMap<OpenAction, Promise<NeedsYouPanel>>();
+
+	function warmUp(id: string, action: OpenAction) {
+		const state = stateOf(id);
+		if (warm.has(action) || state.status === 'opening' || state.status === 'saving' || panelOf(state)) return;
+		const loading = action.open();
+		warm.set(action, loading);
+		loading.catch(() => {
+			if (warm.get(action) === loading) warm.delete(action);
+		});
+	}
+
+	function takePanel(action: OpenAction): Promise<NeedsYouPanel> {
+		const loading = warm.get(action) ?? action.open();
+		warm.delete(action);
+		return loading;
+	}
+
+	async function open(id: string, action: OpenAction) {
 		// One row works in place at a time; a row mid-save keeps its panel until the save lands.
 		if (action.mode === 'expand')
 			for (const [other, state] of actions)
@@ -101,7 +125,7 @@
 					send(other, { type: 'close' });
 		send(id, { type: 'open' });
 		try {
-			send(id, { type: 'opened', panel: await action.open() });
+			send(id, { type: 'opened', panel: await takePanel(action) });
 		} catch (error) {
 			send(id, { type: 'failed', message: messageOf(error, `${action.label} did not open`) });
 		}
@@ -215,6 +239,10 @@
 						aria-haspopup={act.mode === 'dialog' ? 'dialog' : undefined}
 						aria-expanded={act.mode === 'expand' ? panel !== null : undefined}
 						aria-controls={act.mode === 'expand' && panel ? panelId : undefined}
+						onpointerenter={(event) => event.pointerType !== 'touch' && warmUp(item.id, act)}
+						onfocus={() => warmUp(item.id, act)}
+						onpointerleave={(event) => event.pointerType !== 'touch' && warm.delete(act)}
+						onblur={() => warm.delete(act)}
 						onclick={() => (busy ? undefined : panel ? send(item.id, { type: 'close' }) : open(item.id, act))}
 					>
 						{act.label}

@@ -18,7 +18,7 @@ describe('getRatingDueStatus', () => {
 		['2026-05-18', 60, 'due-60'],
 		['2026-05-19', 61, 'current']
 	] as const)('classifies the %s calendar-day boundary (%i days)', (end, days, status) => {
-		expect(getRatingDueStatus(end, 'active', today)).toBe(status);
+		expect(getRatingDueStatus(end, null, today)).toBe(status);
 		// Numeric equality treats today's -0 and 0 as the same day count.
 		expect(getDaysUntilDue(end, today) === days).toBe(true);
 	});
@@ -27,8 +27,8 @@ describe('getRatingDueStatus', () => {
 		expect(getRatingDueStatus('2026-03-01', 'completed', today)).toBe('completed');
 	});
 
-	it('keeps a change-of-rater record subject to due warnings', () => {
-		expect(getRatingDueStatus('2026-04-18', 'change-of-rater', today)).toBe('due-30');
+	it('keeps an evaluation in a signed step subject to due warnings', () => {
+		expect(getRatingDueStatus('2026-04-18', 'sr-signed', today)).toBe('due-30');
 	});
 });
 
@@ -51,9 +51,9 @@ describe('getDaysUntilDue', () => {
 			const lateEvening = new Date(2026, 2, 7, 23, 30);
 
 			expect(getDaysUntilDue('2026-11-13', afterMidnight)).toBe(30);
-			expect(getRatingDueStatus('2026-11-13', 'active', afterMidnight)).toBe('due-30');
+			expect(getRatingDueStatus('2026-11-13', null, afterMidnight)).toBe('due-30');
 			expect(getDaysUntilDue('2026-04-06', lateEvening)).toBe(30);
-			expect(getRatingDueStatus('2026-04-06', 'active', lateEvening)).toBe('due-30');
+			expect(getRatingDueStatus('2026-04-06', null, lateEvening)).toBe('due-30');
 		} finally {
 			if (originalTimezone === undefined) delete process.env.TZ;
 			else process.env.TZ = originalTimezone;
@@ -101,15 +101,15 @@ describe('getRatingDueLabel', () => {
 	const today = new Date('2026-03-19T12:00:00');
 
 	it.each([
-		['2026-03-01', 'active', { status: 'overdue', text: '18d past thru' }],
-		['2026-03-18', 'active', { status: 'overdue', text: '1d past thru' }],
-		['2026-03-19', 'active', { status: 'due-30', text: 'Thru in 0d' }],
-		['2026-04-18', 'active', { status: 'due-30', text: 'Thru in 30d' }],
-		['2026-04-19', 'active', { status: 'due-60', text: 'Thru in 31d' }],
-		['2026-05-18', 'active', { status: 'due-60', text: 'Thru in 60d' }],
-		['2026-05-19', 'active', { status: 'current', text: 'Current' }],
+		['2026-03-01', null, { status: 'overdue', text: '18d past thru' }],
+		['2026-03-18', null, { status: 'overdue', text: '1d past thru' }],
+		['2026-03-19', null, { status: 'due-30', text: 'Thru in 0d' }],
+		['2026-04-18', null, { status: 'due-30', text: 'Thru in 30d' }],
+		['2026-04-19', null, { status: 'due-60', text: 'Thru in 31d' }],
+		['2026-05-18', null, { status: 'due-60', text: 'Thru in 60d' }],
+		['2026-05-19', null, { status: 'current', text: 'Current' }],
 		['2026-03-01', 'completed', { status: 'completed', text: 'Completed' }],
-		['2026-04-04', 'change-of-rater', { status: 'due-30', text: 'Thru in 16d' }]
+		['2026-04-04', 'with-reviewer', { status: 'due-30', text: 'Thru in 16d' }]
 	] as const)('labels %s for a %s entry', (end, status, expected) => {
 		expect(getRatingDueLabel(end, status, today)).toEqual(expected);
 	});

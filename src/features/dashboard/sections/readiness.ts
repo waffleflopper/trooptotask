@@ -161,7 +161,7 @@ export const evaluationsReadiness: ReadinessSource = (inputs, access) => {
 	const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
 	const today = parseDate(inputs.today);
 	for (const entry of inputs.page.dashboard.data.ratingSchemeEntries) {
-		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
+		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today);
 		if (status !== 'completed') counts[status]++;
 	}
 	const { overdue } = counts;

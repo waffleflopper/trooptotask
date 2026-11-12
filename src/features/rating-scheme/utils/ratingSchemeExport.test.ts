@@ -35,7 +35,6 @@ function makeEntry(overrides: Partial<RatingSchemeEntry> = {}): RatingSchemeEntr
 		reviewerName: null,
 		ratingPeriodStart: '2026-01-01',
 		ratingPeriodEnd: '2026-12-31',
-		status: 'active',
 		workflowStatus: null,
 		notes: null,
 		createdAt: '2026-01-01',

@@ -1,6 +1,5 @@
 import type { PersonnelLookup } from '$features/personnel/contracts';
-import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
-import type { RatingSchemeEntry, ReportType, ReportTypeOption, WorkflowStatus } from '../rating-scheme.types';
+import type { RatingSchemeEntry, ReportType, ReportTypeOption } from '../rating-scheme.types';
 import {
 	calculateThruDate,
 	getEvalTypeForRank,
@@ -19,8 +18,8 @@ export type RatingSchemeRequiredField =
 	| 'rater'
 	| 'seniorRater';
 export type RatingSchemeEntryEvalType = RatingSchemeEntry['evalType'];
-export type RatingSchemeEntryStatus = RatingSchemeEntry['status'];
-export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id'>;
+/** The workflow step moves on its own, so a save never carries it. */
+export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id' | 'workflowStatus'>;
 
 export interface RatingSchemeEntryDraft {
 	ratedPersonId: string;
@@ -34,9 +33,6 @@ export interface RatingSchemeEntryDraft {
 	reviewer: EvaluatorDraft;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
-	status: RatingSchemeEntryStatus;
-	showWorkflow: boolean;
-	workflowStatus: WorkflowStatus | '';
 	notes: string;
 	autoFilledEnd: boolean;
 }
@@ -45,8 +41,6 @@ export interface RatingSchemeEntryDraftView {
 	reportTypeOptions: ReportTypeOption[];
 	reportTypeLabel: string;
 	eaWarning: string | null;
-	filteredWorkflowOptions: typeof WORKFLOW_STATUS_OPTIONS;
-	workflowStatusLabel: string;
 	missingRequired: RatingSchemeRequiredField[];
 	canSave: boolean;
 }
@@ -77,9 +71,6 @@ export function createRatingSchemeEntryDraft(entry: RatingSchemeEntry | null): R
 		reviewer: evaluatorDraft(entry?.reviewerPersonId, entry?.reviewerName),
 		ratingPeriodStart: entry?.ratingPeriodStart ?? '',
 		ratingPeriodEnd: entry?.ratingPeriodEnd ?? '',
-		status: entry?.status ?? 'active',
-		showWorkflow: !!entry?.workflowStatus,
-		workflowStatus: entry?.workflowStatus ?? '',
 		notes: entry?.notes ?? '',
 		autoFilledEnd: false
 	};
@@ -124,22 +115,11 @@ export function syncAnnualThruDateForRatingSchemeEntryDraft(
 export function removeIntermediateRaterFromDraft(draft: RatingSchemeEntryDraft): void {
 	draft.showIntermediate = false;
 	draft.intermediateRater = { kind: 'empty' };
-	if (draft.workflowStatus === 'with-intermediate-rater' || draft.workflowStatus === 'ir-signed') {
-		draft.workflowStatus = '';
-	}
 }
 
 export function removeReviewerFromDraft(draft: RatingSchemeEntryDraft): void {
 	draft.showReviewer = false;
 	draft.reviewer = { kind: 'empty' };
-	if (draft.workflowStatus === 'with-reviewer' || draft.workflowStatus === 'reviewer-signed') {
-		draft.workflowStatus = '';
-	}
-}
-
-export function removeWorkflowFromDraft(draft: RatingSchemeEntryDraft): void {
-	draft.showWorkflow = false;
-	draft.workflowStatus = '';
 }
 
 export function getRatingSchemeEntryDraftView(draft: RatingSchemeEntryDraft): RatingSchemeEntryDraftView {
@@ -147,10 +127,6 @@ export function getRatingSchemeEntryDraftView(draft: RatingSchemeEntryDraft): Ra
 	const reportTypeLabel = draft.reportType
 		? (reportTypeOptions.find((option) => option.value === draft.reportType)?.label ?? draft.reportType)
 		: 'Select report type...';
-	const filteredWorkflowOptions = getFilteredWorkflowOptions(draft);
-	const workflowStatusLabel = draft.workflowStatus
-		? (filteredWorkflowOptions.find((option) => option.value === draft.workflowStatus)?.label ?? draft.workflowStatus)
-		: 'Select workflow step...';
 	const missingRequired = getMissingRequired(draft);
 
 	return {
@@ -162,8 +138,6 @@ export function getRatingSchemeEntryDraftView(draft: RatingSchemeEntryDraft): Ra
 			draft.ratingPeriodStart,
 			draft.ratingPeriodEnd
 		),
-		filteredWorkflowOptions,
-		workflowStatusLabel,
 		missingRequired,
 		canSave: missingRequired.length === 0
 	};
@@ -189,21 +163,9 @@ export function buildRatingSchemeEntrySaveData(draft: RatingSchemeEntryDraft): R
 		reviewerName: draft.showReviewer && draft.reviewer.kind === 'external' ? draft.reviewer.name.trim() || null : null,
 		ratingPeriodStart: draft.ratingPeriodStart,
 		ratingPeriodEnd: draft.ratingPeriodEnd,
-		status: draft.status,
 		notes: draft.notes.trim() || null,
-		reportType: draft.reportType || null,
-		workflowStatus: draft.showWorkflow && draft.workflowStatus ? draft.workflowStatus : null
+		reportType: draft.reportType || null
 	};
-}
-
-function getFilteredWorkflowOptions(draft: RatingSchemeEntryDraft): typeof WORKFLOW_STATUS_OPTIONS {
-	const hasIntermediateRater = draft.showIntermediate && hasEvaluator(draft.intermediateRater);
-	const hasReviewer = draft.showReviewer && hasEvaluator(draft.reviewer);
-	return WORKFLOW_STATUS_OPTIONS.filter((option) => {
-		if (option.value === 'with-intermediate-rater' || option.value === 'ir-signed') return hasIntermediateRater;
-		if (option.value === 'with-reviewer' || option.value === 'reviewer-signed') return hasReviewer;
-		return true;
-	});
 }
 
 function hasEvaluator(evaluator: EvaluatorDraft): boolean {

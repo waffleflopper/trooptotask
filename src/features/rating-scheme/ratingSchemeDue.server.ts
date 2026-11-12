@@ -5,13 +5,14 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
 import type { RatingSchemeDueEntry, RatingSchemeDuePort } from './contracts';
+import { parseWorkflowStatus } from './utils/evaluationWorkflow';
 
 interface RatingSchemeDueRow {
 	id: string;
 	rated_person_id: string;
 	eval_type: string;
 	rating_period_end: string;
-	status: string;
+	workflow_status: string | null;
 }
 
 /** The authenticated request client retains Rating Scheme RLS without a Personnel SELECT. */
@@ -31,7 +32,7 @@ export function createSupabaseRatingSchemeDuePort(
 					async (from, to) =>
 						await supabase
 							.from('rating_scheme_entries')
-							.select('id, rated_person_id, eval_type, rating_period_end, status')
+							.select('id, rated_person_id, eval_type, rating_period_end, workflow_status')
 							.eq('organization_id', actor.orgId)
 							.order('id', { ascending: true })
 							.range(from, to)
@@ -58,6 +59,6 @@ function toDueEntry(row: RatingSchemeDueRow, ratedPersonName: string | undefined
 		...(ratedPersonName === undefined ? {} : { ratedPersonName }),
 		evalType: row.eval_type as RatingSchemeDueEntry['evalType'],
 		ratingPeriodEnd: row.rating_period_end,
-		status: row.status as RatingSchemeDueEntry['status']
+		workflowStatus: parseWorkflowStatus(row.workflow_status)
 	};
 }

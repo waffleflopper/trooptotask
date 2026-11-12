@@ -177,13 +177,13 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 			'orgA',
 			[
 				...[
-					[ids.personA, -5, 'active'],
-					[ids.personB, 20, 'active'],
-					[ids.personUnassigned, 45, 'active'],
-					[loss, 90, 'active'],
-					[archived, -3, 'active'],
+					[ids.personA, -5, null],
+					[ids.personB, 20, null],
+					[ids.personUnassigned, 45, null],
+					[loss, 90, null],
+					[archived, -3, null],
 					[ids.personA, -10, 'completed']
-				].map(([person, offset, status]) => ({
+				].map(([person, offset, workflowStatus]) => ({
 					id: randomUUID(),
 					organization_id: ids.orgA,
 					rated_person_id: person,
@@ -192,7 +192,7 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					senior_rater_name: 'Synthetic Senior Rater',
 					rating_period_start: date(-365),
 					rating_period_end: date(offset),
-					status
+					workflow_status: workflowStatus
 				}))
 			]
 		],
@@ -208,8 +208,7 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					rater_name: 'Synthetic Foreign Rater',
 					senior_rater_name: 'Synthetic Foreign Senior Rater',
 					rating_period_start: date(-365),
-					rating_period_end: date(-1),
-					status: 'active'
+					rating_period_end: date(-1)
 				}
 			]
 		]

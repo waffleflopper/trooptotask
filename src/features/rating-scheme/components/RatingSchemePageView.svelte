@@ -21,7 +21,10 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
-	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
+	import type {
+		RatingSchemePageContext,
+		RatingSchemeStatusFilter
+	} from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
 	interface Props {
 		ctx: RatingSchemePageContext;
@@ -68,7 +71,6 @@
 	const ratingFilterOptions = [
 		{ value: 'active', label: 'Status: Active' },
 		{ value: 'completed', label: 'Completed' },
-		{ value: 'change-of-rater', label: 'Change of Rater' },
 		{ value: 'all', label: 'All Statuses' }
 	];
 	const workflowFilterOptions = $derived([
@@ -143,7 +145,7 @@
 				options: ratingFilterOptions,
 				value: ctx.ratingFilter,
 				defaultValue: 'active',
-				onValueChange: (value) => (ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')
+				onValueChange: (value) => (ctx.ratingFilter = value as RatingSchemeStatusFilter)
 			}
 		];
 

@@ -227,13 +227,13 @@ INSERT INTO clinic_demo_evals VALUES
   (12,11,1,25,'with-rater'), (13,2,1,55,'drafting'), (14,13,11,-5,'with-rated-soldier'),
   (15,13,11,-30,'completed'), (16,13,11,20,'with-senior-rater'), (32,2,1,90,'drafting');
 INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id,
-  senior_rater_person_id, senior_rater_name, rating_period_start, rating_period_end, status, report_type, workflow_status, notes)
+  senior_rater_person_id, senior_rater_name, rating_period_start, rating_period_end, report_type, workflow_status, notes)
 SELECT pg_temp.clinic_demo_id('eval-' || e.n), c.organization_id, pg_temp.clinic_demo_id('person-' || e.n),
   CASE WHEN p.rank IN ('CPT','1LT') THEN 'OER' ELSE 'NCOER' END, pg_temp.clinic_demo_id('person-' || e.rater),
   CASE WHEN e.senior IS NULL THEN NULL ELSE pg_temp.clinic_demo_id('person-' || e.senior) END,
   CASE WHEN e.senior IS NULL THEN 'LTC Jordan Ashford (fictional battalion commander)' ELSE NULL END,
   (c.as_of + e.days_remaining + 1 - interval '12 months')::date, c.as_of + e.days_remaining,
-  CASE WHEN e.workflow = 'completed' THEN 'completed' ELSE 'active' END, 'AN', e.workflow,
+  'AN', e.workflow,
   'Fictional evaluation tracking example; no actual performance assessment.'
 FROM clinic_demo_evals e JOIN clinic_demo_people p USING(n) CROSS JOIN clinic_demo_config c;
 

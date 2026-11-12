@@ -62,7 +62,7 @@ export const overdueEvaluations: NeedsYouSource = (inputs) => {
 	const today = parseDate(inputs.today);
 	return inputs.page.dashboard.data.ratingSchemeEntries.flatMap((entry) => {
 		const person = people.get(entry.ratedPersonId);
-		if (getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today) !== 'overdue') return [];
+		if (getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today) !== 'overdue') return [];
 		const ratedPersonName = entry.ratedPersonName ?? (person ? fullName(person) : 'a Soldier');
 		const daysLate = daysBetween(entry.ratingPeriodEnd, inputs.today);
 		return [

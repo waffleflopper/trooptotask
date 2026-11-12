@@ -188,7 +188,7 @@ describe('composeDashboardSections', () => {
 					data: {
 						...inputs.page.dashboard.data,
 						ratingSchemeEntries: [
-							{ id: 'e1', ratedPersonId: 'p1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', status: 'active' }
+							{ id: 'e1', ratedPersonId: 'p1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', workflowStatus: null }
 						]
 					}
 				}
@@ -499,7 +499,13 @@ describe('the Needs you actions', () => {
 				data: {
 					...inputs.page.dashboard.data,
 					ratingSchemeEntries: [
-						{ id: 'e1', ratedPersonId: 'alpha-1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-01', status: 'active' }
+						{
+							id: 'e1',
+							ratedPersonId: 'alpha-1',
+							evalType: 'NCOER',
+							ratingPeriodEnd: '2026-10-01',
+							workflowStatus: null
+						}
 					]
 				}
 			}

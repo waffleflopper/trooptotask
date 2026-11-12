@@ -29,7 +29,6 @@ const entry = {
 	reviewerName: null,
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
-	status: 'active',
 	notes: 'Retained notes',
 	reportType: 'AN',
 	workflowStatus: null

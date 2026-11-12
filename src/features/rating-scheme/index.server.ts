@@ -10,6 +10,8 @@ export {
 export {
 	createRatingSchemeEntry,
 	updateRatingSchemeEntry,
+	transitionRatingSchemeEntry,
+	changeRatingSchemeRater,
 	removeRatingSchemeEntry,
 	describeRatingSchemeEntryDeletionRequest,
 	ratingSchemeEntryCreateSchema,

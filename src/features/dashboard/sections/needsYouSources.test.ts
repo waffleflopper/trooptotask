@@ -226,21 +226,21 @@ describe('overdueEvaluations', () => {
 						ratedPersonId: 'p-alvarez',
 						evalType: 'NCOER',
 						ratingPeriodEnd: '2026-10-13',
-						status: 'active'
+						workflowStatus: null
 					},
 					{
 						id: 'eval-done',
 						ratedPersonId: 'p-brooks',
 						evalType: 'NCOER',
 						ratingPeriodEnd: '2026-10-01',
-						status: 'completed'
+						workflowStatus: 'completed'
 					},
 					{
 						id: 'eval-soon',
 						ratedPersonId: 'p-brooks',
 						evalType: 'OER',
 						ratingPeriodEnd: '2026-11-01',
-						status: 'active'
+						workflowStatus: null
 					}
 				]
 			})
@@ -276,7 +276,7 @@ describe('overdueEvaluations', () => {
 						ratedPersonName: 'SSG Alvarez, Marisol',
 						evalType: 'NCOER',
 						ratingPeriodEnd: '2026-10-13',
-						status: 'active'
+						workflowStatus: null
 					}
 				]
 			})
@@ -300,7 +300,7 @@ describe('overdueEvaluations', () => {
 						ratedPersonId: 'p-alvarez',
 						evalType: 'NCOER',
 						ratingPeriodEnd: '2026-10-13',
-						status: 'active'
+						workflowStatus: null
 					}
 				]
 			})
@@ -598,7 +598,7 @@ describe('Group scope', () => {
 					ratedPersonId: 'p-alvarez',
 					evalType: 'NCOER',
 					ratingPeriodEnd: '2026-10-13',
-					status: 'active'
+					workflowStatus: null
 				}
 			],
 			expiredByType: [{ trainingTypeId: 'sharp', personnelIds: ['p-brooks', 'p-kim'], maxDaysLate: 4 }],

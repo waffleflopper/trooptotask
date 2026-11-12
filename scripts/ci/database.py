@@ -178,10 +178,11 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108220100_close_archived_person_work.sql",
     "20261110120000_availability_undo_record.sql",
     "20261110130000_member_label_without_membership.sql",
+    "20261111120000_evaluation_lifecycle.sql",
 )
 # Rows that must exist before the post-tree migrations apply, and the contracts that read them afterwards.
-POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql",)
-POST_TREE_CONTRACTS = ("equipment_returned_bound_after.sql",)
+POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql", "evaluation_lifecycle_before.sql")
+POST_TREE_CONTRACTS = ("equipment_returned_bound_after.sql", "evaluation_lifecycle_after.sql")
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
@@ -214,6 +215,7 @@ POST_TREE_SQL_TESTS = (
     "archived_person_live_work.sql",
     "calendar_availability_undo.sql",
     "calendar_availability_undo_concurrency.sql",
+    "rating_scheme_lifecycle.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

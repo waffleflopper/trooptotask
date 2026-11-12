@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { RatingSchemePersistence } from '../contracts';
+import { lifecycleFailure } from './ratingSchemeLifecycleFailure.server';
 import {
 	mapRatingSchemeEntry,
 	ratingSchemeCreateValues,
@@ -92,6 +93,32 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 		async delete(id) {
 			const { error } = await client.from('rating_scheme_entries').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
+		},
+		async transition(id, { from, to }) {
+			const { data, error } = await client.rpc('transition_rating_scheme_entry', {
+				p_organization_id: orgId,
+				p_entry_id: id,
+				p_from: from ?? undefined,
+				p_to: to ?? undefined
+			});
+			if (error) return lifecycleFailure(error);
+			const result = data as { moved: boolean; entry: RatingSchemeRow };
+			return { entry: mapRatingSchemeEntry(result.entry), moved: result.moved };
+		},
+		async changeRater(id, change) {
+			const { data, error } = await client.rpc('change_rating_scheme_rater', {
+				p_organization_id: orgId,
+				p_entry_id: id,
+				p_change_date: change.changeDate,
+				p_rater_person_id: change.raterPersonId ?? undefined,
+				p_rater_name: change.raterName ?? undefined
+			});
+			if (error) return lifecycleFailure(error);
+			const result = data as { entry: RatingSchemeRow; successor: RatingSchemeRow | null };
+			return {
+				entry: mapRatingSchemeEntry(result.entry),
+				successor: result.successor && mapRatingSchemeEntry(result.successor)
+			};
 		}
 	};
 }

@@ -57,10 +57,10 @@ export const WORKFLOW_STATUS_OPTIONS: WorkflowStatusOption[] = [
 	{ value: 'drafting', label: 'Drafting' },
 	{ value: 'with-rater', label: 'With Rater' },
 	{ value: 'rater-signed', label: 'Rater Signed' },
-	{ value: 'with-senior-rater', label: 'With Senior Rater' },
-	{ value: 'sr-signed', label: 'SR Signed' },
 	{ value: 'with-intermediate-rater', label: 'With Intermediate Rater' },
 	{ value: 'ir-signed', label: 'IR Signed' },
+	{ value: 'with-senior-rater', label: 'With Senior Rater' },
+	{ value: 'sr-signed', label: 'SR Signed' },
 	{ value: 'with-reviewer', label: 'With Reviewer' },
 	{ value: 'reviewer-signed', label: 'Reviewer Signed' },
 	{ value: 'with-rated-soldier', label: 'With Rated Soldier' },
@@ -73,10 +73,10 @@ export const WORKFLOW_STATUS_COLORS: Record<WorkflowStatus, string> = {
 	drafting: '#6b7280',
 	'with-rater': '#3b82f6',
 	'rater-signed': '#22c55e',
-	'with-senior-rater': '#3b82f6',
-	'sr-signed': '#22c55e',
 	'with-intermediate-rater': '#3b82f6',
 	'ir-signed': '#22c55e',
+	'with-senior-rater': '#3b82f6',
+	'sr-signed': '#22c55e',
 	'with-reviewer': '#3b82f6',
 	'reviewer-signed': '#22c55e',
 	'with-rated-soldier': '#8b5cf6',
@@ -99,14 +99,13 @@ export interface RatingSchemeEntry {
 	reviewerName: string | null;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
-	status: 'active' | 'completed' | 'change-of-rater';
 	notes: string | null;
 	reportType: ReportType | null;
 	workflowStatus: WorkflowStatus | null;
 }
 
 export interface EvaluationPhase {
-	/** 0 when no workflow status is tracked yet. */
+	/** 0 when the evaluation is not tracked. */
 	step: 0 | 1 | 2 | 3 | 4 | 5;
 	label: string;
 }

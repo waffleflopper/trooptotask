@@ -43,7 +43,7 @@ function unit(overrides: Partial<SetUp> = {}): DashboardInputs {
 		ratedPersonId: able.id,
 		evalType: 'NCOER',
 		ratingPeriodEnd: '2027-06-30',
-		status: 'active'
+		workflowStatus: null
 	};
 	const page: DashboardPageData = {
 		orgId: 'org-1',

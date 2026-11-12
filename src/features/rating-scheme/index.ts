@@ -31,7 +31,12 @@ export function loadRatingSchemeModals() {
 	return import('./components/RatingSchemeModals.svelte');
 }
 
-export { loadRatingSchemeEntryEditor, saveRatingSchemeEntry } from './ratingSchemeRequests';
+export {
+	changeRatingSchemeRater,
+	loadRatingSchemeEntryEditor,
+	moveRatingSchemeEntry,
+	saveRatingSchemeEntry
+} from './ratingSchemeRequests';
 export function loadRatingSchemeEntryModal() {
 	return import('./components/RatingSchemeEntryModal.svelte');
 }

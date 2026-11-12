@@ -186,7 +186,6 @@ checked(
 		reviewer_name: 'Retained Reviewer',
 		rating_period_start: '2026-01-01',
 		rating_period_end: '2026-12-31',
-		status: 'active',
 		notes: 'Retained evaluation facts'
 	})
 );

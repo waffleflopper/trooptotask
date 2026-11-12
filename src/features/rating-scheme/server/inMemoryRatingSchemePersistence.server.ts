@@ -1,4 +1,9 @@
+import { fail } from '$lib/errors';
 import type { RatingSchemePersistence } from '../contracts';
+import { isEvaluationCompleted, isWorkflowMoveAllowed, workflowRoles } from '../utils/evaluationWorkflow';
+import { calculateThruDate } from '../utils/ratingScheme';
+import { formatDate, parseDate } from '$lib/utils/dates';
+import { EVALUATION_GONE, EVALUATION_MOVED } from './ratingSchemeLifecycleFailure.server';
 import {
 	mapRatingSchemeEntry,
 	ratingSchemeCreateValues,
@@ -29,6 +34,12 @@ export function createInMemoryRatingSchemePersistence(
 	store: RatingSchemeMemoryStore,
 	orgId: string
 ): RatingSchemePersistence {
+	async function findEntry(id: string) {
+		const row = await store.findOne<RatingSchemeRow>('rating_scheme_entries', orgId, { id });
+		if (!row) return fail(404, EVALUATION_GONE);
+		return mapRatingSchemeEntry(row);
+	}
+
 	return {
 		async listWorkspace() {
 			return (
@@ -88,6 +99,65 @@ export function createInMemoryRatingSchemePersistence(
 		},
 		delete(id) {
 			return store.deleteWhere('rating_scheme_entries', orgId, { id });
+		},
+		async transition(id, { from, to }) {
+			const entry = await findEntry(id);
+			if (entry.workflowStatus === to) return { entry, moved: false };
+			if (entry.workflowStatus !== from || !isWorkflowMoveAllowed(entry.workflowStatus, to, workflowRoles(entry)))
+				return fail(409, EVALUATION_MOVED);
+			const moved = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, { workflow_status: to });
+			return { entry: mapRatingSchemeEntry(moved), moved: true };
+		},
+		async changeRater(id, change) {
+			const entry = await findEntry(id);
+			const next = parseDate(change.changeDate);
+			next.setDate(next.getDate() + 1);
+			const start = formatDate(next);
+			if (isEvaluationCompleted(entry.workflowStatus)) {
+				const replay = entry.reportType === 'CR' && entry.ratingPeriodEnd === change.changeDate;
+				const candidates = replay
+					? await store.findMany<RatingSchemeRow>('rating_scheme_entries', orgId, {
+							rated_person_id: entry.ratedPersonId,
+							eval_type: entry.evalType,
+							rating_period_start: start
+						})
+					: [];
+				const successor = candidates.find((row) =>
+					change.raterPersonId !== null
+						? row.rater_person_id === change.raterPersonId
+						: row.rater_person_id === null &&
+							row.rater_name?.trim().toLowerCase() === change.raterName?.trim().toLowerCase()
+				);
+				return { entry, successor: successor ? mapRatingSchemeEntry(successor) : null };
+			}
+			const sameExternalRater =
+				change.raterPersonId === null &&
+				entry.raterPersonId === null &&
+				change.raterName?.trim().toLowerCase() === entry.raterName?.trim().toLowerCase();
+			if ((change.raterPersonId !== null && change.raterPersonId === entry.raterPersonId) || sameExternalRater) {
+				return fail(400, "The new rater is already this evaluation's rater");
+			}
+			if (change.changeDate < entry.ratingPeriodStart || change.changeDate > entry.ratingPeriodEnd) {
+				return fail(400, 'The last day with the current rater must fall within the rating period');
+			}
+			const closed = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, {
+				rating_period_end: change.changeDate,
+				report_type: 'CR',
+				workflow_status: 'completed'
+			});
+			const successor = await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, {
+				...ratingSchemeCreateValues({
+					...entry,
+					notes: null,
+					reportType: 'AN',
+					ratingPeriodStart: start,
+					ratingPeriodEnd: start
+				}),
+				rater_person_id: change.raterPersonId,
+				rater_name: change.raterName,
+				rating_period_end: calculateThruDate('AN', start)
+			});
+			return { entry: mapRatingSchemeEntry(closed), successor: mapRatingSchemeEntry(successor) };
 		}
 	};
 }

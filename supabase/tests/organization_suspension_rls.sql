@@ -67,9 +67,9 @@ INSERT INTO public.sign_in_rosters (id, organization_id, title, roster_date, per
 	('f3000000-0000-4000-8000-000000001201', 'f3000000-0000-4000-8000-000000000101', 'Alpha Roster', '2030-03-01', '[]', ARRAY[]::uuid[], ARRAY[]::uuid[], 'f3000000-0000-4000-8000-000000000001'),
 	('f3000000-0000-4000-8000-000000001202', 'f3000000-0000-4000-8000-000000000102', 'Bravo Roster', '2030-03-01', '[]', ARRAY[]::uuid[], ARRAY[]::uuid[], 'f3000000-0000-4000-8000-000000000003');
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end, status) VALUES
-	('f3000000-0000-4000-8000-000000001301', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000000401', 'NCOER', 'f3000000-0000-4000-8000-000000000401', '2026-01-01', '2026-12-31', 'active'),
-	('f3000000-0000-4000-8000-000000001302', 'f3000000-0000-4000-8000-000000000102', 'f3000000-0000-4000-8000-000000000402', 'NCOER', 'f3000000-0000-4000-8000-000000000402', '2026-01-01', '2026-12-31', 'active');
+INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
+	('f3000000-0000-4000-8000-000000001301', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000000401', 'NCOER', 'f3000000-0000-4000-8000-000000000401', '2026-01-01', '2026-12-31'),
+	('f3000000-0000-4000-8000-000000001302', 'f3000000-0000-4000-8000-000000000102', 'f3000000-0000-4000-8000-000000000402', 'NCOER', 'f3000000-0000-4000-8000-000000000402', '2026-01-01', '2026-12-31');
 
 INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
 	('f3000000-0000-4000-8000-000000001401', 'personnel-documents', 'f3000000-0000-4000-8000-000000000101/personnel/f3000000-0000-4000-8000-000000000401/documents/alpha.pdf', 'f3000000-0000-4000-8000-000000000001', 'f3000000-0000-4000-8000-000000000001', '{}'::jsonb),
@@ -167,7 +167,7 @@ SELECT throws_ok(
 );
 UPDATE public.personnel SET first_name = 'Changed' WHERE id = 'f3000000-0000-4000-8000-000000000401';
 UPDATE public.availability_entries SET end_date = '2030-05-01' WHERE id = 'f3000000-0000-4000-8000-000000000601';
-UPDATE public.rating_scheme_entries SET status = 'completed' WHERE id = 'f3000000-0000-4000-8000-000000001301';
+UPDATE public.rating_scheme_entries SET rating_period_end = '2030-05-01' WHERE id = 'f3000000-0000-4000-8000-000000001301';
 UPDATE public.organizations SET name = 'Renamed While Suspended' WHERE id = 'f3000000-0000-4000-8000-000000000101';
 UPDATE public.organization_memberships SET member_preset = 'editor' WHERE id = 'f3000000-0000-4000-8000-000000000202';
 DELETE FROM public.personnel_trainings WHERE id = 'f3000000-0000-4000-8000-000000000801';
@@ -205,11 +205,11 @@ SELECT is(
 	ARRAY[
 		(SELECT first_name FROM public.personnel WHERE id = 'f3000000-0000-4000-8000-000000000401'),
 		(SELECT end_date::text FROM public.availability_entries WHERE id = 'f3000000-0000-4000-8000-000000000601'),
-		(SELECT status FROM public.rating_scheme_entries WHERE id = 'f3000000-0000-4000-8000-000000001301'),
+		(SELECT rating_period_end::text FROM public.rating_scheme_entries WHERE id = 'f3000000-0000-4000-8000-000000001301'),
 		(SELECT name FROM public.organizations WHERE id = 'f3000000-0000-4000-8000-000000000101'),
 		(SELECT member_preset FROM public.organization_memberships WHERE id = 'f3000000-0000-4000-8000-000000000202')
 	],
-	ARRAY['Avery', '2030-04-02', 'active', 'Suspension Alpha', 'viewer'],
+	ARRAY['Avery', '2030-04-02', '2026-12-31', 'Suspension Alpha', 'viewer'],
 	'direct updates in a suspended Organization persist nothing'
 );
 SELECT is(

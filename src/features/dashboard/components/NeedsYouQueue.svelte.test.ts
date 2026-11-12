@@ -136,6 +136,104 @@ describe('NeedsYouQueue actions', () => {
 		expect((await screen.findByRole('alert')).textContent).toBe('Rating Scheme entry not found');
 	});
 
+	it.each([
+		['hovering', (button: HTMLElement) => fireEvent.pointerEnter(button)],
+		['focusing', (button: HTMLElement) => fireEvent.focus(button)]
+	])('starts loading the panel on %s the action and opens that same load on click', async (_, reach) => {
+		const open = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await reach(button);
+		expect(open).toHaveBeenCalledTimes(1);
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(open).toHaveBeenCalledTimes(1);
+	});
+
+	it('drops a load that failed before the click, so the click loads again', async () => {
+		const open = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('Rating Scheme entry not found'))
+			.mockResolvedValueOnce(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await fireEvent.pointerEnter(button);
+		await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(open).toHaveBeenCalledTimes(2);
+	});
+
+	it.each([
+		[
+			'the pointer leaves',
+			(button: HTMLElement) => fireEvent.pointerEnter(button),
+			(button: HTMLElement) => fireEvent.pointerLeave(button)
+		],
+		['focus leaves', (button: HTMLElement) => fireEvent.focus(button), (button: HTMLElement) => fireEvent.blur(button)]
+	])('loads again on click once %s the action it warmed', async (_, reach, leave) => {
+		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await reach(button);
+		await leave(button);
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(open).toHaveBeenCalledTimes(2);
+	});
+
+	it('loads once for a tap, whose pointer leaves before the click', async () => {
+		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open })]);
+		const button = screen.getByRole('button', { name: 'Update status' });
+
+		await fireEvent.pointerEnter(button, { pointerType: 'touch' });
+		await fireEvent.pointerLeave(button, { pointerType: 'touch' });
+		await fireEvent.click(button);
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(open).toHaveBeenCalledTimes(1);
+	});
+
+	it('opens the refreshed action, not the load its previous action warmed', async () => {
+		const stale = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		const fresh = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		const { rerender } = show([leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open: stale })]);
+
+		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Update status' }));
+		await rerender({
+			queue: buildNeedsYouQueue([[leaving('eval-1', { label: 'Update status', policy, mode: 'dialog', open: fresh })]])
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+
+		expect(await screen.findByRole('region', { name: 'Test panel' })).toBeTruthy();
+		expect(stale).toHaveBeenCalledTimes(1);
+		expect(fresh).toHaveBeenCalledTimes(1);
+	});
+
+	it('loads a fresh panel on the next click once a warmed load has been used', async () => {
+		const open = vi.fn().mockImplementation(async () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
+		show([leaving('sd', { label: 'Fill 2 days', policy, mode: 'expand', open })]);
+		const toggle = screen.getByRole('button', { name: 'Fill 2 days' });
+
+		await fireEvent.pointerEnter(toggle);
+		await fireEvent.click(toggle);
+		await screen.findByRole('region', { name: 'Test panel' });
+		await fireEvent.click(toggle);
+		expect(screen.queryByRole('region', { name: 'Test panel' })).toBeNull();
+		await fireEvent.click(toggle);
+
+		await screen.findByRole('region', { name: 'Test panel' });
+		expect(open).toHaveBeenCalledTimes(2);
+	});
+
 	it('expands a panel in the row, shows its failure there, and keeps the message in the row once collapsed', async () => {
 		const command = vi.fn().mockRejectedValue(new Error('Assignment type is archived'));
 		const open = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command }));

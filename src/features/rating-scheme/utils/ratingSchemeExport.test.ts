@@ -84,6 +84,7 @@ describe('buildRatingSchemeWorkbook', () => {
 			'Due Status',
 			'Status',
 			'Workflow Status',
+			'Rating Scheme',
 			'Notes'
 		]);
 		expect(sheet.getCell('A2').value).toBe('OER');
@@ -91,6 +92,16 @@ describe('buildRatingSchemeWorkbook', () => {
 		expect(sheet.getCell('C2').value).toBe('CPT Smith, Jane');
 		expect(sheet.getCell('E2').value).toBe('CPT Jones');
 		expect(sheet.getCell('F2').value).toBeNull();
+	});
+
+	it('marks an archived entry as archived instead of overdue', async () => {
+		const archived = makeEntry({ ratingPeriodEnd: '2020-01-31', archivedAt: '2026-02-01T00:00:00.000Z' });
+		const workbook = await buildRatingSchemeWorkbook([makeEntry(), archived], makePersonnel());
+		const parsed = await parseWorkbookFromBuffer(await workbook.xlsx.writeBuffer());
+		const sheet = parsed.getWorksheet('Rating Scheme')!;
+
+		expect(sheet.getCell('L3').value).toBe('Archived');
+		expect([sheet.getCell('O2').value, sheet.getCell('O3').value]).toEqual(['Listed', 'Archived']);
 	});
 });
 

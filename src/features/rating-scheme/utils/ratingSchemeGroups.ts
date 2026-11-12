@@ -78,7 +78,8 @@ export function groupRatingSchemeEntries(
 		}
 		rater.entries.push(entry);
 		senior.group.entryCount++;
-		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today);
+		const status =
+			entry.archivedAt === null ? getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today) : 'completed';
 		if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 			senior.group.dueCounts[status]++;
 		}

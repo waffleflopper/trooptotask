@@ -56,6 +56,27 @@ const entries = [
 ];
 
 describe('groupRatingSchemeEntries', () => {
+	it('keeps archived entries in their group without counting them as due or ranking the group by them', () => {
+		const groups = groupRatingSchemeEntries(
+			[
+				entry('archived-overdue', {
+					seniorRaterName: 'Alpha senior',
+					ratingPeriodEnd: '2026-01-01',
+					archivedAt: '2026-02-01T00:00:00Z'
+				}),
+				entry('listed-later', { seniorRaterName: 'Alpha senior', ratingPeriodEnd: '2026-06-15' }),
+				entry('listed-sooner', { seniorRaterName: 'Beta senior', ratingPeriodEnd: '2026-05-20' })
+			],
+			personnel,
+			'urgency',
+			today
+		);
+
+		expect(groups.map((group) => group.key)).toEqual(['Beta senior', 'Alpha senior']);
+		expect(groups[1].entryCount).toBe(2);
+		expect(groups[1].dueCounts).toEqual({ overdue: 0, 'due-30': 0, 'due-60': 1 });
+	});
+
 	it('orders senior raters and raters by their earliest open thru date, with unassigned last', () => {
 		const groups = groupRatingSchemeEntries(entries, personnel, 'urgency', today);
 		expect(groups.map((group) => group.key)).toEqual([

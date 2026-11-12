@@ -367,7 +367,48 @@ describe('RatingSchemePageView', () => {
 			await fireEvent.click(screen.getByRole('button', { name: 'Clear search and filters' }));
 			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
 		});
-		it('offers no clear action when only completed entries exist under the default filters', () => {
+		it('offers no clear action when only archived entries exist under the default filters', () => {
+			const archived = ordered.map((entry) => ({ ...entry, archivedAt: '2026-05-01T00:00:00.000Z' }));
+			const ctx = new RatingSchemePageContext(
+				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: archived, personnelLookup: people },
+				new ModalRegistry(),
+				makeOrg(),
+				archived
+			);
+			render(RatingSchemePageView, { props: { ctx, personnelLookup: people } });
+
+			expect(screen.getByText('0 of 3 shown')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Clear search and filters' })).toBeNull();
+		});
+
+		it('lists an archived overdue entry as Archived in the grouped and table views', async () => {
+			const archived = ordered.map((entry) => ({
+				...entry,
+				ratingPeriodEnd: '2026-01-01',
+				archivedAt: '2026-02-01T00:00:00Z'
+			}));
+			const ctx = new RatingSchemePageContext(
+				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: archived, personnelLookup: people },
+				new ModalRegistry(),
+				makeOrg(),
+				archived
+			);
+			ctx.ratingFilter = 'archived';
+			render(RatingSchemePageView, { props: { ctx, personnelLookup: people } });
+
+			const rowText = (id: string) => document.querySelector(`[data-rating-entry-id="${id}"]`)?.textContent ?? '';
+			for (const id of ['adams', 'jones', 'smith']) {
+				expect(rowText(id)).toContain('Archived');
+				expect(rowText(id)).not.toContain('past thru');
+			}
+			await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+			for (const id of ['adams', 'jones', 'smith']) {
+				expect(rowText(id)).toContain('Archived');
+				expect(rowText(id)).not.toContain('past thru');
+			}
+		});
+
+		it('keeps a completed entry listed under the default filters', () => {
 			const completed = ordered.map((entry) => ({ ...entry, workflowStatus: 'completed' as const }));
 			const ctx = new RatingSchemePageContext(
 				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: completed, personnelLookup: people },
@@ -377,8 +418,7 @@ describe('RatingSchemePageView', () => {
 			);
 			render(RatingSchemePageView, { props: { ctx, personnelLookup: people } });
 
-			expect(screen.getByText('0 of 3 shown')).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Clear search and filters' })).toBeNull();
+			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
 		});
 	});
 
@@ -407,7 +447,7 @@ describe('RatingSchemePageView', () => {
 			const menu = await openFilters();
 			for (const name of [
 				'Evaluation type, Eval Type: All',
-				'Evaluation status, Status: Active',
+				'Evaluation listing, Listing: On scheme',
 				'Evaluation workflow, Workflow: All'
 			]) {
 				expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
@@ -440,11 +480,11 @@ describe('RatingSchemePageView', () => {
 			const more = () => screen.getByRole('button', { name: 'Filters' });
 			expect(more().getAttribute('aria-describedby')).toBeNull();
 
-			ctx.ratingFilter = 'completed';
+			ctx.ratingFilter = 'archived';
 			await tick();
 
 			const description = document.getElementById(more().getAttribute('aria-describedby') ?? '');
-			expect(description?.textContent).toBe('Hidden filters active: Evaluation status');
+			expect(description?.textContent).toBe('Hidden filters active: Evaluation listing');
 		});
 
 		it('offers a viewer neither Add Entry on the row nor in Filters', async () => {

@@ -105,7 +105,7 @@ describe('RatingSchemePageContext', () => {
 	it('filters rating entries by status, eval type, and workflow through the page context', () => {
 		const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), entries);
 
-		ctx.ratingFilter = 'active';
+		ctx.ratingFilter = 'on-scheme';
 		ctx.evalTypeFilter = 'OER';
 		ctx.workflowFilter = 'with-rater';
 
@@ -154,7 +154,7 @@ describe('RatingSchemePageContext', () => {
 		expect(ctx.hasActiveSearchOrFilters).toBe(false);
 		ctx.searchQuery = '   ';
 		expect(ctx.hasActiveSearchOrFilters).toBe(false);
-		expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30']);
+		expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30', 'completed']);
 		ctx.searchQuery = 'baker';
 		ctx.evalTypeFilter = 'OER';
 		ctx.workflowFilter = 'with-rater';
@@ -166,15 +166,54 @@ describe('RatingSchemePageContext', () => {
 		ctx.evalTypeFilter = 'NCOER';
 		expect(ctx.filteredRatingEntries).toEqual([]);
 		ctx.evalTypeFilter = 'OER';
-		ctx.ratingFilter = 'completed';
+		ctx.ratingFilter = 'archived';
 		expect(ctx.filteredRatingEntries).toEqual([]);
 		ctx.clearSearchAndFilters();
 		expect(ctx.searchQuery).toBe('');
-		expect(ctx.ratingFilter).toBe('active');
+		expect(ctx.ratingFilter).toBe('on-scheme');
 		expect(ctx.evalTypeFilter).toBe('all');
 		expect(ctx.workflowFilter).toBe('all');
 		expect(ctx.hasActiveSearchOrFilters).toBe(false);
-		expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30']);
+		expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30', 'completed']);
+	});
+
+	describe('rating scheme membership', () => {
+		const withArchived = [
+			entries[0],
+			{ ...entries[1], archivedAt: '2026-05-01T00:00:00.000Z' },
+			{ ...entries[2], archivedAt: '2026-05-01T00:00:00.000Z' }
+		];
+
+		it('keeps a completed entry on the scheme and lists archived entries only on request', () => {
+			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), [
+				entries[2],
+				withArchived[1]
+			]);
+
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
+			ctx.ratingFilter = 'archived';
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['due-30']);
+			ctx.ratingFilter = 'all';
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed', 'due-30']);
+		});
+
+		it('filters archived entries by workflow independently of membership', () => {
+			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), withArchived);
+			ctx.ratingFilter = 'archived';
+			ctx.workflowFilter = 'completed';
+
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
+		});
+
+		it('leaves archived entries out of the active count and the due stats', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
+			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), withArchived);
+
+			expect(ctx.activeEntryCount).toBe(1);
+			expect(ctx.totalEntryCount).toBe(3);
+			expect(ctx.ratingStats).toEqual({ overdue: 1, 'due-30': 0, 'due-60': 0 });
+		});
 	});
 
 	it.each(['status', 'evalType', 'workflow'] as const)(

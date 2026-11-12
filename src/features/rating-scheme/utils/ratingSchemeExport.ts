@@ -33,6 +33,7 @@ function getPersonName(personnel: PersonnelLookup[], id: string | null, name: st
 }
 
 function getDueStatusLabel(entry: RatingSchemeEntry): string {
+	if (entry.archivedAt) return 'Archived';
 	const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 	const days = getDaysUntilDue(entry.ratingPeriodEnd);
 	if (status === 'completed') return 'Completed';

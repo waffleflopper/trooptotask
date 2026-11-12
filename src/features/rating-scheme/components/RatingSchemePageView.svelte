@@ -23,7 +23,7 @@
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import type {
 		RatingSchemePageContext,
-		RatingSchemeStatusFilter
+		RatingSchemeListingFilter
 	} from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
 	interface Props {
@@ -69,9 +69,9 @@
 		{ value: 'WOER', label: 'WOER' }
 	];
 	const ratingFilterOptions = [
-		{ value: 'active', label: 'Status: Active' },
-		{ value: 'completed', label: 'Completed' },
-		{ value: 'all', label: 'All Statuses' }
+		{ value: 'on-scheme', label: 'Listing: On scheme' },
+		{ value: 'archived', label: 'Archived' },
+		{ value: 'all', label: 'On scheme and archived' }
 	];
 	const workflowFilterOptions = $derived([
 		{ value: 'all', label: 'Workflow: All' },
@@ -140,12 +140,12 @@
 			{
 				kind: 'select',
 				id: 'status',
-				label: 'Evaluation status',
-				ariaLabel: 'Evaluation status filter',
+				label: 'Evaluation listing',
+				ariaLabel: 'Evaluation listing filter',
 				options: ratingFilterOptions,
 				value: ctx.ratingFilter,
-				defaultValue: 'active',
-				onValueChange: (value) => (ctx.ratingFilter = value as RatingSchemeStatusFilter)
+				defaultValue: 'on-scheme',
+				onValueChange: (value) => (ctx.ratingFilter = value as RatingSchemeListingFilter)
 			}
 		];
 
@@ -273,10 +273,8 @@
 								<Empty.Title>No entries match</Empty.Title>
 								<Empty.Description>Nothing fits the current search and filters.</Empty.Description>
 							{:else}
-								<Empty.Title>No active entries</Empty.Title>
-								<Empty.Description
-									>Choose another status to see completed and change of rater entries.</Empty.Description
-								>
+								<Empty.Title>Nothing on the rating scheme</Empty.Title>
+								<Empty.Description>Choose Archived to see entries taken off the scheme.</Empty.Description>
 							{/if}
 						</Empty.Header>
 						{#if ctx.hasActiveSearchOrFilters}

@@ -40,14 +40,12 @@ export const ratingSchemeEntryCreateSchema = ratingSchemeEntryFields.extend({
 	archivedAt: z.null({ error: 'A new evaluation starts on the rating scheme' }).optional()
 });
 
-export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields
-	.partial()
-	.extend({
-		id: uuidSchema,
-		status: workflowNotAField,
-		workflowStatus: workflowNotAField,
-		archivedAt: archiveNotAField
-	});
+export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields.partial().extend({
+	id: uuidSchema,
+	status: workflowNotAField,
+	workflowStatus: workflowNotAField,
+	archivedAt: archiveNotAField
+});
 
 const workflowStepSchema = z
 	.enum(WORKFLOW_STEPS.map((step) => step.value) as [WorkflowStatus, ...WorkflowStatus[]])

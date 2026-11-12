@@ -114,7 +114,7 @@ records do not add to the expired/orange attention count. Do not silently redefi
 
 1. **Combined native read.** Run `$V actor dashboardView home` and capture the page. Strength is 3/4 with Baker's
    Training status. Needs you lists eight rows, most urgent first. `NCOER for SPC Able, Synthetic` is Past thru, 5 days
-   late; the archived Person's overdue evaluation and the completed one are absent. Expired rows name Able on
+   late; the archived Person's overdue evaluation and the completed and archived ones are absent. Expired rows name Able on
    Verification Targeted Training and Baker on Verification Required Training. Due soon names Unassigned on
    Verification Required Training, `in 20 days`, and links to Training. Each Calendar lane has an Unfilled row
    for 13 of the 14 forecast days, tomorrow first. Able's packet is Stalled with

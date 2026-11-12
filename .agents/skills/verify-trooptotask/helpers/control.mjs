@@ -165,7 +165,7 @@ const tableSelect = {
 	deletion_requests:
 		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
 	rating_scheme_entries:
-		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,created_at,updated_at',
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,archived_at,archived_by,created_at,updated_at',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -2298,6 +2298,7 @@ async function main() {
 				rating_period_end: date(offset),
 				report_type: key === 'changed' ? 'CR' : 'AN',
 				workflow_status: workflowStatus,
+				archived_at: key === 'changed' ? new Date(`${date(-1)}T12:00:00Z`).toISOString() : null,
 				notes: `Synthetic Evals ${key} ${tag}`
 			}));
 			const batches = [

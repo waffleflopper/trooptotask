@@ -69,9 +69,9 @@ SELECT results_eq(
   'a new or completed entry is on the scheme');
 
 INSERT INTO changed (entry) SELECT entry FROM probe WHERE label = 'open';
-SELECT is(public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true),
-  jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry)), 'archiving returns the entry as stored')
-FROM changed;
+UPDATE probe SET result = public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) WHERE label = 'open';
+SELECT is(result, jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry)), 'archiving returns the entry as stored')
+FROM probe WHERE label = 'open';
 SELECT results_eq(
   $$ SELECT archived_at IS NOT NULL, archived_by, workflow_status FROM public.rating_scheme_entries
      WHERE id = (SELECT entry FROM changed) $$,
@@ -80,10 +80,10 @@ SELECT results_eq(
 SELECT is((public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) ->> 'changed')::boolean, false,
   'archiving an archived entry again changes nothing')
 FROM changed;
-SELECT is(public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, false),
-  jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry) || '{"archived_at": null, "archived_by": null}'),
+UPDATE probe SET result = public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, false) WHERE label = 'open';
+SELECT is(result, jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry)),
   'restoring returns the entry on the scheme again')
-FROM changed;
+FROM probe WHERE label = 'open';
 SELECT results_eq(
   $$ SELECT archived_at, archived_by FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM changed) $$,
   $$ VALUES (NULL::timestamptz, NULL::text) $$,

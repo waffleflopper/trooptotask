@@ -2,8 +2,8 @@ import type { Database } from '$lib/server/database';
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSchemeEntry } from '../contracts';
-import { parseWorkflowStatus, WORKFLOW_STEPS } from '../utils/evaluationWorkflow';
-import type { WorkflowStatus } from '../rating-scheme.types';
+import { parseWorkflowStatus } from '../utils/evaluationWorkflow';
+import { WORKFLOW_STEPS, type WorkflowStatus } from '../rating-scheme.types';
 
 export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entries']['Row'];
 
@@ -40,7 +40,9 @@ export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields
 	.partial()
 	.extend({ id: uuidSchema, status: notAField, workflowStatus: notAField });
 
-const workflowStepSchema = z.enum(WORKFLOW_STEPS as [WorkflowStatus, ...WorkflowStatus[]]).nullable();
+const workflowStepSchema = z
+	.enum(WORKFLOW_STEPS.map((step) => step.value) as [WorkflowStatus, ...WorkflowStatus[]])
+	.nullable();
 
 export const ratingSchemeTransitionSchema = z.strictObject({ from: workflowStepSchema, to: workflowStepSchema });
 

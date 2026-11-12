@@ -11,8 +11,10 @@ Scheme access is independently grantable without Personnel access.
 - Add/edit in a right-side sheet with one combobox per evaluator role (unit Person or a typed external name), optional
   intermediate rater/reviewer, annual dates and notes; inline required-field errors; save/cancel and reload persistence.
 - One stored lifecycle per evaluation: `workflow_status` null is Not tracked and open, and only `completed` is
-  complete. An existing entry's Workflow section moves it one step at a time, skipping an absent intermediate rater or
-  reviewer, and Change rater closes it as a Change of Rater (`CR`) report and opens the next evaluation.
+  complete. An existing entry's Workflow section steps it Back or Next one present step at a time (skipping an absent
+  intermediate rater or reviewer and the optional Command Review, which Drafting offers as its own button), jumps it to
+  any present step with Jump to step, and Change rater closes it as a Change of Rater (`CR`) report and opens the next
+  evaluation.
 - Overdue, 30-day, 60-day and current due calculations, completed exclusion and the Organization Dashboard due
   projection.
 - Actual filtered Rating Scheme workbook, including evaluator names, dates, due/status/workflow labels and notes.
@@ -293,9 +295,15 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      - How to reach it: `ratingOperate` at 1280 and 390, open the Alpha NCO entry (`With Rater`); a second
        `ratingOperate` page opens the same entry for the stale cases
      - Expected: Below Rating chain, `Workflow` reads the step and `· step N of 5`, with `Back to <step>`,
-       `Move to <step>` and `Change rater`; the buttons wrap at 390. Not tracked offers `Start tracking`,
-       `Mark completed` and `Change rater`; Drafting offers `Stop tracking`; Completed offers
-       `Back to Submitted to S1` and `Reopen`, which returns to Not tracked, and no `Change rater`. Each press sends one
+       `Move to <step>`, the `Jump to step` select and `Change rater`; the buttons wrap at 390 and the select takes its own
+       full-width line without moving the buttons. Not tracked offers `Start tracking`,
+       `Mark completed` and `Change rater`; Drafting offers `Stop tracking`, `Send to Command Review` and
+       `Move to With Rater`; Completed offers `Back to Submitted to HRC` and `Reopen`, which returns to Not tracked, and no `Change rater`. `Send to Command Review` moves Drafting to `Command Review`, whose
+       buttons are `Back to Drafting` and `Move to With Rater`; `With Rater` then steps `Back to Drafting`, past
+       Command Review. `Jump to step` lists every present step but the current one in chain order, with no
+       `With Intermediate Rater`, `IR Signed`, `With Reviewer` or `Reviewer Signed` when the entry lacks that evaluator:
+       from `SM Signed`, choose `Drafting` (a listbox option, so read it with a verbose snapshot) and the section reads
+       `Drafting · step 1 of 5` at once; reload and the step persists. Each press or choice sends one
        `POST api/rating-scheme/<id>/workflow` and `rows` reads the new `workflow_status`; completing or reopening
        updates the header counts at once (`5 of 8 shown`, then `6 of 8`). With no intermediate rater or reviewer,
        `SR Signed` moves to `With Rated Soldier` and back. Add an external reviewer and save: the step stays, and

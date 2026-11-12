@@ -518,6 +518,21 @@ describe('Rating scheme entry — change of rater', () => {
 		expect(result.successor?.archivedAt).toBeNull();
 	});
 
+	it('refuses to change the rater of an open evaluation taken off the rating scheme', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'with-rater', archived_at: '2026-05-01T00:00:00.000Z' });
+
+		await expect(
+			changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG New' })
+		).rejects.toMatchObject({ status: 409 });
+		const stored = await ctx.store.findMany<{ workflow_status: string | null; report_type: string | null }>(
+			'rating_scheme_entries',
+			ctx.auth.orgId
+		);
+		expect(stored.map((row) => [row.workflow_status, row.report_type])).toEqual([['with-rater', 'AN']]);
+	});
+
 	it('returns the successor it opened when the change is sent again, and opens no second one', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);

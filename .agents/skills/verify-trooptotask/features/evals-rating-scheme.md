@@ -344,10 +344,14 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    Enter picks it): three rows, each reading `Archived` instead of a due text and rail tone, in Grouped, with
    `0 past thru` in the header and no urgent tone on the overdue one. Open Able and press `Restore to rating scheme`:
    `archived_at` and `archived_by` read null and the row returns to the default view. Change rater on the With Rater
-   entry leaves only its successor on the scheme (see the Workflow expectations above). Check 1024 and 390 px with the Archived listing: rows keep
-   two lines with `Archived` on the first and nothing clips. Archive Able again and reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
-   `0 past thru, 1 thru in 30 days, 1 thru in 31 to 60 days, 2 current`, counts that already include the successor from
-   Change rater.
+   entry leaves only its successor on the scheme (see the Workflow expectations above). Open the Bravo entry (+25) and
+   press `Mark completed`: the row stays in the default view with `Completed` workflow and due text, and `rows` reads
+   `archived_at` null. Check 1024 and 390 px with the Archived listing: rows keep
+   two lines with `Archived` on the first and nothing clips. Archive Able again: its sheet header reads `Archived` in the
+   muted tone instead of its past-thru line, and the Workflow section offers no `Change rater` while the evaluation is
+   open. Reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
+   `0 past thru, 1 thru in 30 days, 1 thru in 31 to 60 days, 2 current`. The open entries left on the scheme are
+   unassigned (+15), the Officer (+45), the Warrant (+90) and the Change rater successor (a year out).
 
 Remove UI-created entries through the owner UI. Compare every original A/B row across all 21 fields, including
 timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any

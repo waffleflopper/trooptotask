@@ -6532,6 +6532,9 @@ BEGIN
     RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row),
       'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
   END IF;
+  IF v_row.archived_at IS NOT NULL THEN
+    RAISE EXCEPTION 'The evaluation is archived' USING ERRCODE = '55000';
+  END IF;
   IF p_rater_person_id = v_row.rater_person_id
     OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
       AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_row.rater_name))) THEN
@@ -6543,7 +6546,7 @@ BEGIN
 
   UPDATE public.rating_scheme_entries
   SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed',
-    archived_at = COALESCE(archived_at, pg_catalog.now())
+    archived_at = pg_catalog.now()
   WHERE organization_id = p_organization_id AND id = p_entry_id
   RETURNING * INTO v_row;
 

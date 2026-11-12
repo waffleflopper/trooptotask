@@ -138,6 +138,7 @@ export function createInMemoryRatingSchemePersistence(
 				);
 				return { entry, successor: successor ? mapRatingSchemeEntry(successor) : null };
 			}
+			if (entry.archivedAt !== null) return fail(409, EVALUATION_MOVED);
 			const sameExternalRater =
 				change.raterPersonId === null &&
 				entry.raterPersonId === null &&
@@ -152,7 +153,7 @@ export function createInMemoryRatingSchemePersistence(
 				rating_period_end: change.changeDate,
 				report_type: 'CR',
 				workflow_status: 'completed',
-				archived_at: entry.archivedAt ?? new Date().toISOString()
+				archived_at: new Date().toISOString()
 			});
 			const successor = await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, {
 				...ratingSchemeCreateValues({

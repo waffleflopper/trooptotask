@@ -176,15 +176,16 @@ FROM (SELECT * FROM changed ORDER BY ctid DESC LIMIT 1) latest;
 
 INSERT INTO probe (label, entry) VALUES ('archived first', pg_temp.new_entry('301', '2033-01-01', '2033-12-31'));
 SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) FROM probe WHERE label = 'archived first';
-SELECT pg_temp.act_as('1');
-SELECT public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2033-06-15', pg_temp.id('303'), NULL)
-FROM probe WHERE label = 'archived first';
+SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, '2033-06-15', %L, NULL) $$, pg_temp.id('101'),
+    (SELECT entry FROM probe WHERE label = 'archived first'), pg_temp.id('303')), '55000', 'The evaluation is archived',
+  'an open entry taken off the scheme cannot change its rater');
 SELECT results_eq(
-  $$ SELECT workflow_status, archived_at IS NOT NULL, archived_by FROM public.rating_scheme_entries
+  $$ SELECT workflow_status, rating_period_end, archived_by,
+       (SELECT count(*) FROM public.rating_scheme_entries s WHERE s.rated_person_id = r.rated_person_id
+          AND s.rating_period_start = '2033-06-16') FROM public.rating_scheme_entries r
      WHERE id = (SELECT entry FROM probe WHERE label = 'archived first') $$,
-  $$ VALUES ('completed'::text, true, pg_temp.id('2')::text) $$,
-  'an entry archived before its rater changed stays archived by the member who archived it');
-SELECT pg_temp.act_as('2');
+  $$ VALUES (NULL::text, '2033-12-31'::date, pg_temp.id('2')::text, 0::bigint) $$,
+  'the refused change left the archived entry open and opened no successor');
 
 -- The rating scheme the Person's card and the roster read lists only entries still on it.
 INSERT INTO probe (label, entry) VALUES ('roster', pg_temp.new_entry('304'));

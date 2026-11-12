@@ -18,7 +18,7 @@
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { getDaysUntilDue, getRatingDueLabel } from '../utils/ratingScheme';
+	import { getDaysUntilDue, getEntryDueLabel } from '../utils/ratingScheme';
 	import {
 		EVALUATION_PHASE_COUNT,
 		evaluationPhase,
@@ -205,7 +205,7 @@
 	const phase = $derived(evaluationPhase(workflowStatus));
 	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
 	const jumpTargets = $derived(entry && onMove ? workflowJumpTargets(workflowStatus, workflowRoles(entry)) : []);
-	const canChangeRater = $derived(!!entry && !!onChangeRater && !isEvaluationCompleted(workflowStatus));
+	const canChangeRater = $derived(!!entry && !!onChangeRater && !archivedAt && !isEvaluationCompleted(workflowStatus));
 
 	function moveLabel(move: WorkflowMove): string {
 		switch (move.kind) {
@@ -312,7 +312,9 @@
 	}
 
 	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
-	const headerDue = $derived(entry ? getRatingDueLabel(entry.ratingPeriodEnd, workflowStatus) : null);
+	const headerDue = $derived(
+		entry ? getEntryDueLabel({ ratingPeriodEnd: entry.ratingPeriodEnd, workflowStatus, archivedAt }) : null
+	);
 	const headerDueLine = $derived.by(() => {
 		if (!entry || !headerDue) return '';
 		const days = Math.abs(getDaysUntilDue(entry.ratingPeriodEnd));

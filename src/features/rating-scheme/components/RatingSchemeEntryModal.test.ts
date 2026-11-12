@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
@@ -363,11 +364,30 @@ describe('RatingSchemeEntryModal', () => {
 			);
 		});
 
-		it('offers neither action without an archive handler', () => {
-			renderListing(onScheme);
+		it('reads an archived open evaluation past its thru date as archived and offers no change of rater', () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2027-03-01T12:00:00'));
+			try {
+				render(RatingSchemeEntryModal, {
+					props: {
+						entry: { ...off, workflowStatus: 'with-rater' },
+						personnel,
+						isCurrentWorkspace: () => true,
+						onSave: vi.fn(),
+						onMove: vi.fn(),
+						onArchive: vi.fn(),
+						onChangeRater: vi.fn(),
+						onClose: vi.fn()
+					}
+				});
 
-			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
-			expect(screen.queryByRole('button', { name: 'Restore to rating scheme' })).toBeNull();
+				const dialog = screen.getByRole('dialog');
+				expect(dialog).toHaveAccessibleDescription('Archived');
+				expect(screen.getByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
+				expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 

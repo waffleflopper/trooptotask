@@ -56,7 +56,8 @@ function entry(id: string): RatingSchemeEntry {
 		ratingPeriodEnd: '2024-12-31',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'drafting'
+		workflowStatus: 'drafting',
+		archivedAt: null
 	};
 }
 

@@ -23,7 +23,8 @@ const entries: RatingSchemeEntry[] = [
 		ratingPeriodEnd: '2025-12-31',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'drafting'
+		workflowStatus: 'drafting',
+		archivedAt: null
 	},
 	{
 		id: 'due-30',
@@ -41,7 +42,8 @@ const entries: RatingSchemeEntry[] = [
 		ratingPeriodEnd: '2026-05-15',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'with-rater'
+		workflowStatus: 'with-rater',
+		archivedAt: null
 	},
 	{
 		id: 'completed',
@@ -59,7 +61,8 @@ const entries: RatingSchemeEntry[] = [
 		ratingPeriodEnd: '2026-06-20',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'completed'
+		workflowStatus: 'completed',
+		archivedAt: null
 	}
 ];
 

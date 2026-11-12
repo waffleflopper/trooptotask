@@ -5,6 +5,7 @@ import {
 	changeRatingSchemeRater,
 	createRatingSchemeEntry,
 	removeRatingSchemeEntry,
+	setRatingSchemeEntryArchived,
 	transitionRatingSchemeEntry,
 	updateRatingSchemeEntry
 } from './ratingSchemeEntryOperations.server';
@@ -282,6 +283,24 @@ describe('Rating scheme entry — update', () => {
 		expect(stored).toMatchObject({ workflow_status: null, notes: 'Keep with the closed report' });
 	});
 
+	it('refuses an edit that carries an archive time and keeps the entry listed', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(updateRatingSchemeEntry(ctx, { id: ENTRY, archivedAt: '2026-05-01T00:00:00Z' })).rejects.toMatchObject(
+			{ status: 400 }
+		);
+		await expect(
+			createRatingSchemeEntry(ctx, { ...validInput, archivedAt: '2026-05-01T00:00:00Z' })
+		).rejects.toMatchObject({ status: 400 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored?.archived_at ?? null).toBeNull();
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+
 	it('coerces empty strings to null on update', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
@@ -488,6 +507,17 @@ describe('Rating scheme entry — change of rater', () => {
 		});
 	});
 
+	it('takes the closed evaluation off the rating scheme and lists the successor', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'with-rater' });
+
+		const result = await changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG New' });
+
+		expect(result.entry.archivedAt).toEqual(expect.any(String));
+		expect(result.successor?.archivedAt).toBeNull();
+	});
+
 	it('returns the successor it opened when the change is sent again, and opens no second one', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
@@ -535,6 +565,67 @@ describe('Rating scheme entry — change of rater', () => {
 			changeRatingSchemeRater(ctx, ENTRY, { changeDate: '2026-06-30', raterName: 'SSG New' })
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+});
+
+describe('Rating scheme entry — archive', () => {
+	it('archives and restores whatever step the evaluation has reached', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'completed' });
+
+		const archived = await setRatingSchemeEntryArchived(ctx, ENTRY, { archived: true });
+		const restored = await setRatingSchemeEntryArchived(ctx, ENTRY, { archived: false });
+
+		expect(archived).toMatchObject({ changed: true, entry: { workflowStatus: 'completed' } });
+		expect(archived.entry.archivedAt).toEqual(expect.any(String));
+		expect(restored).toMatchObject({ changed: true, entry: { workflowStatus: 'completed', archivedAt: null } });
+	});
+
+	it('answers a repeated request without changing the entry again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		const first = await setRatingSchemeEntryArchived(ctx, ENTRY, { archived: true });
+		const repeated = await setRatingSchemeEntryArchived(ctx, ENTRY, { archived: true });
+		const listed = await setRatingSchemeEntryArchived(ctx, FOREIGN_ENTRY, { archived: false }).catch((error) => error);
+
+		expect(repeated).toEqual({ changed: false, entry: first.entry });
+		expect(listed).toMatchObject({ status: 404 });
+	});
+
+	it('keeps an archived entry editable and its step movable', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { archived_at: '2026-05-01T00:00:00.000Z' });
+
+		const edited = await updateRatingSchemeEntry(ctx, { id: ENTRY, notes: 'Still tracked' });
+		const moved = await transitionRatingSchemeEntry(ctx, ENTRY, { from: null, to: 'drafting' });
+
+		expect(edited).toMatchObject({ notes: 'Still tracked', archivedAt: '2026-05-01T00:00:00.000Z' });
+		expect(moved.entry).toMatchObject({ workflowStatus: 'drafting', archivedAt: '2026-05-01T00:00:00.000Z' });
+	});
+
+	it('refuses a body that does not say whether to archive or restore', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(setRatingSchemeEntryArchived(ctx, ENTRY, {})).rejects.toMatchObject({ status: 400 });
+		await expect(setRatingSchemeEntryArchived(ctx, ENTRY, { archived: 'yes' })).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('denies archiving without Rating Scheme operate access', async () => {
+		const ctx = buildContext(viewOnly);
+		seedRatedPerson(ctx);
+		seedEntry(ctx);
+
+		await expect(setRatingSchemeEntryArchived(ctx, ENTRY, { archived: true })).rejects.toMatchObject({ status: 403 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored?.archived_at ?? null).toBeNull();
 	});
 });
 

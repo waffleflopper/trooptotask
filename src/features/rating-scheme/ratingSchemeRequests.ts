@@ -1,5 +1,6 @@
 import { buildRequestError } from '$lib/stores/core';
 import type {
+	RatingSchemeArchiveResult,
 	RatingSchemeEntry,
 	RatingSchemeEntryEditorData,
 	RatingSchemeMove,
@@ -19,7 +20,7 @@ export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Pr
 export async function saveRatingSchemeEntry(
 	orgId: string,
 	id: string,
-	data: Partial<Omit<RatingSchemeEntry, 'id' | 'workflowStatus'>>
+	data: Partial<Omit<RatingSchemeEntry, 'id' | 'workflowStatus' | 'archivedAt'>>
 ): Promise<RatingSchemeEntry> {
 	const response = await fetch(`/org/${orgId}/api/rating-scheme`, {
 		method: 'PUT',
@@ -46,6 +47,14 @@ export function moveRatingSchemeEntry(
 	move: RatingSchemeMove
 ): Promise<RatingSchemeTransition> {
 	return postEntryAction(orgId, id, 'workflow', move);
+}
+
+export function archiveRatingSchemeEntry(
+	orgId: string,
+	id: string,
+	archived: boolean
+): Promise<RatingSchemeArchiveResult> {
+	return postEntryAction(orgId, id, 'archive', { archived });
 }
 
 export function changeRatingSchemeRater(

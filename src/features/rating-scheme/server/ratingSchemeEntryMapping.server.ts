@@ -5,10 +5,11 @@ import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSche
 import { parseWorkflowStatus } from '../utils/evaluationWorkflow';
 import { WORKFLOW_STEPS, type WorkflowStatus } from '../rating-scheme.types';
 
-export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entries']['Row'];
+/** archived_by is read through the audit log, never selected. */
+export type RatingSchemeRow = Omit<Database['public']['Tables']['rating_scheme_entries']['Row'], 'archived_by'>;
 
 export const RATING_SCHEME_SELECT =
-	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,created_at,updated_at';
+	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,archived_at,created_at,updated_at';
 
 const ratingSchemeEntryFields = z.object({
 	ratedPersonId: uuidSchema,
@@ -27,22 +28,32 @@ const ratingSchemeEntryFields = z.object({
 	reportType: z.string().nullable().optional()
 });
 
-/** Only the lifecycle actions move the step, so a client still sending it learns that instead of losing the change. */
-const notAField = z.never({ error: 'The workflow step changes through its own action, not a save' }).optional();
+/** Only the lifecycle actions move the step or the scheme listing, so a client still sending one learns that instead of losing the change. */
+const notAField = (message: string) => z.never({ error: message }).optional();
+const workflowNotAField = notAField('The workflow step changes through its own action, not a save');
+const archiveNotAField = notAField('Archiving changes through its own action, not a save');
 
 /** A new entry starts not tracked; the client's optimistic row says so. */
 export const ratingSchemeEntryCreateSchema = ratingSchemeEntryFields.extend({
-	status: notAField,
-	workflowStatus: z.null({ error: 'A new evaluation starts not tracked' }).optional()
+	status: workflowNotAField,
+	workflowStatus: z.null({ error: 'A new evaluation starts not tracked' }).optional(),
+	archivedAt: z.null({ error: 'A new evaluation starts on the rating scheme' }).optional()
 });
 
 export const ratingSchemeEntryUpdateSchema = ratingSchemeEntryFields
 	.partial()
-	.extend({ id: uuidSchema, status: notAField, workflowStatus: notAField });
+	.extend({
+		id: uuidSchema,
+		status: workflowNotAField,
+		workflowStatus: workflowNotAField,
+		archivedAt: archiveNotAField
+	});
 
 const workflowStepSchema = z
 	.enum(WORKFLOW_STEPS.map((step) => step.value) as [WorkflowStatus, ...WorkflowStatus[]])
 	.nullable();
+
+export const ratingSchemeArchiveSchema = z.strictObject({ archived: z.boolean() });
 
 export const ratingSchemeTransitionSchema = z.strictObject({ from: workflowStepSchema, to: workflowStepSchema });
 
@@ -78,6 +89,7 @@ export function mapRatingSchemeEntry(row: RatingSchemeRow): SavedRatingSchemeEnt
 		notes: row.notes,
 		reportType: row.report_type as SavedRatingSchemeEntry['reportType'],
 		workflowStatus: parseWorkflowStatus(row.workflow_status),
+		archivedAt: row.archived_at ?? null,
 		created_at: row.created_at,
 		updated_at: row.updated_at
 	};

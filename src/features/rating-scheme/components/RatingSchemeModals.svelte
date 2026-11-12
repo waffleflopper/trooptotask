@@ -4,7 +4,11 @@
 	import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 	import type { RatingSchemeMove, RatingSchemeRaterChange } from '$features/rating-scheme/contracts';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
-	import { changeRatingSchemeRater, moveRatingSchemeEntry } from '$features/rating-scheme/ratingSchemeRequests';
+	import {
+		archiveRatingSchemeEntry,
+		changeRatingSchemeRater,
+		moveRatingSchemeEntry
+	} from '$features/rating-scheme/ratingSchemeRequests';
 	import type { RatingSchemeEntrySaveData } from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -42,7 +46,7 @@
 			if (!isCurrent()) return;
 			if (!updated) throw new Error('Failed to update rating entry');
 		} else {
-			const created = await ratingSchemeStore.add({ ...entryData, workflowStatus: null });
+			const created = await ratingSchemeStore.add({ ...entryData, workflowStatus: null, archivedAt: null });
 			if (!isCurrent()) return;
 			if (!created) throw new Error('Failed to add rating entry');
 		}
@@ -60,6 +64,25 @@
 		if (!isCurrent()) return undefined;
 		ratingSchemeStore.mergeBatchResults([], [entry]);
 		return entry.workflowStatus;
+	}
+
+	async function handleArchiveRatingEntry(
+		id: string,
+		archived: boolean,
+		isCurrent: () => boolean
+	): Promise<string | null | undefined> {
+		if (!isCurrent()) return undefined;
+		const { entry } = await archiveRatingSchemeEntry(initialOrgId, id, archived).catch((failure: unknown) => {
+			throw new Error(
+				rejectedRequestMessage(
+					failure,
+					archived ? 'The evaluation was not archived. Try again.' : 'The evaluation was not restored. Try again.'
+				)
+			);
+		});
+		if (!isCurrent()) return undefined;
+		ratingSchemeStore.mergeBatchResults([], [entry]);
+		return entry.archivedAt;
 	}
 
 	async function handleChangeRater(
@@ -106,6 +129,7 @@
 			onSave={handleSaveRatingEntry}
 			onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 			onMove={handleMoveRatingEntry}
+			onArchive={handleArchiveRatingEntry}
 			onChangeRater={handleChangeRater}
 			onClose={modals.closerFor('rating-modal')}
 		/>

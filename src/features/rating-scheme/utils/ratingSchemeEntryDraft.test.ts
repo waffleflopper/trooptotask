@@ -29,7 +29,8 @@ const baseEntry: RatingSchemeEntry = {
 	ratingPeriodEnd: '2026-12-31',
 	notes: null,
 	reportType: 'AN',
-	workflowStatus: null
+	workflowStatus: null,
+	archivedAt: null
 };
 
 describe('Rating Scheme entry draft', () => {

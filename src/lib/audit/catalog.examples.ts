@@ -361,6 +361,22 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		sentence:
 			'Changed rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec: status active → completed, raters changed'
 	},
+	'rating_scheme.archived': {
+		entry: {
+			recordLabel: 'NCOER',
+			subjectLabel: 'SPC Doe, Jane',
+			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
+		},
+		sentence: 'Archived rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
+	},
+	'rating_scheme.restored': {
+		entry: {
+			recordLabel: 'NCOER',
+			subjectLabel: 'SPC Doe, Jane',
+			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
+		},
+		sentence: 'Restored rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
+	},
 	'rating_scheme.deleted': {
 		entry: {
 			recordLabel: 'NCOER',

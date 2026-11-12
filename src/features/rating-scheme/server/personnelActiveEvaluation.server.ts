@@ -43,7 +43,7 @@ export async function loadPersonnelActiveEvaluation(input: {
 }): Promise<PersonnelActiveEvaluation | null> {
 	const person = await input.loadAuthorizedPerson();
 	const entry = (await input.ratingScheme.listPersonReadiness(person.id)).find(
-		(row) => !isEvaluationCompleted(row.workflowStatus)
+		(row) => row.archivedAt === null && !isEvaluationCompleted(row.workflowStatus)
 	);
 	if (!entry) return null;
 

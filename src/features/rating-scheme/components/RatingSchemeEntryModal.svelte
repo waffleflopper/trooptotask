@@ -57,12 +57,15 @@
 			move: RatingSchemeMove,
 			isCurrent: () => boolean
 		) => Promise<WorkflowStatus | null | undefined>;
+		/** Resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
+		onArchive?: (id: string, archived: boolean, isCurrent: () => boolean) => Promise<string | null | undefined>;
 		/** Resolves true when a successor was opened, false when the evaluation was already completed. */
 		onChangeRater?: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onMove, onChangeRater, onClose }: Props = $props();
+	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onMove, onArchive, onChangeRater, onClose }: Props =
+		$props();
 	let disposed = false;
 	onDestroy(() => {
 		disposed = true;
@@ -82,6 +85,10 @@
 		return entry?.workflowStatus ?? null;
 	}
 
+	function initialArchivedAt() {
+		return entry?.archivedAt ?? null;
+	}
+
 	let draft = $state(createInitialDraft());
 	const pristineDraft = JSON.stringify(createInitialDraft());
 	let showDeleteConfirm = $state(false);
@@ -93,12 +100,15 @@
 	let workflowStatus = $state(initialWorkflowStatus());
 	let isMoving = $state(false);
 	let moveError = $state('');
+	let archivedAt = $state(initialArchivedAt());
+	let isArchiving = $state(false);
+	let archiveError = $state('');
 	let showChangeRater = $state(false);
 	let newRater = $state<EvaluatorDraft>({ kind: 'empty' });
 	let changeDate = $state('');
 	let changeRaterError = $state('');
 	let isChangingRater = $state(false);
-	const busy = $derived(isSaving || isDeleting || isMoving || isChangingRater);
+	const busy = $derived(isSaving || isDeleting || isMoving || isArchiving || isChangingRater);
 	const dirty = $derived(JSON.stringify(draft) !== pristineDraft);
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
@@ -228,6 +238,26 @@
 			if (isCurrent()) moveError = getSaveErrorMessage(error, 'The workflow did not move. Try again.');
 		} finally {
 			if (isCurrent()) isMoving = false;
+		}
+	}
+
+	async function handleArchive(archived: boolean) {
+		const archiveHandler = onArchive;
+		if (!entry || !archiveHandler || busy || !isCurrent()) return;
+		archiveError = '';
+		isArchiving = true;
+		try {
+			const saved = await archiveHandler(entry.id, archived, isCurrent);
+			if (isCurrent() && saved !== undefined) archivedAt = saved;
+		} catch (error) {
+			if (isCurrent()) {
+				archiveError = getSaveErrorMessage(
+					error,
+					archived ? 'The evaluation was not archived. Try again.' : 'The evaluation was not restored. Try again.'
+				);
+			}
+		} finally {
+			if (isCurrent()) isArchiving = false;
 		}
 	}
 
@@ -572,6 +602,31 @@
 							<Alert.Root variant="destructive" role="alert">
 								<Alert.Title>The workflow did not move</Alert.Title>
 								<Alert.Description>{moveError}</Alert.Description>
+							</Alert.Root>
+						{/if}
+					</section>
+				{/if}
+
+				{#if entry && onArchive}
+					<section class="grid gap-3 border-b px-7 py-5.5" aria-labelledby="scheme-listing">
+						{@render sectionTitle('Rating scheme')}
+						<p id="scheme-listing" class="text-sm">
+							<span class="font-semibold">{archivedAt ? 'Archived' : 'On the rating scheme'}</span>
+							<span class="text-muted-foreground">
+								· {archivedAt
+									? 'Hidden from the default view and not counted as due.'
+									: 'Listed until you archive it, whatever its workflow step.'}</span
+							>
+						</p>
+						<div class="flex flex-wrap gap-2">
+							<Button variant="outline" size="sm" disabled={busy} onclick={() => handleArchive(!archivedAt)}>
+								{archivedAt ? 'Restore to rating scheme' : 'Archive'}
+							</Button>
+						</div>
+						{#if archiveError}
+							<Alert.Root variant="destructive" role="alert">
+								<Alert.Title>The listing did not change</Alert.Title>
+								<Alert.Description>{archiveError}</Alert.Description>
 							</Alert.Root>
 						{/if}
 					</section>

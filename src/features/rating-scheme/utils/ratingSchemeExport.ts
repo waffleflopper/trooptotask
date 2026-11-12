@@ -20,6 +20,7 @@ const RATING_SCHEME_COLUMNS = [
 	{ header: 'Due Status', key: 'Due Status', width: 16 },
 	{ header: 'Status', key: 'Status', width: 16 },
 	{ header: 'Workflow Status', key: 'Workflow Status', width: 22 },
+	{ header: 'Rating Scheme', key: 'Rating Scheme', width: 14 },
 	{ header: 'Notes', key: 'Notes', width: 30 }
 ];
 
@@ -80,6 +81,7 @@ function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: Personn
 		'Due Status': getDueStatusLabel(entry),
 		Status: isEvaluationCompleted(entry.workflowStatus) ? 'Completed' : 'Active',
 		'Workflow Status': getWorkflowLabel(entry.workflowStatus),
+		'Rating Scheme': entry.archivedAt ? 'Archived' : 'Listed',
 		Notes: entry.notes ?? ''
 	};
 }

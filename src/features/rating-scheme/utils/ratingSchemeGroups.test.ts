@@ -27,6 +27,7 @@ function entry(id: string, overrides: Partial<RatingSchemeEntry> = {}): RatingSc
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: null,
+		archivedAt: null,
 		...overrides
 	};
 }

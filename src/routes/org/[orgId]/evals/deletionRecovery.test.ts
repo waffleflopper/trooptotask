@@ -34,7 +34,8 @@ const entry: RatingSchemeEntry = {
 	ratingPeriodEnd: '2026-12-31',
 	notes: 'Saved notes',
 	reportType: 'AN',
-	workflowStatus: null
+	workflowStatus: null,
+	archivedAt: null
 };
 const otherEntry = { ...entry, id: 'evaluation-b', ratedPersonId: 'person-b', notes: 'Other evaluation' };
 const foreignEntry = { ...otherEntry, id: 'foreign-evaluation', notes: 'B saved notes' };

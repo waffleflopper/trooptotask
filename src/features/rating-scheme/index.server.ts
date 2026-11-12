@@ -12,6 +12,7 @@ export {
 	updateRatingSchemeEntry,
 	transitionRatingSchemeEntry,
 	changeRatingSchemeRater,
+	setRatingSchemeEntryArchived,
 	removeRatingSchemeEntry,
 	describeRatingSchemeEntryDeletionRequest,
 	ratingSchemeEntryCreateSchema,

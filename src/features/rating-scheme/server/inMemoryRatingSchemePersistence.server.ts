@@ -108,6 +108,14 @@ export function createInMemoryRatingSchemePersistence(
 			const moved = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, { workflow_status: to });
 			return { entry: mapRatingSchemeEntry(moved), moved: true };
 		},
+		async setArchived(id, archived) {
+			const entry = await findEntry(id);
+			if ((entry.archivedAt !== null) === archived) return { entry, changed: false };
+			const row = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, {
+				archived_at: archived ? new Date().toISOString() : null
+			});
+			return { entry: mapRatingSchemeEntry(row), changed: true };
+		},
 		async changeRater(id, change) {
 			const entry = await findEntry(id);
 			const next = parseDate(change.changeDate);
@@ -143,7 +151,8 @@ export function createInMemoryRatingSchemePersistence(
 			const closed = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, {
 				rating_period_end: change.changeDate,
 				report_type: 'CR',
-				workflow_status: 'completed'
+				workflow_status: 'completed',
+				archived_at: entry.archivedAt ?? new Date().toISOString()
 			});
 			const successor = await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, {
 				...ratingSchemeCreateValues({

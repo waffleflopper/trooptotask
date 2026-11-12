@@ -34,6 +34,7 @@ export function createSupabaseRatingSchemeDuePort(
 							.from('rating_scheme_entries')
 							.select('id, rated_person_id, eval_type, rating_period_end, workflow_status')
 							.eq('organization_id', actor.orgId)
+							.is('archived_at', null)
 							.order('id', { ascending: true })
 							.range(from, to)
 				),

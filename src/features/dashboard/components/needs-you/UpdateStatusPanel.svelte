@@ -18,7 +18,7 @@
 		personnel: RatingSchemeEntryEditorData['personnelLookup'];
 		isCurrentWorkspace: () => boolean;
 		onSave: (
-			data: Omit<RatingSchemeEntryEditorData['entry'], 'id' | 'workflowStatus'>,
+			data: Omit<RatingSchemeEntryEditorData['entry'], 'id' | 'workflowStatus' | 'archivedAt'>,
 			isCurrent: () => boolean
 		) => Promise<void>;
 		onMove: (

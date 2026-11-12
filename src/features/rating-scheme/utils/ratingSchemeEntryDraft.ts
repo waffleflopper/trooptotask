@@ -18,8 +18,8 @@ export type RatingSchemeRequiredField =
 	| 'rater'
 	| 'seniorRater';
 export type RatingSchemeEntryEvalType = RatingSchemeEntry['evalType'];
-/** The workflow step moves on its own, so a save never carries it. */
-export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id' | 'workflowStatus'>;
+/** The workflow step and the scheme listing move on their own, so a save never carries them. */
+export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id' | 'workflowStatus' | 'archivedAt'>;
 
 export interface RatingSchemeEntryDraft {
 	ratedPersonId: string;

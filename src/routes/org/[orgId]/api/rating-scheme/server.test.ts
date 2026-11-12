@@ -6,6 +6,7 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
 import { _postConfig as _changeRaterConfig } from './[entryId]/change-rater/+server';
+import { _postConfig as _archiveConfig } from './[entryId]/archive/+server';
 import { _postConfig as _workflowConfig } from './[entryId]/workflow/+server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
@@ -218,9 +219,25 @@ describe('POST /api/rating-scheme/[entryId] lifecycle', () => {
 		return ctx;
 	}
 
-	it('authorizes both lifecycle routes as Rating Scheme entry updates', () => {
+	it('authorizes every lifecycle route as a Rating Scheme entry update', () => {
 		expect(_workflowConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
 		expect(_changeRaterConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+		expect(_archiveConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
+	});
+
+	it('lets a Group operator archive an in-Group evaluation and denies one outside the Group', async () => {
+		const ctx = groupOperator();
+
+		await expect(
+			handleUseCaseRequest(_archiveConfig, ctx, { id: IN_GROUP_ENTRY, body: { archived: true } }, () => ctx)
+		).resolves.toMatchObject({ changed: true, entry: { id: IN_GROUP_ENTRY, workflowStatus: 'drafting' } });
+		await expect(
+			handleUseCaseRequest(_archiveConfig, ctx, { id: OTHER_GROUP_ENTRY, body: { archived: true } }, () => ctx)
+		).rejects.toMatchObject({ status: 403 });
+		const other = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: OTHER_GROUP_ENTRY
+		});
+		expect(other?.archived_at ?? null).toBeNull();
 	});
 
 	it('lets a Group operator move an in-Group evaluation and denies one outside the Group', async () => {

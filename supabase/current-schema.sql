@@ -14570,14 +14570,11 @@ CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_
     SET search_path TO ''
     AS $$
 DECLARE
-  v_steps CONSTANT text[] := ARRAY['drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
+  v_steps CONSTANT text[] := ARRAY['drafting', 'command-review', 'with-rater', 'rater-signed', 'with-intermediate-rater',
     'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
-    'submitted-to-s1', 'completed'];
+    'submitted-to-hrc', 'completed'];
   v_row public.rating_scheme_entries;
   v_absent text[] := '{}';
-  v_at integer;
-  v_prev text;
-  v_next text;
 BEGIN
   IF p_to IS NOT NULL AND NOT p_to = ANY (v_steps) THEN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
@@ -14608,21 +14605,10 @@ BEGIN
   IF v_row.reviewer_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.reviewer_name), '') IS NULL THEN
     v_absent := v_absent || ARRAY['with-reviewer', 'reviewer-signed'];
   END IF;
-  v_at := pg_catalog.array_position(v_steps, v_row.workflow_status);
-  IF v_at IS NOT NULL THEN
-    SELECT s.step INTO v_prev FROM unnest(v_steps) WITH ORDINALITY AS s(step, n)
-    WHERE s.n < v_at AND NOT s.step = ANY (v_absent) ORDER BY s.n DESC LIMIT 1;
-    SELECT s.step INTO v_next FROM unnest(v_steps) WITH ORDINALITY AS s(step, n)
-    WHERE s.n > v_at AND NOT s.step = ANY (v_absent) ORDER BY s.n LIMIT 1;
-  END IF;
 
-  -- A missing neighbour is NULL, so the comparison must not decide the move by being NULL.
-  IF NOT COALESCE(
-    (v_row.workflow_status IS NULL AND p_to IN ('drafting', 'completed'))
-    OR (p_to IS NULL AND v_row.workflow_status IN ('drafting', 'completed'))
-    OR p_to = v_prev OR p_to = v_next,
-    false
-  ) THEN
+  -- A row that differs from Not tracked is at a step, so stopping tracking asks only that the step be drafting or completed.
+  IF NOT ((p_to IS NULL AND v_row.workflow_status IN ('drafting', 'completed'))
+    OR (p_to IS NOT NULL AND NOT p_to = ANY (v_absent))) THEN
     RAISE EXCEPTION 'An evaluation at % cannot move to %',
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_to, 'not tracked') USING ERRCODE = '55000';
   END IF;
@@ -16181,7 +16167,7 @@ CREATE TABLE public.rating_scheme_entries (
     report_type text,
     workflow_status text,
     CONSTRAINT rating_scheme_entries_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text]))),
-    CONSTRAINT rating_scheme_entries_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'with-rater'::text, 'rater-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-s1'::text, 'completed'::text]))))
+    CONSTRAINT rating_scheme_entries_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'command-review'::text, 'with-rater'::text, 'rater-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-hrc'::text, 'completed'::text]))))
 );
 
 

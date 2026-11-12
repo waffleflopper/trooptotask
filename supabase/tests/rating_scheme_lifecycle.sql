@@ -1,7 +1,8 @@
--- An Evaluation moves one step at a time, as an ordinary signed-in Evals operator.
--- Each row names the steps an entry may move to from one step, for the evaluators it has. Every other target is
--- "refused" (SQLSTATE 55000) and the current step is "unchanged" (the call returns false). The same rows are asserted
--- against workflowMoves in evaluationWorkflow.test.ts, so the table cannot change on one side alone.
+-- An Evaluation jumps to any present step, as an ordinary signed-in Evals operator.
+-- Each refusals row names, for the evaluators an entry has and a group of steps it may sit at, the targets that are
+-- "refused" (SQLSTATE 55000): the steps an absent evaluator leaves out, and Not tracked unless the entry is at drafting
+-- or completed. Every other target moves, and the current step is "unchanged" (the call returns false). The same rows
+-- are asserted against isWorkflowMoveAllowed in evaluationWorkflow.test.ts, so the rule cannot change on one side alone.
 --
 --   none      no intermediate rater, no reviewer
 --   both      an intermediate rater and a reviewer, by Person
@@ -19,9 +20,9 @@ CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
     set_config('request.jwt.claims', json_build_object('sub', pg_temp.id(p_user), 'role', 'authenticated')::text, true);
 $$;
 CREATE FUNCTION pg_temp.steps() RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
-  SELECT ARRAY['not tracked', 'drafting', 'with-rater', 'rater-signed', 'with-intermediate-rater',
+  SELECT ARRAY['not tracked', 'drafting', 'command-review', 'with-rater', 'rater-signed', 'with-intermediate-rater',
     'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
-    'submitted-to-s1', 'completed'];
+    'submitted-to-hrc', 'completed'];
 $$;
 CREATE FUNCTION pg_temp.step(p_label text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
   SELECT NULLIF(p_label, 'not tracked');
@@ -41,21 +42,13 @@ BEGIN
   RETURN v_id;
 END;
 $$;
--- Walks forward through legal moves only; a step the entry's evaluators skip is refused and passed by.
+-- Puts an entry at a step by one jump; the legacy entry then loses its intermediate rater.
 CREATE FUNCTION pg_temp.at_step(p_roles text, p_label text) RETURNS uuid LANGUAGE plpgsql AS $$
-DECLARE
-  v_id uuid := pg_temp.new_entry(p_roles);
-  v_step text;
+DECLARE v_id uuid := pg_temp.new_entry(p_roles);
 BEGIN
-  FOREACH v_step IN ARRAY (pg_temp.steps())[2:] LOOP
-    EXIT WHEN (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = v_id)
-      IS NOT DISTINCT FROM pg_temp.step(p_label);
-    BEGIN
-      PERFORM public.transition_rating_scheme_entry(pg_temp.id('101'), v_id,
-        (SELECT workflow_status FROM public.rating_scheme_entries WHERE id = v_id), v_step);
-    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
-    END;
-  END LOOP;
+  IF p_label <> 'not tracked' THEN
+    PERFORM public.transition_rating_scheme_entry(pg_temp.id('101'), v_id, NULL, p_label);
+  END IF;
   IF p_roles = 'legacy' THEN
     UPDATE public.rating_scheme_entries SET intermediate_rater_person_id = NULL, intermediate_rater_name = '  '
     WHERE id = v_id;
@@ -77,14 +70,16 @@ EXCEPTION
   WHEN SQLSTATE 'RSL01' THEN RETURN SQLERRM;
 END;
 $$;
-CREATE TEMP TABLE matrix (roles text, from_step text, allowed text[], entry uuid);
+CREATE TEMP TABLE refusals (roles text, from_steps text[], refused text[]);
+CREATE TEMP TABLE matrix (roles text, from_step text, refused text[], entry uuid);
 CREATE TEMP TABLE probe (entry uuid);
 CREATE TEMP TABLE changed (entry uuid, successor uuid);
 CREATE TEMP TABLE leap (entry uuid, successor uuid);
 CREATE TEMP TABLE fresh (entry uuid);
+CREATE TEMP TABLE jumped (entry uuid);
 CREATE TEMP TABLE stale (entry uuid);
 CREATE TEMP TABLE returned (label text, result jsonb);
-GRANT ALL ON matrix, probe, changed, leap, fresh, stale, returned TO authenticated;
+GRANT ALL ON refusals, matrix, probe, changed, leap, fresh, jumped, stale, returned TO authenticated;
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT pg_temp.id(n::text), 'authenticated', 'authenticated', 'lifecycle-' || n || '@example.test', now()
@@ -115,50 +110,49 @@ SELECT ok(NOT has_function_privilege('anon', 'public.transition_rating_scheme_en
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('2');
 
-INSERT INTO matrix (roles, from_step, allowed) VALUES
-  ('none', 'not tracked', ARRAY['drafting', 'completed']),
-  ('none', 'drafting', ARRAY['not tracked', 'with-rater']),
-  ('none', 'with-rater', ARRAY['drafting', 'rater-signed']),
-  ('none', 'rater-signed', ARRAY['with-rater', 'with-senior-rater']),
-  ('none', 'with-senior-rater', ARRAY['rater-signed', 'sr-signed']),
-  ('none', 'sr-signed', ARRAY['with-senior-rater', 'with-rated-soldier']),
-  ('none', 'with-rated-soldier', ARRAY['sr-signed', 'sm-signed']),
-  ('none', 'sm-signed', ARRAY['with-rated-soldier', 'submitted-to-s1']),
-  ('none', 'submitted-to-s1', ARRAY['sm-signed', 'completed']),
-  ('none', 'completed', ARRAY['submitted-to-s1', 'not tracked']),
-  ('both', 'not tracked', ARRAY['drafting', 'completed']),
-  ('both', 'drafting', ARRAY['not tracked', 'with-rater']),
-  ('both', 'with-rater', ARRAY['drafting', 'rater-signed']),
-  ('both', 'rater-signed', ARRAY['with-rater', 'with-intermediate-rater']),
-  ('both', 'with-intermediate-rater', ARRAY['rater-signed', 'ir-signed']),
-  ('both', 'ir-signed', ARRAY['with-intermediate-rater', 'with-senior-rater']),
-  ('both', 'with-senior-rater', ARRAY['ir-signed', 'sr-signed']),
-  ('both', 'sr-signed', ARRAY['with-senior-rater', 'with-reviewer']),
-  ('both', 'with-reviewer', ARRAY['sr-signed', 'reviewer-signed']),
-  ('both', 'reviewer-signed', ARRAY['with-reviewer', 'with-rated-soldier']),
-  ('both', 'with-rated-soldier', ARRAY['reviewer-signed', 'sm-signed']),
-  ('both', 'sm-signed', ARRAY['with-rated-soldier', 'submitted-to-s1']),
-  ('both', 'submitted-to-s1', ARRAY['sm-signed', 'completed']),
-  ('both', 'completed', ARRAY['submitted-to-s1', 'not tracked']),
-  ('reviewer', 'sr-signed', ARRAY['with-senior-rater', 'with-reviewer']),
-  ('reviewer', 'with-reviewer', ARRAY['sr-signed', 'reviewer-signed']),
-  ('reviewer', 'reviewer-signed', ARRAY['with-reviewer', 'with-rated-soldier']),
-  ('reviewer', 'with-rated-soldier', ARRAY['reviewer-signed', 'sm-signed']),
-  ('legacy', 'with-intermediate-rater', ARRAY['rater-signed', 'with-senior-rater']);
+INSERT INTO refusals (roles, from_steps, refused) VALUES
+  ('none', ARRAY['drafting', 'completed'],
+    ARRAY['with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed']),
+  ('none', ARRAY['not tracked', 'command-review', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
+    'with-rated-soldier', 'sm-signed', 'submitted-to-hrc'],
+    ARRAY['not tracked', 'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed']),
+  ('both', ARRAY['drafting', 'completed'], ARRAY[]::text[]),
+  ('both', ARRAY['not tracked', 'command-review', 'with-rater', 'rater-signed', 'with-intermediate-rater', 'ir-signed',
+    'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
+    'submitted-to-hrc'],
+    ARRAY['not tracked']),
+  ('reviewer', ARRAY['drafting', 'completed'], ARRAY['with-intermediate-rater', 'ir-signed']),
+  ('reviewer', ARRAY['not tracked', 'command-review', 'with-rater', 'rater-signed', 'with-senior-rater', 'sr-signed',
+    'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed', 'submitted-to-hrc'],
+    ARRAY['not tracked', 'with-intermediate-rater', 'ir-signed']),
+  ('legacy', ARRAY['with-intermediate-rater'],
+    ARRAY['not tracked', 'with-intermediate-rater', 'ir-signed', 'with-reviewer', 'reviewer-signed']);
+INSERT INTO matrix (roles, from_step, refused)
+SELECT r.roles, f.from_step, r.refused FROM refusals r CROSS JOIN LATERAL unnest(r.from_steps) AS f(from_step);
 UPDATE matrix SET entry = pg_temp.at_step(roles, from_step);
 
 SELECT is((SELECT count(*)::int FROM matrix m JOIN public.rating_scheme_entries r ON r.id = m.entry
-    WHERE r.workflow_status IS NOT DISTINCT FROM pg_temp.step(m.from_step)), 29,
-  'every starting step was reached by legal moves');
+    WHERE r.workflow_status IS NOT DISTINCT FROM pg_temp.step(m.from_step)), 40,
+  'every starting step was reached by one jump');
 SELECT is(pg_temp.attempt(m.entry, t.target),
-    CASE WHEN t.target = m.from_step THEN 'unchanged' WHEN t.target = ANY (m.allowed) THEN t.target ELSE 'refused' END,
+    CASE WHEN t.target = m.from_step THEN 'unchanged' WHEN t.target = ANY (m.refused) THEN 'refused' ELSE t.target END,
     m.roles || ': ' || m.from_step || ' to ' || t.target)
 FROM matrix m CROSS JOIN unnest(pg_temp.steps()) AS t(target)
 ORDER BY m.roles, array_position(pg_temp.steps(), m.from_step), array_position(pg_temp.steps(), t.target);
 
-SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'drafting', 'sr-signed') $$,
-    pg_temp.id('101'), pg_temp.at_step('none', 'drafting')),
-  '55000', 'An evaluation at drafting cannot move to sr-signed', 'a jump past the next step is refused');
+INSERT INTO jumped SELECT pg_temp.at_step('none', 'sm-signed');
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'sm-signed', 'drafting') FROM jumped;
+SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM jumped)), 'drafting',
+  'an entry every evaluator has signed goes back to drafting in one move');
+SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'drafting', 'command-review') FROM jumped;
+SELECT is((SELECT workflow_status FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM jumped)), 'command-review',
+  'an entry jumps into Command Review');
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'command-review', 'with-reviewer') $$,
+    pg_temp.id('101'), (SELECT entry FROM jumped)),
+  '55000', 'An evaluation at command-review cannot move to with-reviewer', 'a jump to a step of an absent reviewer is refused');
+SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'drafting', 'with-rater') $$,
+    pg_temp.id('101'), (SELECT entry FROM jumped)),
+  '55000', 'The evaluation is at command-review, not drafting', 'a jump from a step the entry has left is refused');
 SELECT throws_ok(format($$ SELECT public.transition_rating_scheme_entry(%L, %L, 'drafting', 'signed') $$,
     pg_temp.id('101'), (SELECT entry FROM matrix WHERE roles = 'none' AND from_step = 'drafting')),
   '22023', 'Unknown evaluation step', 'an unknown step is rejected');

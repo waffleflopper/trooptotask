@@ -179,10 +179,19 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261110120000_availability_undo_record.sql",
     "20261110130000_member_label_without_membership.sql",
     "20261111120000_evaluation_lifecycle.sql",
+    "20261112120000_evaluation_jump_steps.sql",
 )
 # Rows that must exist before the post-tree migrations apply, and the contracts that read them afterwards.
-POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql", "evaluation_lifecycle_before.sql")
-POST_TREE_CONTRACTS = ("equipment_returned_bound_after.sql", "evaluation_lifecycle_after.sql")
+POST_TREE_FIXTURES = (
+    "equipment_returned_bound_before.sql",
+    "evaluation_lifecycle_before.sql",
+    "evaluation_jump_steps_before.sql",
+)
+POST_TREE_CONTRACTS = (
+    "equipment_returned_bound_after.sql",
+    "evaluation_lifecycle_after.sql",
+    "evaluation_jump_steps_after.sql",
+)
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",

@@ -204,6 +204,68 @@ describe('RatingSchemeEntryModal', () => {
 		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'rater-signed', to: 'with-rater' }, expect.any(Function));
 	});
 
+	it('offers Command Review beside the next step from drafting', async () => {
+		const onMove = vi.fn().mockResolvedValue('command-review');
+		renderWorkflow({ ...entry, workflowStatus: 'drafting' }, { onMove });
+		expect(screen.getByRole('button', { name: 'Move to With Rater' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Send to Command Review' }));
+
+		expect(onMove).toHaveBeenCalledWith('entry-1', { from: 'drafting', to: 'command-review' }, expect.any(Function));
+		expect(await screen.findByRole('button', { name: 'Back to Drafting' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Move to With Rater' })).toBeTruthy();
+	});
+
+	async function openJumpTargets() {
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Jump to step' }));
+		return within(screen.getByRole('listbox', { name: 'Jump to step' }));
+	}
+
+	it('jumps from SM Signed back to Drafting in one move', async () => {
+		const onMove = vi.fn().mockResolvedValue('drafting');
+		renderWorkflow({ ...entry, workflowStatus: 'sm-signed' }, { onMove });
+
+		const targets = await openJumpTargets();
+		const drafting = targets.getByRole('option', { name: 'Drafting' });
+		await fireEvent.pointerDown(drafting);
+		await fireEvent.pointerUp(drafting);
+
+		expect(onMove).toHaveBeenCalledExactlyOnceWith(
+			'entry-1',
+			{ from: 'sm-signed', to: 'drafting' },
+			expect.any(Function)
+		);
+		expect(await screen.findByRole('button', { name: 'Stop tracking' })).toBeTruthy();
+	});
+
+	it('lists the steps this entry has evaluators for, without the current step', async () => {
+		renderWorkflow({ ...entry, reviewerName: 'COL Reviewer', workflowStatus: 'sr-signed' }, { onMove: vi.fn() });
+
+		const targets = await openJumpTargets();
+
+		expect(targets.getAllByRole('option').map((option) => option.textContent?.trim())).toEqual([
+			'Drafting',
+			'Command Review',
+			'With Rater',
+			'Rater Signed',
+			'With Senior Rater',
+			'With Reviewer',
+			'Reviewer Signed',
+			'With Rated Soldier',
+			'SM Signed',
+			'Submitted to HRC',
+			'Completed'
+		]);
+	});
+
+	it('holds the jump while the draft has unsaved edits', async () => {
+		renderWorkflow({ ...entry, workflowStatus: 'drafting' }, { onMove: vi.fn() });
+
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Unsaved' } });
+
+		expect((screen.getByRole('button', { name: 'Jump to step' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it('reopens a completed evaluation as not tracked and offers no change of rater', async () => {
 		const onMove = vi.fn().mockResolvedValue(null);
 		renderWorkflow({ ...entry, workflowStatus: 'completed' }, { onMove, onChangeRater: vi.fn() });

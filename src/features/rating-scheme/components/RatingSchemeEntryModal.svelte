@@ -23,6 +23,7 @@
 		EVALUATION_PHASE_COUNT,
 		evaluationPhase,
 		isEvaluationCompleted,
+		workflowJumpTargets,
 		workflowMoves,
 		workflowRoles,
 		workflowStatusLabel,
@@ -193,6 +194,7 @@
 
 	const phase = $derived(evaluationPhase(workflowStatus));
 	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
+	const jumpTargets = $derived(entry && onMove ? workflowJumpTargets(workflowStatus, workflowRoles(entry)) : []);
 	const canChangeRater = $derived(!!entry && !!onChangeRater && !isEvaluationCompleted(workflowStatus));
 
 	function moveLabel(move: WorkflowMove): string {
@@ -207,6 +209,8 @@
 				return 'Reopen';
 			case 'back':
 				return `Back to ${workflowStatusLabel(move.to)}`;
+			case 'review':
+				return 'Send to Command Review';
 			case 'next':
 				return `Move to ${workflowStatusLabel(move.to)}`;
 		}
@@ -523,7 +527,7 @@
 					{/if}
 				</section>
 
-				{#if entry && (moves.length || canChangeRater)}
+				{#if entry && (moves.length || jumpTargets.length || canChangeRater)}
 					<section class="grid gap-3 border-b px-7 py-5.5" aria-labelledby="workflow-step">
 						{@render sectionTitle('Workflow')}
 						<p id="workflow-step" class="text-sm">
@@ -543,6 +547,18 @@
 									{moveLabel(move)}
 								</Button>
 							{/each}
+							{#if jumpTargets.length}
+								<Select.Root type="single" bind:value={() => '', (to) => handleMove(to as WorkflowStatus)}>
+									<Select.Trigger size="sm" class="w-full sm:w-52" aria-label="Jump to step" disabled={busy || dirty}>
+										Jump to step
+									</Select.Trigger>
+									<Select.Content>
+										{#each jumpTargets as target (target.value)}
+											<Select.Item value={target.value} label={target.label} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							{/if}
 							{#if canChangeRater}
 								<Button variant="outline" size="sm" disabled={busy || dirty} onclick={openChangeRater}>
 									Change rater

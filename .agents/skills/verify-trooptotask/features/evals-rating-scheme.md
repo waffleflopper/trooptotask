@@ -11,8 +11,10 @@ Scheme access is independently grantable without Personnel access.
 - Add/edit in a right-side sheet with one combobox per evaluator role (unit Person or a typed external name), optional
   intermediate rater/reviewer, annual dates and notes; inline required-field errors; save/cancel and reload persistence.
 - One stored lifecycle per evaluation: `workflow_status` null is Not tracked and open, and only `completed` is
-  complete. An existing entry's Workflow section moves it one step at a time, skipping an absent intermediate rater or
-  reviewer, and Change rater closes it as a Change of Rater (`CR`) report and opens the next evaluation.
+  complete. An existing entry's Workflow section steps it Back or Next one present step at a time (skipping an absent
+  intermediate rater or reviewer and the optional Command Review, which Drafting offers as its own button), jumps it to
+  any present step with Jump to step, and Change rater closes it as a Change of Rater (`CR`) report and opens the next
+  evaluation.
 - Overdue, 30-day, 60-day and current due calculations, completed exclusion and the Organization Dashboard due
   projection.
 - Actual filtered Rating Scheme workbook, including evaluator names, dates, due/status/workflow labels and notes.

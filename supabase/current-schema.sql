@@ -1261,7 +1261,13 @@ BEGIN
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
       v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
     END IF;
-    IF v_change = '{}'::jsonb THEN
+    IF (NEW.archived_at IS NULL) <> (OLD.archived_at IS NULL) THEN
+      IF v_change = '{}'::jsonb THEN
+        v_kind := CASE WHEN NEW.archived_at IS NULL THEN 'rating_scheme.restored' ELSE 'rating_scheme.archived' END;
+      ELSE
+        v_change := v_change || pg_catalog.jsonb_build_object('membership', true);
+      END IF;
+    ELSIF v_change = '{}'::jsonb THEN
       RETURN NULL;
     END IF;
   END IF;
@@ -6526,6 +6532,9 @@ BEGIN
     RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row),
       'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
   END IF;
+  IF v_row.archived_at IS NOT NULL THEN
+    RAISE EXCEPTION 'The evaluation is archived' USING ERRCODE = '55000';
+  END IF;
   IF p_rater_person_id = v_row.rater_person_id
     OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
       AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_row.rater_name))) THEN
@@ -6535,7 +6544,9 @@ BEGIN
     RAISE EXCEPTION 'The last day with the current rater must fall within the rating period' USING ERRCODE = '22023';
   END IF;
 
-  UPDATE public.rating_scheme_entries SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed'
+  UPDATE public.rating_scheme_entries
+  SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed',
+    archived_at = pg_catalog.now()
   WHERE organization_id = p_organization_id AND id = p_entry_id
   RETURNING * INTO v_row;
 
@@ -12466,7 +12477,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
       r.workflow_status
     FROM public.rating_scheme_entries r
     JOIN evaluation_cohort c ON c.id = r.rated_person_id
-    WHERE r.organization_id = p_organization_id AND r.workflow_status IS DISTINCT FROM 'completed'
+    WHERE r.organization_id = p_organization_id AND r.archived_at IS NULL AND r.workflow_status IS DISTINCT FROM 'completed'
     ORDER BY r.rated_person_id, r.rating_period_end DESC, r.id DESC
   )
   SELECT jsonb_build_object(
@@ -13228,6 +13239,47 @@ $$;
 
 
 ALTER FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) OWNER TO postgres;
+
+--
+-- Name: set_rating_scheme_entry_archived(uuid, uuid, boolean); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.rating_scheme_entries;
+BEGIN
+  IF p_archived IS NULL THEN
+    RAISE EXCEPTION 'Choose whether to archive or restore the evaluation' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
+  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
+  FOR UPDATE;
+  IF NOT FOUND OR auth.uid() IS NULL
+    OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Archiving this evaluation needs Evals operation access for its scope' USING ERRCODE = '42501';
+  END IF;
+
+  IF (v_row.archived_at IS NOT NULL) = p_archived THEN
+    RETURN pg_catalog.jsonb_build_object('changed', false, 'entry', pg_catalog.to_jsonb(v_row));
+  END IF;
+
+  UPDATE public.rating_scheme_entries
+  SET archived_at = CASE WHEN p_archived THEN pg_catalog.now() END
+  WHERE organization_id = p_organization_id AND id = p_entry_id
+  RETURNING * INTO v_row;
+  RETURN pg_catalog.jsonb_build_object('changed', true, 'entry', pg_catalog.to_jsonb(v_row));
+END;
+$$;
+
+
+ALTER FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) OWNER TO postgres;
 
 --
 -- Name: set_roster_excusals(uuid, uuid, date, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
@@ -16166,6 +16218,8 @@ CREATE TABLE public.rating_scheme_entries (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     report_type text,
     workflow_status text,
+    archived_at timestamp with time zone,
+    archived_by text,
     CONSTRAINT rating_scheme_entries_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text]))),
     CONSTRAINT rating_scheme_entries_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'command-review'::text, 'with-rater'::text, 'rater-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-hrc'::text, 'completed'::text]))))
 );
@@ -19178,6 +19232,13 @@ CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_doc
 --
 
 CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_follow_ups FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+
+
+--
+-- Name: rating_scheme_entries stamp_archived_by; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
 
 
 --
@@ -25086,6 +25147,15 @@ GRANT ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids
 
 REVOKE ALL ON FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) TO authenticated;
+
+
+--
+-- Name: FUNCTION set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) TO authenticated;
+GRANT ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) TO service_role;
 
 
 --

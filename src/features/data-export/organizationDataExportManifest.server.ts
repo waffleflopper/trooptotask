@@ -478,6 +478,7 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				rating_period_start: entry.rating_period_start,
 				rating_period_end: entry.rating_period_end,
 				workflow_status: entry.workflow_status,
+				archived_at: entry.archived_at,
 				notes: entry.notes
 			}))
 	},

@@ -417,6 +417,7 @@ function unavailableRatingScheme(): RatingSchemePersistence {
 		update: unavailable,
 		delete: unavailable,
 		transition: unavailable,
+		setArchived: unavailable,
 		changeRater: unavailable
 	};
 }
@@ -1563,6 +1564,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				eval_type: 'OER' | 'NCOER' | 'WOER';
 				rating_period_end: string;
 				workflow_status: string | null;
+				archived_at?: string | null;
 			}>(
 				'rating_scheme_entries',
 				actor.orgId,
@@ -1574,7 +1576,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				references.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`])
 			);
 			return rows
-				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
+				.filter((row) => !row.archived_at && !isArchivedPerson(archived, row.rated_person_id))
 				.map((row) => ({
 					id: row.id,
 					ratedPersonId: row.rated_person_id,

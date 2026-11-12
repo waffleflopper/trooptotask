@@ -114,6 +114,12 @@ export interface RatingSchemeRaterChangeResult {
 	successor: SavedRatingSchemeEntry | null;
 }
 
+export interface RatingSchemeArchiveResult {
+	entry: SavedRatingSchemeEntry;
+	/** False when the entry was already archived or already listed, as asked. */
+	changed: boolean;
+}
+
 export interface RatingSchemePersistence {
 	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
 	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
@@ -124,6 +130,7 @@ export interface RatingSchemePersistence {
 	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;
 	delete(id: string): Promise<void>;
 	transition(id: string, move: RatingSchemeMove): Promise<RatingSchemeTransition>;
+	setArchived(id: string, archived: boolean): Promise<RatingSchemeArchiveResult>;
 	changeRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
 }
 

@@ -1,6 +1,12 @@
 import { BUILT_IN_RANK_CATALOG, type RankCategory } from '$features/personnel/contracts';
 import { OER_REPORT_TYPES, NCOER_REPORT_TYPES, WOER_REPORT_TYPES } from '../rating-scheme.types';
-import type { RatingDueStatus, ReportType, ReportTypeOption, WorkflowStatus } from '../rating-scheme.types';
+import type {
+	RatingDueStatus,
+	RatingSchemeEntry,
+	ReportType,
+	ReportTypeOption,
+	WorkflowStatus
+} from '../rating-scheme.types';
 import { isEvaluationCompleted } from './evaluationWorkflow';
 import { calendarDayDiff, parseDate } from '$lib/utils/dates';
 
@@ -58,6 +64,14 @@ export function getRatingDueLabel(
 		case 'completed':
 			return { status, text: 'Completed' };
 	}
+}
+
+export function getEntryDueLabel(
+	entry: Pick<RatingSchemeEntry, 'ratingPeriodEnd' | 'workflowStatus' | 'archivedAt'>,
+	today: Date = new Date()
+): RatingDueLabel {
+	if (entry.archivedAt !== null) return { status: 'completed', text: 'Archived' };
+	return getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus, today);
 }
 
 export function getDaysUntilDue(ratingPeriodEnd: string, today: Date = new Date()): number {

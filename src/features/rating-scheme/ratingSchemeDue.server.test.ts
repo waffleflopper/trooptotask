@@ -47,6 +47,10 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 				visible = visible.filter((row) => row[column] === value);
 				return query;
 			},
+			is: (column: string, value: unknown) => {
+				visible = visible.filter((row) => (row[column] ?? null) === value);
+				return query;
+			},
 			order: (column: string, { ascending }: { ascending: boolean }) => {
 				visible.sort((a, b) => String(a[column]).localeCompare(String(b[column])) * (ascending ? 1 : -1));
 				return query;
@@ -184,6 +188,30 @@ describe('Rating Scheme due projection', () => {
 				workflowStatus: null
 			}
 		]);
+	});
+
+	it('leaves out an entry taken off the rating scheme, whatever its step', async () => {
+		const { port } = provider([
+			{
+				id: 'listed',
+				organization_id: 'org-a',
+				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25'
+			},
+			{
+				id: 'archived-open',
+				organization_id: 'org-a',
+				rated_person_id: 'person-b',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25',
+				archived_at: '2026-05-01T00:00:00+00:00'
+			}
+		]);
+
+		const entries = await port.listDueEntries(actor());
+
+		expect(entries.map((entry) => entry.id)).toEqual(['listed']);
 	});
 
 	it('returns no names or entries without permission to read Rating roster references', async () => {

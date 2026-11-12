@@ -9,7 +9,7 @@ import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { isEvaluationCompleted } from '$features/rating-scheme/utils/evaluationWorkflow';
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 
-export type RatingSchemeStatusFilter = 'active' | 'completed' | 'all';
+export type RatingSchemeListingFilter = 'on-scheme' | 'archived' | 'all';
 
 export interface RatingSchemePageData {
 	orgId: string;
@@ -27,7 +27,7 @@ export class RatingSchemePageContext {
 	ratingViewMode = $state<'grouped' | 'table'>('grouped');
 	groupedSort = $state<GroupedSort>('urgency');
 	searchQuery = $state('');
-	ratingFilter = $state<RatingSchemeStatusFilter>('active');
+	ratingFilter = $state<RatingSchemeListingFilter>('on-scheme');
 	evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
 	workflowFilter = $state<WorkflowStatus | 'all'>('all');
 
@@ -94,8 +94,8 @@ export class RatingSchemePageContext {
 	get filteredRatingEntries(): RatingSchemeEntry[] {
 		let entries = this.#ratingStore.items;
 		if (this.ratingFilter !== 'all') {
-			const completed = this.ratingFilter === 'completed';
-			entries = entries.filter((entry) => isEvaluationCompleted(entry.workflowStatus) === completed);
+			const archived = this.ratingFilter === 'archived';
+			entries = entries.filter((entry) => (entry.archivedAt !== null) === archived);
 		}
 		if (this.evalTypeFilter !== 'all') entries = entries.filter((entry) => entry.evalType === this.evalTypeFilter);
 		if (this.workflowFilter !== 'all') {
@@ -133,7 +133,7 @@ export class RatingSchemePageContext {
 	get hasActiveSearchOrFilters(): boolean {
 		return (
 			!!this.searchQuery.trim() ||
-			this.ratingFilter !== 'active' ||
+			this.ratingFilter !== 'on-scheme' ||
 			this.evalTypeFilter !== 'all' ||
 			this.workflowFilter !== 'all'
 		);
@@ -141,7 +141,7 @@ export class RatingSchemePageContext {
 
 	clearSearchAndFilters(): void {
 		this.searchQuery = '';
-		this.ratingFilter = 'active';
+		this.ratingFilter = 'on-scheme';
 		this.evalTypeFilter = 'all';
 		this.workflowFilter = 'all';
 	}
@@ -151,12 +151,15 @@ export class RatingSchemePageContext {
 	}
 
 	get activeEntryCount(): number {
-		return this.#ratingStore.items.filter((entry) => !isEvaluationCompleted(entry.workflowStatus)).length;
+		return this.#ratingStore.items.filter(
+			(entry) => entry.archivedAt === null && !isEvaluationCompleted(entry.workflowStatus)
+		).length;
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0 };
 		for (const entry of this.#ratingStore.items) {
+			if (entry.archivedAt !== null) continue;
 			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 			if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 				counts[status]++;

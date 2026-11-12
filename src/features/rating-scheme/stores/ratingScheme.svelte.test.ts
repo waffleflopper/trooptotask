@@ -19,7 +19,8 @@ const mockEntries: RatingSchemeEntry[] = [
 		ratingPeriodEnd: '2026-03-31',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'drafting'
+		workflowStatus: 'drafting',
+		archivedAt: null
 	},
 	{
 		id: '2',
@@ -37,7 +38,8 @@ const mockEntries: RatingSchemeEntry[] = [
 		ratingPeriodEnd: '2026-05-31',
 		notes: null,
 		reportType: 'AN',
-		workflowStatus: 'completed'
+		workflowStatus: 'completed',
+		archivedAt: null
 	}
 ];
 
@@ -99,7 +101,8 @@ describe('ratingSchemeStore', () => {
 				ratingPeriodEnd: '2026-03-31',
 				notes: null,
 				reportType: 'AN',
-				workflowStatus: 'drafting'
+				workflowStatus: 'drafting',
+				archivedAt: null
 			});
 
 			expect(result).not.toBeNull();

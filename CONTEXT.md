@@ -340,15 +340,15 @@ A reusable, ordered in-processing workflow definition, including checkbox steps,
 _Avoid_: Active onboarding record, checklist
 
 **Rating Scheme**:
-The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain.
+The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain. An Evaluation is listed on the scheme until it is archived, whatever its workflow step.
 _Avoid_: Personnel metadata
 
 **Evaluation**:
-The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step.
+The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step. Whether an Evaluation is listed on the Rating Scheme is a separate fact, set by archiving and restoring it. Completing an Evaluation does not archive it, and an archived Evaluation keeps its step.
 _Avoid_: Training, counseling, a separate record status
 
 **Change of Rater**:
-The action that completes an open Evaluation as a Change of Rater report through the last day with its rater and opens the next Evaluation for the new rater the following day.
+The action that completes an open Evaluation as a Change of Rater report through the last day with its rater, archives it, and opens the next Evaluation for the new rater the following day.
 _Avoid_: A status value
 
 **Rated Individual**:

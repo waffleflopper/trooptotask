@@ -9,6 +9,7 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { PersonnelRatingSchemeRosterPort, PersonnelWriteSubject } from '$features/personnel/contracts';
 import type {
+	RatingSchemeArchiveResult,
 	RatingSchemePersistence,
 	RatingSchemePatchValues,
 	RatingSchemeRaterChangeResult,
@@ -17,6 +18,7 @@ import type {
 	SavedRatingSchemeEntry
 } from '../contracts';
 import {
+	ratingSchemeArchiveSchema,
 	ratingSchemeEntryCreateSchema,
 	ratingSchemeEntryUpdateSchema,
 	ratingSchemeRaterChangeSchema,
@@ -34,7 +36,7 @@ export interface RatingSchemeEntryWriteContext {
 	readonly audit: PolicyAuditSink;
 	readonly ratingScheme: Pick<
 		RatingSchemePersistence,
-		'findWriteReference' | 'create' | 'update' | 'delete' | 'transition' | 'changeRater'
+		'findWriteReference' | 'create' | 'update' | 'delete' | 'transition' | 'changeRater' | 'setArchived'
 	>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
@@ -187,7 +189,7 @@ async function requireEntryUpdatePolicy(
 	return current;
 }
 
-/** Moves an evaluation one step; the database refuses any other move. */
+/** Moves an evaluation to another present step; the database refuses any other move. */
 export async function transitionRatingSchemeEntry(
 	ctx: RatingSchemeEntryWriteContext,
 	id: string,
@@ -196,6 +198,17 @@ export async function transitionRatingSchemeEntry(
 	const move = parseEntryInput(ratingSchemeTransitionSchema, data);
 	await requireEntryUpdatePolicy(ctx, id);
 	return ctx.ratingScheme.transition(id, move);
+}
+
+/** Takes an evaluation off the rating scheme or puts it back, whatever step it has reached. */
+export async function setRatingSchemeEntryArchived(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string,
+	data: Record<string, unknown>
+): Promise<RatingSchemeArchiveResult> {
+	const { archived } = parseEntryInput(ratingSchemeArchiveSchema, data);
+	await requireEntryUpdatePolicy(ctx, id);
+	return ctx.ratingScheme.setArchived(id, archived);
 }
 
 /** Completes the evaluation as a Change of Rater report and opens the next one for the new rater. */

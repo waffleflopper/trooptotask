@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
@@ -22,7 +23,8 @@ const entry: RatingSchemeEntry = {
 	ratingPeriodEnd: '2026-12-31',
 	notes: null,
 	reportType: 'AN',
-	workflowStatus: null
+	workflowStatus: null,
+	archivedAt: null
 };
 
 const personnel = [
@@ -300,6 +302,93 @@ describe('RatingSchemeEntryModal', () => {
 
 		expect(onMove).not.toHaveBeenCalled();
 		expect((screen.getByRole('button', { name: /^Move to/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	describe('rating scheme listing', () => {
+		const onScheme = { ...entry, workflowStatus: 'completed' as const };
+		const off = { ...onScheme, archivedAt: '2026-06-01T00:00:00.000Z' };
+
+		function renderListing(
+			value: RatingSchemeEntry,
+			onArchive?: ComponentProps<typeof RatingSchemeEntryModal>['onArchive']
+		) {
+			return render(RatingSchemeEntryModal, {
+				props: { entry: value, personnel, isCurrentWorkspace: () => true, onSave: vi.fn(), onArchive, onClose: vi.fn() }
+			});
+		}
+
+		it.each([
+			['an open evaluation', { ...entry, workflowStatus: 'drafting' as const }],
+			['a completed evaluation', onScheme]
+		])('archives %s and then offers to restore it', async (_label, value) => {
+			const onArchive = vi.fn().mockResolvedValue('2026-06-01T00:00:00.000Z');
+			renderListing(value, onArchive);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+			expect(onArchive).toHaveBeenCalledWith('entry-1', true, expect.any(Function));
+			expect(await screen.findByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+		});
+
+		it('restores an archived evaluation and offers to archive it again', async () => {
+			const onArchive = vi.fn().mockResolvedValue(null);
+			renderListing(off, onArchive);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Restore to rating scheme' }));
+
+			expect(onArchive).toHaveBeenCalledWith('entry-1', false, expect.any(Function));
+			expect(await screen.findByRole('button', { name: 'Archive' })).toBeTruthy();
+		});
+
+		it('keeps the listing and explains a refused archive inside the dialog', async () => {
+			const onArchive = vi.fn().mockRejectedValue(new Error('You need Evals operation access for this Group.'));
+			renderListing(onScheme, onArchive);
+			const dialog = screen.getByRole('dialog', { name: 'SGT Rated, Riley' });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+			expect((await within(dialog).findByRole('alert')).textContent).toContain(
+				'You need Evals operation access for this Group.'
+			);
+			expect(screen.getByRole('button', { name: 'Archive' })).toBeTruthy();
+		});
+
+		it('keeps the listing when the workspace changed before the answer', async () => {
+			renderListing(onScheme, vi.fn().mockResolvedValue(undefined));
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+			await waitFor(() =>
+				expect((screen.getByRole('button', { name: 'Archive' }) as HTMLButtonElement).disabled).toBe(false)
+			);
+		});
+
+		it('reads an archived open evaluation past its thru date as archived and offers no change of rater', () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2027-03-01T12:00:00'));
+			try {
+				render(RatingSchemeEntryModal, {
+					props: {
+						entry: { ...off, workflowStatus: 'with-rater' },
+						personnel,
+						isCurrentWorkspace: () => true,
+						onSave: vi.fn(),
+						onMove: vi.fn(),
+						onArchive: vi.fn(),
+						onChangeRater: vi.fn(),
+						onClose: vi.fn()
+					}
+				});
+
+				const dialog = screen.getByRole('dialog');
+				expect(dialog).toHaveAccessibleDescription('Archived');
+				expect(screen.getByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
+				expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
 	});
 
 	describe('change of rater', () => {

@@ -2,7 +2,7 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
-	import { getRatingDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
+	import { getEntryDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
 	import { workflowStatusLabel } from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import { groupRatingSchemeEntries, type GroupedSort } from '../utils/ratingSchemeGroups';
@@ -39,7 +39,7 @@
 </script>
 
 {#snippet rowBody(entry: RatingSchemeEntry)}
-	{@const due = getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus)}
+	{@const due = getEntryDueLabel(entry)}
 	{@const tone = ratingDueTone[due.status]}
 	<span class="absolute inset-y-0 left-0 w-0.75 {tone.rail}" aria-hidden="true"></span>
 	<span class="truncate text-[15px] font-semibold @max-3xl:col-start-1 @max-3xl:row-start-1"

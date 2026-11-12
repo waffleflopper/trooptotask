@@ -105,6 +105,16 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 			const result = data as { moved: boolean; entry: RatingSchemeRow };
 			return { entry: mapRatingSchemeEntry(result.entry), moved: result.moved };
 		},
+		async setArchived(id, archived) {
+			const { data, error } = await client.rpc('set_rating_scheme_entry_archived', {
+				p_organization_id: orgId,
+				p_entry_id: id,
+				p_archived: archived
+			});
+			if (error) return lifecycleFailure(error);
+			const result = data as { changed: boolean; entry: RatingSchemeRow };
+			return { entry: mapRatingSchemeEntry(result.entry), changed: result.changed };
+		},
 		async changeRater(id, change) {
 			const { data, error } = await client.rpc('change_rating_scheme_rater', {
 				p_organization_id: orgId,

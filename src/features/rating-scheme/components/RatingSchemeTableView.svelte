@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingDueStatus, RatingSchemeEntry, WorkflowStatus } from '../rating-scheme.types';
-	import { getRatingDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
+	import { getEntryDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
 	import { workflowStatusLabel } from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import { Badge } from '$lib/components/ui/badge';
@@ -55,7 +55,7 @@
 	}
 
 	function dueLabel(entry: RatingSchemeEntry) {
-		return getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus);
+		return getEntryDueLabel(entry);
 	}
 
 	const columns: ColumnDef<RatingSchemeEntry>[] = [

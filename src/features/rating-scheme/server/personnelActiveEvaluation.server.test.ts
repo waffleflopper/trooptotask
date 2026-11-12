@@ -26,6 +26,7 @@ function entry(overrides: Partial<SavedRatingSchemeEntry>): SavedRatingSchemeEnt
 		notes: null,
 		reportType: 'AN',
 		workflowStatus: 'drafting',
+		archivedAt: null,
 		created_at: '2025-12-01T00:00:00Z',
 		updated_at: '2025-12-01T00:00:00Z',
 		...overrides
@@ -72,6 +73,22 @@ describe('loadPersonnelActiveEvaluation', () => {
 			intermediateRater: 'Unknown',
 			reviewer: 'MAJ Chen (external)'
 		});
+	});
+
+	it('skips an entry taken off the rating scheme and reads the next open one', async () => {
+		const evaluation = await loadPersonnelActiveEvaluation({
+			ratingScheme: {
+				listPersonReadiness: async () => [
+					entry({ id: 'archived-open', archivedAt: '2026-05-01T00:00:00Z', ratingPeriodEnd: '2027-01-01' }),
+					entry({ id: 'listed', ratingPeriodEnd: '2026-11-30' })
+				]
+			},
+			asOf: '2026-10-06',
+			loadAuthorizedPerson: async () => person,
+			findPersonNames: async () => new Map()
+		});
+
+		expect(evaluation?.entryId).toBe('listed');
 	});
 
 	it('resolves to null when every entry is completed', async () => {

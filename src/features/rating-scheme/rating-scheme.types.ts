@@ -94,6 +94,8 @@ export interface RatingSchemeEntry {
 	notes: string | null;
 	reportType: ReportType | null;
 	workflowStatus: WorkflowStatus | null;
+	/** When an operator took the entry off the rating scheme; null while it is listed. Independent of the step. */
+	archivedAt: string | null;
 }
 
 export interface EvaluationPhase {

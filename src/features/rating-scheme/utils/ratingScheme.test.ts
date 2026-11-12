@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	getEvalTypeForRank,
+	getEntryDueLabel,
 	getRatingDueLabel,
 	getRatingDueStatus,
 	getDaysUntilDue,
@@ -112,5 +113,18 @@ describe('getRatingDueLabel', () => {
 		['2026-04-04', 'with-reviewer', { status: 'due-30', text: 'Thru in 16d' }]
 	] as const)('labels %s for a %s entry', (end, status, expected) => {
 		expect(getRatingDueLabel(end, status, today)).toEqual(expected);
+	});
+});
+
+describe('getEntryDueLabel', () => {
+	const today = new Date('2026-03-19T12:00:00');
+
+	it.each([
+		[null, 'drafting', { status: 'overdue', text: '18d past thru' }],
+		['2026-03-20T00:00:00Z', 'drafting', { status: 'completed', text: 'Archived' }],
+		['2026-03-20T00:00:00Z', 'completed', { status: 'completed', text: 'Archived' }],
+		[null, 'completed', { status: 'completed', text: 'Completed' }]
+	] as const)('labels an entry archived at %s in workflow %s', (archivedAt, workflowStatus, expected) => {
+		expect(getEntryDueLabel({ ratingPeriodEnd: '2026-03-01', workflowStatus, archivedAt }, today)).toEqual(expected);
 	});
 });

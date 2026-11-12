@@ -22,7 +22,8 @@ const entry: RatingSchemeEntry = {
 	ratingPeriodEnd: '2026-12-31',
 	notes: null,
 	reportType: 'AN',
-	workflowStatus: null
+	workflowStatus: null,
+	archivedAt: null
 };
 
 const personnelLookup = [
@@ -58,6 +59,41 @@ describe('RatingSchemeModals edit feedback', () => {
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(shown));
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Counseled monthly');
+		expect(ratingSchemeStore.items).toEqual([entry]);
+	});
+
+	it('updates the listed entry in place from the archive response', async () => {
+		const archivedAt = '2026-06-01T00:00:00.000Z';
+		const fetched: string[] = [];
+		vi.stubGlobal('fetch', async (input: string, init: RequestInit) => {
+			fetched.push(`${input} ${init.body}`);
+			return Response.json({ changed: true, entry: { ...entry, archivedAt, organization_id: 'org-1' } });
+		});
+		const modals = new ModalRegistry();
+		modals.open('rating-modal', { entry });
+		render(RatingSchemeModals, {
+			props: { orgId: 'org-1', modals, personnelLookup, onRequestDeletion: async () => false }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy());
+		expect(fetched).toEqual(['/org/org-1/api/rating-scheme/entry-1/archive {"archived":true}']);
+		expect(ratingSchemeStore.items.map((item) => item.archivedAt)).toEqual([archivedAt]);
+		expect(modals.isOpen('rating-modal')).toBe(true);
+	});
+
+	it('keeps the entry listed and shows the reason when the archive is refused', async () => {
+		vi.stubGlobal('fetch', async () => Response.json({ message: 'Evaluation not found' }, { status: 404 }));
+		const modals = new ModalRegistry();
+		modals.open('rating-modal', { entry });
+		render(RatingSchemeModals, {
+			props: { orgId: 'org-1', modals, personnelLookup, onRequestDeletion: async () => false }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Evaluation not found'));
 		expect(ratingSchemeStore.items).toEqual([entry]);
 	});
 });

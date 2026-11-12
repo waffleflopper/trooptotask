@@ -602,65 +602,77 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 	it.each([
 		['Organization', { kind: 'organization' as const }],
 		['Group', groupCoverageForTest({ kind: 'groups' as const, groupIds: ['g-1'] })]
-	])('leaves archived People out of the in-memory %s-scoped projection', async (_label, scopeSet) => {
-		const ctx = buildCtx({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'view'
+	])(
+		'leaves archived People and entries taken off the rating scheme out of the in-memory %s-scoped projection',
+		async (_label, scopeSet) => {
+			const ctx = buildCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'none',
+						onboarding: 'none',
+						ratingScheme: 'view'
+					},
+					scopeSet
+				}
+			});
+			const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+			store.seed('personnel', [
+				{
+					id: 'p-active',
+					organization_id: ORG,
+					group_id: 'g-1',
+					archived_at: null,
+					rank: 'SGT',
+					last_name: 'Able',
+					first_name: 'Synthetic'
 				},
-				scopeSet
-			}
-		});
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-		store.seed('personnel', [
-			{
-				id: 'p-active',
-				organization_id: ORG,
-				group_id: 'g-1',
-				archived_at: null,
-				rank: 'SGT',
-				last_name: 'Able',
-				first_name: 'Synthetic'
-			},
-			{ id: 'p-archived', organization_id: ORG, group_id: 'g-1', archived_at: '2026-10-01T00:00:00Z' }
-		]);
-		store.seed('rating_scheme_entries', [
-			{
-				id: 'e-active',
-				organization_id: ORG,
-				rated_person_id: 'p-active',
-				eval_type: 'NCOER',
-				rating_period_end: '2026-09-25',
-				workflow_status: null
-			},
-			{
-				id: 'e-archived',
-				organization_id: ORG,
-				rated_person_id: 'p-archived',
-				eval_type: 'NCOER',
-				rating_period_end: '2026-09-20',
-				workflow_status: null
-			}
-		]);
-		const result = await load(ctx);
-		expect(result.ratingSchemeEntries).toEqual([
-			{
-				id: 'e-active',
-				ratedPersonId: 'p-active',
-				ratedPersonName: 'SGT Able, Synthetic',
-				evalType: 'NCOER',
-				ratingPeriodEnd: '2026-09-25',
-				workflowStatus: null
-			}
-		]);
-	});
+				{ id: 'p-archived', organization_id: ORG, group_id: 'g-1', archived_at: '2026-10-01T00:00:00Z' }
+			]);
+			store.seed('rating_scheme_entries', [
+				{
+					id: 'e-active',
+					organization_id: ORG,
+					rated_person_id: 'p-active',
+					eval_type: 'NCOER',
+					rating_period_end: '2026-09-25',
+					workflow_status: null
+				},
+				{
+					id: 'e-archived',
+					organization_id: ORG,
+					rated_person_id: 'p-archived',
+					eval_type: 'NCOER',
+					rating_period_end: '2026-09-20',
+					workflow_status: null
+				},
+				{
+					id: 'e-off-scheme',
+					organization_id: ORG,
+					rated_person_id: 'p-active',
+					eval_type: 'NCOER',
+					rating_period_end: '2026-09-22',
+					workflow_status: 'drafting',
+					archived_at: '2026-09-01T00:00:00Z'
+				}
+			]);
+			const result = await load(ctx);
+			expect(result.ratingSchemeEntries).toEqual([
+				{
+					id: 'e-active',
+					ratedPersonId: 'p-active',
+					ratedPersonName: 'SGT Able, Synthetic',
+					evalType: 'NCOER',
+					ratingPeriodEnd: '2026-09-25',
+					workflowStatus: null
+				}
+			]);
+		}
+	);
 
 	it('surfaces an authorized projection failure instead of reporting zero evaluations', async () => {
 		const ctx = buildCtx();

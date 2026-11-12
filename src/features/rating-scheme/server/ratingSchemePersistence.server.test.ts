@@ -22,6 +22,7 @@ const saved: Row = {
 	notes: 'Saved historical notes',
 	report_type: 'CR',
 	workflow_status: 'with-rater',
+	archived_at: null,
 	created_at: '2025-10-05T12:00:00.654321+00:00',
 	updated_at: '2026-10-05T12:00:00.123456+00:00',
 	extra_saved_field: 'private provider value'
@@ -45,6 +46,7 @@ const expected = {
 	notes: 'Saved historical notes',
 	reportType: 'CR',
 	workflowStatus: 'with-rater',
+	archivedAt: null,
 	created_at: '2025-10-05T12:00:00.654321+00:00',
 	updated_at: '2026-10-05T12:00:00.123456+00:00'
 };
@@ -67,6 +69,7 @@ const savedFields = new Set([
 	'notes',
 	'report_type',
 	'workflow_status',
+	'archived_at',
 	'created_at',
 	'updated_at'
 ]);
@@ -290,6 +293,7 @@ describe('owned Rating Scheme provider', () => {
 			notes: null,
 			reportType: 'historical-report',
 			workflowStatus: null,
+			archivedAt: null,
 			created_at: '2026-10-06T12:00:00.123456+00:00',
 			updated_at: '2026-10-06T12:00:00.123456+00:00'
 		});
@@ -297,7 +301,9 @@ describe('owned Rating Scheme provider', () => {
 		expect(rows[0]).not.toHaveProperty('extra_saved_field');
 		expect(new Set(Object.keys(state.requests[0].body as Row))).toEqual(
 			new Set(
-				[...savedFields].filter((field) => !['id', 'workflow_status', 'created_at', 'updated_at'].includes(field))
+				[...savedFields].filter(
+					(field) => !['id', 'workflow_status', 'archived_at', 'created_at', 'updated_at'].includes(field)
+				)
 			)
 		);
 	});
@@ -386,6 +392,16 @@ describe('Rating Scheme lifecycle functions', () => {
 			moved: false
 		});
 		expect(calls).toEqual(['/rest/v1/rpc/transition_rating_scheme_entry']);
+	});
+
+	it('answers an archive from the function result with no second read', async () => {
+		const archivedAt = '2026-10-07T09:00:00+00:00';
+		const { calls, ratingScheme } = lifecycleProvider({ changed: true, entry: { ...saved, archived_at: archivedAt } });
+		expect(await ratingScheme.setArchived('entry-a', true)).toEqual({
+			entry: { ...expected, archivedAt },
+			changed: true
+		});
+		expect(calls).toEqual(['/rest/v1/rpc/set_rating_scheme_entry_archived']);
 	});
 
 	it('answers a change of rater with both rows from the function result', async () => {

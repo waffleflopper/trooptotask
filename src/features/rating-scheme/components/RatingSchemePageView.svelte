@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import { WORKFLOW_STATUS_OPTIONS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
+	import { WORKFLOW_STEPS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { ratingDueTone } from '$features/rating-scheme/utils/ratingDueTone';
 	import type { GroupedSort } from '$features/rating-scheme/utils/ratingSchemeGroups';
@@ -75,7 +75,7 @@
 	];
 	const workflowFilterOptions = $derived([
 		{ value: 'all', label: 'Workflow: All' },
-		...WORKFLOW_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
+		...WORKFLOW_STEPS.map((step) => ({ value: step.value, label: step.label }))
 	]);
 	const setWorkflowFilter = (value: string) => {
 		ctx.workflowFilter = value as WorkflowStatus | 'all';

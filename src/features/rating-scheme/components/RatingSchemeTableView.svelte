@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import type { RatingDueStatus, RatingSchemeEntry } from '../rating-scheme.types';
-	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
+	import type { RatingDueStatus, RatingSchemeEntry, WorkflowStatus } from '../rating-scheme.types';
 	import { getRatingDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
+	import { workflowStatusLabel } from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import { Badge } from '$lib/components/ui/badge';
 	import { DataTable, columnCellClass, eventStartedInInteractiveDescendant } from '$lib/components/ui/data-table';
@@ -50,9 +50,8 @@
 		return `Edit rating entry for ${label}`;
 	}
 
-	function getWorkflowLabel(status: string | null): string {
-		if (!status) return '—';
-		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+	function getWorkflowLabel(status: WorkflowStatus | null): string {
+		return status ? workflowStatusLabel(status) : '—';
 	}
 
 	function dueLabel(entry: RatingSchemeEntry) {

@@ -87,10 +87,11 @@ describe('loadPersonnelActiveEvaluation', () => {
 });
 
 describe('evaluationPhase', () => {
-	it('groups the thirteen workflow statuses into five phases and keeps the real label', () => {
+	it('groups the fourteen workflow statuses into five phases and keeps the real label', () => {
 		const statuses: Array<WorkflowStatus | null> = [
 			null,
 			'drafting',
+			'command-review',
 			'with-rater',
 			'rater-signed',
 			'with-intermediate-rater',
@@ -101,13 +102,14 @@ describe('evaluationPhase', () => {
 			'reviewer-signed',
 			'with-rated-soldier',
 			'sm-signed',
-			'submitted-to-s1',
+			'submitted-to-hrc',
 			'completed'
 		];
 
 		expect(statuses.map((status) => evaluationPhase(status))).toEqual([
 			{ step: 0, label: 'Not tracked' },
 			{ step: 1, label: 'Drafting' },
+			{ step: 1, label: 'Command Review' },
 			{ step: 2, label: 'With Rater' },
 			{ step: 2, label: 'Rater Signed' },
 			{ step: 3, label: 'With Intermediate Rater' },
@@ -118,7 +120,7 @@ describe('evaluationPhase', () => {
 			{ step: 4, label: 'Reviewer Signed' },
 			{ step: 4, label: 'With Rated Soldier' },
 			{ step: 4, label: 'SM Signed' },
-			{ step: 5, label: 'Submitted to S1' },
+			{ step: 5, label: 'Submitted to HRC' },
 			{ step: 5, label: 'Completed' }
 		]);
 	});

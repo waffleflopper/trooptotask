@@ -1,10 +1,9 @@
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 import { formatToday } from '$lib/utils/dates';
-import type { RatingSchemeEntry } from '../rating-scheme.types';
-import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
+import type { RatingSchemeEntry, WorkflowStatus } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
-import { isEvaluationCompleted } from './evaluationWorkflow';
+import { isEvaluationCompleted, workflowStatusLabel } from './evaluationWorkflow';
 
 const RATING_SCHEME_COLUMNS = [
 	{ header: 'Eval Type', key: 'Eval Type', width: 10 },
@@ -42,9 +41,8 @@ function getDueStatusLabel(entry: RatingSchemeEntry): string {
 	return 'Current';
 }
 
-function getWorkflowLabel(status: string | null): string {
-	if (!status) return '';
-	return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+function getWorkflowLabel(status: WorkflowStatus | null): string {
+	return status ? workflowStatusLabel(status) : '';
 }
 
 export async function buildRatingSchemeWorkbook(

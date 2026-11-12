@@ -33,57 +33,49 @@ export const WOER_REPORT_TYPES: ReportTypeOption[] = [
 	{ value: 'EA', label: 'Extended Annual' }
 ];
 
-export type WorkflowStatus =
-	| 'drafting'
-	| 'with-rater'
-	| 'rater-signed'
-	| 'with-senior-rater'
-	| 'sr-signed'
-	| 'with-intermediate-rater'
-	| 'ir-signed'
-	| 'with-reviewer'
-	| 'reviewer-signed'
-	| 'with-rated-soldier'
-	| 'sm-signed'
-	| 'submitted-to-s1'
-	| 'completed';
-
-export interface WorkflowStatusOption {
-	value: WorkflowStatus;
+interface WorkflowStepRecord {
+	value: string;
 	label: string;
+	color: string;
+	/** Which of the five progress phases the step belongs to. */
+	phase: 1 | 2 | 3 | 4 | 5;
+	/** The evaluator the step waits on; the step is absent from an entry that has no one in that role. */
+	role?: 'intermediateRater' | 'reviewer';
+	/** An optional step is offered by its own button and skipped by Back and Next. */
+	optional?: true;
 }
 
-export const WORKFLOW_STATUS_OPTIONS: WorkflowStatusOption[] = [
-	{ value: 'drafting', label: 'Drafting' },
-	{ value: 'with-rater', label: 'With Rater' },
-	{ value: 'rater-signed', label: 'Rater Signed' },
-	{ value: 'with-intermediate-rater', label: 'With Intermediate Rater' },
-	{ value: 'ir-signed', label: 'IR Signed' },
-	{ value: 'with-senior-rater', label: 'With Senior Rater' },
-	{ value: 'sr-signed', label: 'SR Signed' },
-	{ value: 'with-reviewer', label: 'With Reviewer' },
-	{ value: 'reviewer-signed', label: 'Reviewer Signed' },
-	{ value: 'with-rated-soldier', label: 'With Rated Soldier' },
-	{ value: 'sm-signed', label: 'SM Signed' },
-	{ value: 'submitted-to-s1', label: 'Submitted to S1' },
-	{ value: 'completed', label: 'Completed' }
-];
+/** The Evaluation lifecycle in chain order. `null` is "Not tracked" and sits outside the chain. */
+const STEP_RECORDS = [
+	{ value: 'drafting', label: 'Drafting', color: '#6b7280', phase: 1 },
+	{ value: 'command-review', label: 'Command Review', color: '#0ea5e9', phase: 1, optional: true },
+	{ value: 'with-rater', label: 'With Rater', color: '#3b82f6', phase: 2 },
+	{ value: 'rater-signed', label: 'Rater Signed', color: '#22c55e', phase: 2 },
+	{
+		value: 'with-intermediate-rater',
+		label: 'With Intermediate Rater',
+		color: '#3b82f6',
+		phase: 3,
+		role: 'intermediateRater'
+	},
+	{ value: 'ir-signed', label: 'IR Signed', color: '#22c55e', phase: 3, role: 'intermediateRater' },
+	{ value: 'with-senior-rater', label: 'With Senior Rater', color: '#3b82f6', phase: 3 },
+	{ value: 'sr-signed', label: 'SR Signed', color: '#22c55e', phase: 3 },
+	{ value: 'with-reviewer', label: 'With Reviewer', color: '#3b82f6', phase: 4, role: 'reviewer' },
+	{ value: 'reviewer-signed', label: 'Reviewer Signed', color: '#22c55e', phase: 4, role: 'reviewer' },
+	{ value: 'with-rated-soldier', label: 'With Rated Soldier', color: '#8b5cf6', phase: 4 },
+	{ value: 'sm-signed', label: 'SM Signed', color: '#22c55e', phase: 4 },
+	{ value: 'submitted-to-hrc', label: 'Submitted to HRC', color: '#f59e0b', phase: 5 },
+	{ value: 'completed', label: 'Completed', color: '#059669', phase: 5 }
+] as const satisfies readonly WorkflowStepRecord[];
 
-export const WORKFLOW_STATUS_COLORS: Record<WorkflowStatus, string> = {
-	drafting: '#6b7280',
-	'with-rater': '#3b82f6',
-	'rater-signed': '#22c55e',
-	'with-intermediate-rater': '#3b82f6',
-	'ir-signed': '#22c55e',
-	'with-senior-rater': '#3b82f6',
-	'sr-signed': '#22c55e',
-	'with-reviewer': '#3b82f6',
-	'reviewer-signed': '#22c55e',
-	'with-rated-soldier': '#8b5cf6',
-	'sm-signed': '#22c55e',
-	'submitted-to-s1': '#f59e0b',
-	completed: '#059669'
-};
+export type WorkflowStatus = (typeof STEP_RECORDS)[number]['value'];
+
+export interface WorkflowStep extends WorkflowStepRecord {
+	value: WorkflowStatus;
+}
+
+export const WORKFLOW_STEPS: readonly WorkflowStep[] = STEP_RECORDS;
 
 export interface RatingSchemeEntry {
 	id: string;

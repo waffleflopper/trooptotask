@@ -1,40 +1,21 @@
 import {
-	WORKFLOW_STATUS_OPTIONS,
+	WORKFLOW_STEPS,
 	type EvaluationPhase,
 	type RatingSchemeEntry,
-	type WorkflowStatus
+	type WorkflowStatus,
+	type WorkflowStep
 } from '../rating-scheme.types';
-
-/** The stored lifecycle; null is "Not tracked" and counts as open. The database enforces the same moves. */
-export const WORKFLOW_STEPS: readonly WorkflowStatus[] = WORKFLOW_STATUS_OPTIONS.map((option) => option.value);
 
 export const EVALUATION_PHASE_COUNT = 5;
 
-const PHASE_BY_STATUS: Record<WorkflowStatus, 1 | 2 | 3 | 4 | 5> = {
-	drafting: 1,
-	'with-rater': 2,
-	'rater-signed': 2,
-	'with-intermediate-rater': 3,
-	'ir-signed': 3,
-	'with-senior-rater': 3,
-	'sr-signed': 3,
-	'with-reviewer': 4,
-	'reviewer-signed': 4,
-	'with-rated-soldier': 4,
-	'sm-signed': 4,
-	'submitted-to-s1': 5,
-	completed: 5
-};
-
-const INTERMEDIATE_RATER_STEPS: readonly WorkflowStatus[] = ['with-intermediate-rater', 'ir-signed'];
-const REVIEWER_STEPS: readonly WorkflowStatus[] = ['with-reviewer', 'reviewer-signed'];
+const STEP_BY_VALUE = new Map(WORKFLOW_STEPS.map((step) => [step.value, step]));
 
 export interface WorkflowRoles {
 	intermediateRater: boolean;
 	reviewer: boolean;
 }
 
-export type WorkflowMoveKind = 'start' | 'complete' | 'stop' | 'reopen' | 'back' | 'next';
+export type WorkflowMoveKind = 'start' | 'complete' | 'stop' | 'reopen' | 'back' | 'review' | 'next';
 
 export interface WorkflowMove {
 	kind: WorkflowMoveKind;
@@ -47,21 +28,20 @@ export function isEvaluationCompleted(workflowStatus: WorkflowStatus | null): bo
 
 export function parseWorkflowStatus(value: unknown): WorkflowStatus | null {
 	if (value === null || value === undefined) return null;
-	if (typeof value === 'string' && (WORKFLOW_STEPS as readonly string[]).includes(value)) {
-		return value as WorkflowStatus;
-	}
+	const step = typeof value === 'string' ? WORKFLOW_STEPS.find((candidate) => candidate.value === value) : undefined;
+	if (step) return step.value;
 	throw new Error(`Unknown evaluation step: ${String(value)}`);
 }
 
 export function workflowStatusLabel(workflowStatus: WorkflowStatus | null): string {
 	if (!workflowStatus) return 'Not tracked';
-	return WORKFLOW_STATUS_OPTIONS.find((option) => option.value === workflowStatus)?.label ?? workflowStatus;
+	return STEP_BY_VALUE.get(workflowStatus)?.label ?? workflowStatus;
 }
 
-/** Maps the thirteen steps onto five phases: drafting, rater, senior or intermediate rater, reviewer and Soldier, submitted. */
+/** Maps the fourteen steps onto five phases: drafting, rater, senior or intermediate rater, reviewer and Soldier, submitted. */
 export function evaluationPhase(workflowStatus: WorkflowStatus | null): EvaluationPhase {
 	if (!workflowStatus) return { step: 0, label: 'Not tracked' };
-	return { step: PHASE_BY_STATUS[workflowStatus], label: workflowStatusLabel(workflowStatus) };
+	return { step: STEP_BY_VALUE.get(workflowStatus)!.phase, label: workflowStatusLabel(workflowStatus) };
 }
 
 // Matches the database's btrim, which strips spaces only, so a tab-only name still counts as an evaluator.
@@ -79,20 +59,24 @@ export function workflowRoles(
 	};
 }
 
-function isPresentStep(step: WorkflowStatus, roles: WorkflowRoles): boolean {
-	if (INTERMEDIATE_RATER_STEPS.includes(step)) return roles.intermediateRater;
-	if (REVIEWER_STEPS.includes(step)) return roles.reviewer;
-	return true;
+function isPresentStep(step: WorkflowStep, roles: WorkflowRoles): boolean {
+	return !step.role || roles[step.role];
 }
 
-function nearestPresentStep(from: number, direction: 1 | -1, roles: WorkflowRoles): WorkflowStatus | null {
-	for (let index = from + direction; index >= 0 && index < WORKFLOW_STEPS.length; index += direction) {
-		if (isPresentStep(WORKFLOW_STEPS[index], roles)) return WORKFLOW_STEPS[index];
-	}
-	return null;
+/** The steps an entry's evaluators make possible, in chain order. */
+function presentSteps(roles: WorkflowRoles): WorkflowStep[] {
+	return WORKFLOW_STEPS.filter((step) => isPresentStep(step, roles));
 }
 
-/** Every move the lifecycle allows from a step. A step left by a removed role still moves to its present neighbours. */
+/** Where the Jump to step control can send an entry: every present step but the one it is on, in chain order. */
+export function workflowJumpTargets(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WorkflowStep[] {
+	return presentSteps(roles).filter((step) => step.value !== workflowStatus);
+}
+
+/**
+ * The one-step buttons. Back and Next walk the present steps and skip the optional Command Review, which drafting
+ * reaches with its own button. A step left by a removed role still moves to its present neighbours.
+ */
 export function workflowMoves(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WorkflowMove[] {
 	if (workflowStatus === null) {
 		return [
@@ -100,21 +84,27 @@ export function workflowMoves(workflowStatus: WorkflowStatus | null, roles: Work
 			{ kind: 'complete', to: 'completed' }
 		];
 	}
-	const index = WORKFLOW_STEPS.indexOf(workflowStatus);
-	const back = nearestPresentStep(index, -1, roles);
-	const next = nearestPresentStep(index, 1, roles);
+	const at = WORKFLOW_STEPS.findIndex((step) => step.value === workflowStatus);
+	const walkable = (step: WorkflowStep) => !step.optional && isPresentStep(step, roles);
+	const back = WORKFLOW_STEPS.slice(0, at).findLast(walkable);
+	const next = WORKFLOW_STEPS.slice(at + 1).find(walkable);
 	const moves: WorkflowMove[] = [];
-	if (back) moves.push({ kind: 'back', to: back });
-	if (workflowStatus === 'drafting') moves.push({ kind: 'stop', to: null });
-	if (next) moves.push({ kind: 'next', to: next });
+	if (back) moves.push({ kind: 'back', to: back.value });
+	if (workflowStatus === 'drafting') {
+		moves.push({ kind: 'stop', to: null }, { kind: 'review', to: 'command-review' });
+	}
+	if (next) moves.push({ kind: 'next', to: next.value });
 	if (workflowStatus === 'completed') moves.push({ kind: 'reopen', to: null });
 	return moves;
 }
 
+/** Any step to any present step; Not tracked is reachable only from drafting or completed. The database enforces the same rule. */
 export function isWorkflowMoveAllowed(
 	from: WorkflowStatus | null,
 	to: WorkflowStatus | null,
 	roles: WorkflowRoles
 ): boolean {
-	return workflowMoves(from, roles).some((move) => move.to === to);
+	if (from === to) return false;
+	if (to === null) return from === 'drafting' || from === 'completed';
+	return isPresentStep(STEP_BY_VALUE.get(to)!, roles);
 }

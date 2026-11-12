@@ -1,7 +1,7 @@
 export type {
 	RatingSchemeEntryEditorData,
 	WorkflowStatus,
-	WorkflowStatusOption,
+	WorkflowStep,
 	RatingSchemeEntry,
 	RatingDueStatus,
 	ReportType,
@@ -12,8 +12,7 @@ export {
 	OER_REPORT_TYPES,
 	NCOER_REPORT_TYPES,
 	WOER_REPORT_TYPES,
-	WORKFLOW_STATUS_OPTIONS,
-	WORKFLOW_STATUS_COLORS,
+	WORKFLOW_STEPS,
 	RATING_STATUS_COLORS
 } from './contracts';
 

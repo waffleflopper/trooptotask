@@ -2,8 +2,8 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
-	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import { getRatingDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
+	import { workflowStatusLabel } from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import { groupRatingSchemeEntries, type GroupedSort } from '../utils/ratingSchemeGroups';
 	import { Badge } from '$lib/components/ui/badge';
@@ -36,10 +36,6 @@
 		const p = personnel.find((p) => p.id === id);
 		return p ? `${p.rank} ${p.lastName}` : 'Unknown';
 	}
-
-	function getWorkflowLabel(status: string): string {
-		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
-	}
 </script>
 
 {#snippet rowBody(entry: RatingSchemeEntry)}
@@ -64,7 +60,7 @@
 			? ''
 			: 'text-muted-foreground'}"
 	>
-		{entry.workflowStatus ? getWorkflowLabel(entry.workflowStatus) : 'Not tracked'}
+		{workflowStatusLabel(entry.workflowStatus)}
 	</span>
 	<span
 		class="text-right font-mono text-xs font-semibold whitespace-nowrap {tone.text} @max-3xl:col-start-2 @max-3xl:row-start-1"

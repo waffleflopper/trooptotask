@@ -361,35 +361,53 @@ describe('Rating scheme entry — workflow', () => {
 		expect(back).toMatchObject({ moved: true, entry: { workflowStatus: 'rater-signed' } });
 	});
 
-	it('stops at a present reviewer instead of skipping it', async () => {
+	it('jumps back several steps at once and into Command Review', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		seedEntry(ctx, { workflow_status: 'sr-signed', reviewer_name: 'COL Reviewer' });
+		seedEntry(ctx, { workflow_status: 'sm-signed' });
 
-		await expect(
-			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sr-signed', to: 'with-rated-soldier' })
-		).rejects.toMatchObject({
-			status: 409
-		});
-		await expect(
-			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sr-signed', to: 'with-reviewer' })
-		).resolves.toMatchObject({
-			moved: true
-		});
+		const back = await transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sm-signed', to: 'drafting' });
+		expect(back).toMatchObject({ moved: true, entry: { workflowStatus: 'drafting' } });
+		const review = await transitionRatingSchemeEntry(ctx, ENTRY, { from: 'drafting', to: 'command-review' });
+		expect(review).toMatchObject({ moved: true, entry: { workflowStatus: 'command-review' } });
 	});
 
-	it('refuses a step jump and keeps the stored step', async () => {
+	it('refuses a jump to a reviewer step the entry has no reviewer for', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		seedEntry(ctx, { workflow_status: 'drafting' });
+		seedEntry(ctx, { workflow_status: 'sr-signed' });
 
-		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { from: 'drafting', to: 'sr-signed' })).rejects.toMatchObject({
+		await expect(
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'sr-signed', to: 'with-reviewer' })
+		).rejects.toMatchObject({ status: 409 });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
+			id: ENTRY
+		});
+		expect(stored?.workflow_status).toBe('sr-signed');
+	});
+
+	it('jumps to a reviewer step when the entry has a reviewer', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'drafting', reviewer_name: 'COL Reviewer' });
+
+		await expect(
+			transitionRatingSchemeEntry(ctx, ENTRY, { from: 'drafting', to: 'reviewer-signed' })
+		).resolves.toMatchObject({ moved: true, entry: { workflowStatus: 'reviewer-signed' } });
+	});
+
+	it('stops tracking only from drafting or completed', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedEntry(ctx, { workflow_status: 'with-rater' });
+
+		await expect(transitionRatingSchemeEntry(ctx, ENTRY, { from: 'with-rater', to: null })).rejects.toMatchObject({
 			status: 409
 		});
 		const stored = await ctx.store.findOne<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, {
 			id: ENTRY
 		});
-		expect(stored?.workflow_status).toBe('drafting');
+		expect(stored?.workflow_status).toBe('with-rater');
 	});
 
 	it('answers a repeated move to the current step without moving it again', async () => {

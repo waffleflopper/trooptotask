@@ -344,7 +344,7 @@ The independently authorized feature tracking rated people, rating relationships
 _Avoid_: Personnel metadata
 
 **Evaluation**:
-The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed.
+The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step.
 _Avoid_: Training, counseling, a separate record status
 
 **Change of Rater**:

@@ -223,7 +223,7 @@ WHERE p.n >= 43;
 CREATE TEMP TABLE clinic_demo_evals (n integer, rater integer, senior integer, days_remaining integer, workflow text) ON COMMIT DROP;
 INSERT INTO clinic_demo_evals VALUES
   (2,1,NULL,120,'drafting'), (3,1,NULL,45,'with-rater'), (4,2,1,15,'with-senior-rater'),
-  (5,2,1,-10,'submitted-to-s1'), (6,2,1,-60,'completed'), (11,1,NULL,160,'drafting'),
+  (5,2,1,-10,'submitted-to-hrc'), (6,2,1,-60,'completed'), (11,1,NULL,160,'drafting'),
   (12,11,1,25,'with-rater'), (13,2,1,55,'drafting'), (14,13,11,-5,'with-rated-soldier'),
   (15,13,11,-30,'completed'), (16,13,11,20,'with-senior-rater'), (32,2,1,90,'drafting');
 INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id,

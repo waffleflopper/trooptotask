@@ -181,7 +181,7 @@ export class EvalTrackerContext {
 	 * Follows the address after every navigation: a sheet it names opens, and one it opened closes once Back or another
 	 * link leaves it. A viewer who may not edit is not offered either sheet.
 	 */
-	followAddress(url: URL): void {
+	followAddress(url: { readonly searchParams: Pick<URLSearchParams, 'get'> }): void {
 		const entry = url.searchParams.get(ENTRY_PARAM);
 		const start = url.searchParams.get(START_PARAM);
 		const allowed = this.writeAffordance.allowed;

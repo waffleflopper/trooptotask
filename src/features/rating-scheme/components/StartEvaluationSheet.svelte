@@ -61,9 +61,11 @@
 		return next ? { ...next } : { reportType: 'AN', ratingPeriodStart: '', ratingPeriodEnd: '' };
 	}
 
-	const openedOn = untrack(() => ratingSchemeId);
+	/** A link can name a scheme that already has work in progress; the sheet then opens with nobody picked. */
+	const openedRow = untrack(() => ready.find((row) => row.scheme.id === ratingSchemeId));
+	const openedOn = openedRow?.scheme.id ?? null;
 	let chosenId = $state(openedOn ?? '');
-	let period = $state(periodFor(untrack(() => ready.find((row) => row.scheme.id === openedOn))));
+	let period = $state(periodFor(openedRow));
 	let opensAs = $state<'open' | 'completed'>('open');
 	let notes = $state('');
 	let attempted = $state(false);

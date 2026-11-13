@@ -67,6 +67,16 @@ describe('StartEvaluationSheet', () => {
 		expect(screen.getByRole('button', { name: 'Rated Soldier' }).getAttribute('aria-invalid')).toBe('true');
 	});
 
+	it('opens with nobody picked when a link names a scheme that already has work in progress', async () => {
+		const props = renderSheet({ ratingSchemeId: 'scheme-busy' });
+		const picker = screen.getByRole('button', { name: 'Rated Soldier' });
+
+		expect(picker.textContent).not.toContain('scheme-busy');
+		await fireEvent.click(screen.getByRole('button', { name: 'Start evaluation' }));
+		expect(props.onStart).not.toHaveBeenCalled();
+		expect(picker.getAttribute('aria-invalid')).toBe('true');
+	});
+
 	it('records an Evaluation already completed for the person picked', async () => {
 		const props = renderSheet();
 

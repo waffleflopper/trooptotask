@@ -160,7 +160,7 @@ export class RatingSchemeLinesContext {
 	}
 
 	/** Opens the line an address names for a viewer who may edit it, and closes it once Back leaves that address. */
-	followAddress(url: URL): void {
+	followAddress(url: { readonly searchParams: Pick<URLSearchParams, 'get'> }): void {
 		const lineId = url.searchParams.get(LINE_PARAM);
 		if (lineId && this.writeAffordance.allowed && this.#lines.items.some((line) => line.id === lineId)) {
 			this.#modals.open(LINE_SHEET_MODAL, { lineId, fromUrl: true } satisfies LineSheetPayload);

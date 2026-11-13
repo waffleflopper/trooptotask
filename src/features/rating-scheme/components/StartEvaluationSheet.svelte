@@ -95,11 +95,7 @@
 	async function submit() {
 		attempted = true;
 		if (saving || !isCurrent()) return;
-		if (!chosen) {
-			error = 'Choose who this evaluation is for.';
-			return;
-		}
-		if (reportPeriodProblem(period)) return;
+		if (!chosen || reportPeriodProblem(period)) return;
 		error = '';
 		saving = true;
 		try {
@@ -174,7 +170,11 @@
 							</div>
 							{#if chosen}<Badge variant="outline" class="font-mono">{chosen.scheme.evalType}</Badge>{/if}
 						</div>
-						<Field.Description>Lists people on the rating scheme with no open evaluation.</Field.Description>
+						{#if attempted && !chosen}
+							<Field.Error>Rated Soldier is required.</Field.Error>
+						{:else}
+							<Field.Description>Lists people on the rating scheme with no open evaluation.</Field.Description>
+						{/if}
 					</Field.Root>
 				</section>
 

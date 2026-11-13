@@ -5,6 +5,12 @@ Scheme access is independently grantable without Personnel access.
 
 ## Sub-features
 
+- Two route tabs under the Evals header, **Rating Scheme** (`/evals/rating-scheme`) and **Eval Tracker** (`/evals`, where
+  the sidebar's Evals lands), each a link; the Eval Tracker tab carries a red `N past thru` count of open Evaluations
+  past thru.
+- A Rating Scheme tab that lists one line per rating scheme, grouped by Senior rater then rater (or as a table), with
+  a read-only badge for a line's open Evaluation, a right-side sheet to add or edit a line's chain, eval type, notes and
+  archive state, and a Change rater dialog. It never moves an Evaluation's workflow step.
 - Page header with four counts in due tones, a search over rated Soldier and every evaluator, Grouped/table views
   (Grouped sorts by urgency or senior rater A to Z; the table opens by rated Soldier last name), and evaluation type,
   listing (On scheme, Archived or All, from the stored archive time) and workflow filters.
@@ -32,7 +38,8 @@ Scheme access is independently grantable without Personnel access.
 
 ## How to get to it (user POV)
 
-Sign in, choose the Organization and open **Evals** from its navigation. Switch between **Grouped** and **Table**,
+Sign in, choose the Organization and open **Evals** from its navigation, which opens the **Eval Tracker** tab; the
+**Rating Scheme** tab sits beside it. On the tracker, switch between **Grouped** and **Table**,
 search, then use the evaluation filters. **Add Entry** opens a new draft; select an existing row to edit. **Export**
 downloads the currently filtered entries. Return to the Organization Dashboard through its visible navigation to inspect
 upcoming evaluations. A member with Personnel access alone cannot enter Evals.
@@ -264,7 +271,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      - Screen and control: Workspace loading
      - How to reach it: On Home, `server-source arm evaluations hold 1 120000`, then choose Evals
      - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region,
-       named `Loading evaluations`) whose blocks match the loaded page: three header lines, one toolbar block and two
+       named `Loading evaluations`) whose blocks match the loaded page: three header lines, the two-tab row, one toolbar block and two
        Senior rater sections (a heading on a 2 px rule, a rater column at 1024 and up and a list), so nothing shifts
        when rows arrive. At 390 the toolbar block is two rows tall. Release with `server-source restore`
 
@@ -369,6 +376,63 @@ is completed.` Choose `Archived` in the listing filter (`Evaluation listing filt
    server refuses it too. Reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
    `0 past thru, 2 thru in 30 days, 1 thru in 31 to 60 days, 1 current`, from unassigned (+15), the NCO's With Rater
    entry on its archived scheme (+20), the Officer (+45) and the Warrant (+90).
+
+9. **Rating Scheme tab.** Run `$V seed rating-scheme`, then enter as `ratingOperate` and choose the **Rating Scheme** tab
+   (`/evals/rating-scheme`). Record PASS, FAIL, UNAVAILABLE or UNRUN with actor and width for each row. The seed's
+   one listed scheme per Person leaves `Add to scheme` with no Person to pick, so to add a line, archive a seeded
+   Person's scheme first (sheet, `Archive`), then add that Person again; `clean-seeds` removes that Person and both of
+   its schemes, and `rows rating_schemes orgA rated_person_id PERSON_ID` reads count 0 afterwards.
+   - ID: R1 - Screen and control: Tabs and lines - How to reach it: `ratingOperate`, 1440, 1024 and 390 - Expected:
+     The `Evals views` navigation holds `Rating Scheme` (current) and `Eval Tracker` with a red `1 past thru` count on the
+     seed. The header counts read `6 on the scheme`, `1 senior rater`, `6 raters`, `1 with an eval in progress`, with the
+     status `6 of 6 shown` (the total includes archived lines, so it reads `6 of 7` once one exists). Grouped has one `SR` section per
+     Senior rater (`Senior rates N`, `External` tag for a typed name) and, under it, a rater block with a bordered list
+     of lines; each line shows the rated Soldier, the eval type tag and the `IR` and `REV` slots (`Not set` when empty).
+     A line with an open Evaluation shows a badge (five-segment meter, step label, and thru text such as `Thru in 20d`
+     in its tone) that links to `/evals?entry=<evaluation id>`; following it opens that Evaluation in the tracker's
+     modal. Table has Rated Soldier, Eval type, Rater, Intermediate, Senior Rater, Reviewer and Evaluation columns, opens
+     by Rated Soldier and scrolls inside its own region at 1024. No document overflow at 1440, 1024 or 390; at 390 the
+     toolbar is two rows with `Filters` and an icon-only `Add to scheme`, the line's slots wrap and the badge takes its
+     own row
+
+   - ID: R2 - Screen and control: Line sheet - How to reach it: Select a line, then `Add to scheme` - Expected: A sheet
+     slides in from the right (full screen at 390). An existing line reads `Rating scheme line · SR <name>`, the rated
+     Soldier as the title, and its read-only badge with `Open in Eval Tracker ›`; a line with no open Evaluation reads
+     `No open evaluation.`. A new line asks for the Rated Soldier first (only Persons with no listed scheme are offered,
+     else `No one left to add.`), then Rater and Senior rater, optional `+ Intermediate rater` and `+ Reviewer`, the eval
+     type (taken from rank) and notes. `Add to scheme` with every field empty marks the three required fields
+     `aria-invalid` with `... is required.` and focuses `Rated Soldier`. A valid add sends one `POST api/rating-scheme`
+     and nothing to `evaluations`: `rows rating_schemes` reads the new scheme with the picked eval type and
+     `rows evaluations orgA rated_person_id PERSON_ID` gains no row. Saving an edit sends only the changed fields in one
+     `PUT api/rating-scheme`; saving an untouched sheet sends nothing. A refused save (`network arm-fail PAGE rating-scheme`)
+     keeps the sheet open with every value and a `role="alert"` reading `The line was not saved`; the row is unchanged,
+     and after `network restore` the same Save persists. Escape and an outside click leave a dirty sheet open; Cancel
+     discards it. `Archive` sends `POST api/rating-scheme/<scheme id>/archive`, the sheet then reads `Archived` with
+     `Restore`, and `archived_by` is the actor. There is no delete for a scheme
+
+   - ID: R3 - Screen and control: Change rater - How to reach it: Open a line that has an open Evaluation (the seeded
+     NCO), `Change rater` - Expected: While an Evaluation is open the sheet shows the rater read-only with `Change rater`
+     and a note that chain edits apply to the open Evaluation but the rater changes only through that button; the
+     button is disabled while the sheet has unsaved edits. The `Change rater` dialog asks for `New rater` and
+     `Last day with <current rater>` (today, kept inside the period), states the rated days (`N rated days.`, with
+     `A Change of Rater report needs at least 90.` when fewer, which does not block), and previews `Closes` (`CR`,
+     the period and the kept chain) and `Opens` (`AN`, the next day to a year later, `Drafting`). Confirming without a
+     rater shows an alert. One `POST api/evaluations/<id>/change-rater` closes both dialogs; `rows evaluations` reads the
+     old Evaluation `CR`/`completed` with the old rater in `snapshot_rater_*` and a new `AN` `drafting` Evaluation the
+     next day, and `rows rating_schemes` reads the new rater. A refused change keeps the dialog open with
+     `The rater was not changed`. Two buttons then carry the name `Change rater` (the sheet's and the dialog's), so click
+     the dialog's by UID
+
+   - ID: R4 - Screen and control: Access, empty and loading - How to reach it: `ratingView`, `ratingEmpty`, Personnel-only
+     `manager`; `server-source arm evaluations hold 1 120000` then open the tab - Expected: View reads the lines with no
+     `Add to scheme` and no line button; Empty reads `Nothing on the rating scheme yet` with `Add to scheme`; manager
+     reads `Access Restricted`. While the workspace streams, the `Loading evaluations` region shows the tab-row
+     placeholder, then the page replaces it without moving the header
+
+   - ID: R5 - Screen and control: Export - How to reach it: `export arm`, `Export`, `export save`,
+     `workbook FILE 'Rating Scheme'` - Expected: `rating-scheme-<browser day>.xlsx` with the sheet `Rating Scheme` and the
+     columns Rated Individual, Rank, Eval Type, Rater, Intermediate Rater, Senior Rater, Reviewer, Rating Scheme (Listed
+     or Archived) and Notes; only the filtered lines, and no workflow columns
 
 Remove UI-created entries through the owner UI. Compare every original A/B scheme and Evaluation row across all saved fields,
 including timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any

@@ -340,19 +340,19 @@ A reusable, ordered in-processing workflow definition, including checkbox steps,
 _Avoid_: Active onboarding record, checklist
 
 **Rating Scheme**:
-The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain. An Evaluation is listed on the scheme until it is archived, whatever its workflow step.
+The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain. Each Rated Individual has at most one listed rating scheme, which holds their rating chain: rater, intermediate rater, senior rater and reviewer. A rating scheme leaves the Rating Scheme when it is archived and returns when it is restored.
 _Avoid_: Personnel metadata
 
 **Evaluation**:
-The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step. Whether an Evaluation is listed on the Rating Scheme is a separate fact, set by archiving and restoring it. Completing an Evaluation does not archive it, and an archived Evaluation keeps its step.
+The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step. Each Evaluation belongs to one rating scheme and is rated by that scheme's current chain until it is completed; a completed Evaluation keeps the chain that signed it. An Evaluation stays on the tracker while its scheme is listed, and while it is open after its scheme is archived. Completing an Evaluation does not archive its scheme, and archiving a scheme keeps every Evaluation's step.
 _Avoid_: Training, counseling, a separate record status
 
 **Change of Rater**:
-The action that completes an open Evaluation as a Change of Rater report through the last day with its rater, archives it, and opens the next Evaluation for the new rater the following day.
+The action that completes an open Evaluation as a Change of Rater report through the last day with its rater, gives its rating scheme the new rater, and opens the next Evaluation on that scheme the following day.
 _Avoid_: A status value
 
 **Rated Individual**:
-The person represented by a Personnel Record whose evaluation relationships are tracked in a Rating Scheme entry.
+The person represented by a Personnel Record whose evaluation relationships are tracked in a rating scheme.
 _Avoid_: Subject, evaluatee, assignee
 
 **Rater**:

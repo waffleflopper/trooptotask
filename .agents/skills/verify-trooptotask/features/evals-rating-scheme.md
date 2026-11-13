@@ -11,38 +11,41 @@ Scheme access is independently grantable without Personnel access.
 - A Rating Scheme tab that lists one line per rating scheme, grouped by Senior rater then rater (or as a table), with
   a read-only badge for a line's open Evaluation, a right-side sheet to add or edit a line's chain, eval type, notes and
   archive state, and a Change rater dialog. It never moves an Evaluation's workflow step.
-- Page header with four counts in due tones, a search over rated Soldier and every evaluator, Grouped/table views
-  (Grouped sorts by urgency or senior rater A to Z; the table opens by rated Soldier last name), and evaluation type,
-  listing (On scheme, Archived or All, from the stored archive time) and workflow filters.
-- Add/edit in a right-side sheet with one combobox per evaluator role (unit Person or a typed external name), optional
-  intermediate rater/reviewer, annual dates and notes; inline required-field errors; save/cancel and reload persistence.
+- An Eval Tracker tab that lists every Evaluation in work by urgency (past thru first, then the nearest thru), with
+  four header counts, Status (Open, Completed, Open and completed), Report and Step filters, a search over the rated
+  Soldier and every signer, Export and `Start evaluation`. Each row shows the due text, the rated Soldier and rater,
+  the eval tag and report, the period, a five-segment workflow meter with its step and who it is waiting on. Below
+  it, **Ready to start** lists schemes with nothing in work, and a Completed bar counts completed Evaluations with a
+  `Show completed` link. At 390 the rows are cards.
+- An Evaluation sheet, opened from a row, a card, `?entry=<id>` or the Dashboard: workflow moves (Back, Move and a
+  step list whose `Jump to <step>` buttons cover only the steps the chain makes possible), report type, period and
+  notes, the read-only rating chain with `Change rater`, the Person's other Evaluations, and Delete. A completed one
+  shows the chain that signed it and when, and locks report and period until Reopen.
+- A Start evaluation sheet, opened from the toolbar, a Ready to start row or `?start=<scheme id>`: it picks a
+  scheme ready to start, fills the next Annual period, shows the chain it copies, and opens at Drafting or records an
+  Evaluation already completed.
 - One stored lifecycle per evaluation: `workflow_status` null is Not tracked and open, and only `completed` is
-  complete. An existing entry's Workflow section steps it Back or Next one present step at a time (skipping an absent
-  intermediate rater or reviewer and the optional Command Review, which Drafting offers as its own button), jumps it to
-  any present step with Jump to step, and Change rater closes it as a Change of Rater (`CR`) report and opens the next
-  evaluation.
+  complete. Change rater closes an open Evaluation as a Change of Rater (`CR`) report and opens the next one.
 - Rating scheme membership, separate from the workflow step. Each rated Person has at most one listed rating scheme,
-  which holds their chain; every entry is one Evaluation on it. Archiving from an entry's sheet archives its scheme and
-  Restore returns it. Its completed and Not tracked Evaluations then read Archived instead of a due text and count in
-  no due bucket, the `active` count or the Dashboard; an open one stays on the tracker until it is completed.
+  which holds their chain; every Evaluation is on one. Archiving a line on the Rating Scheme tab keeps its open
+  Evaluation on the tracker until it completes.
 - Overdue, 30-day, 60-day and current due calculations, completed exclusion and the Organization Dashboard due
   projection.
-- Actual filtered Rating Scheme workbook, including evaluator names, dates, due/status/workflow labels and notes.
+- Actual filtered Eval Tracker workbook, including evaluator names, dates, due/status/workflow labels and notes.
 - Dedicated view/operate/configure access, Alpha/empty-Group/unassigned and foreign Organization isolation; permission
   narrowing when switching Organizations.
 - Direct deletion for admins/owners, approval submission for ordinary operators and Rating-owned approved effects;
   failed saves/deletions/requests must report failure and support recovery without losing the current draft.
-- Screen states: Grouped row buttons, Table view, search and its no-match state, entry sheet focus, required fields and
-  failed save, a rejected workspace source, loading, empty, denied, foreign, narrow and dark states, and the Workflow
-  section with Change rater (step 7).
+- Screen states: the tracker table and cards, the two sheets, a rejected workspace source, loading, empty, denied,
+  foreign, narrow and dark states (step 7).
 
 ## How to get to it (user POV)
 
 Sign in, choose the Organization and open **Evals** from its navigation, which opens the **Eval Tracker** tab; the
-**Rating Scheme** tab sits beside it. On the tracker, switch between **Grouped** and **Table**,
-search, then use the evaluation filters. **Add Entry** opens a new draft; select an existing row to edit. **Export**
-downloads the currently filtered entries. Return to the Organization Dashboard through its visible navigation to inspect
-upcoming evaluations. A member with Personnel access alone cannot enter Evals.
+**Rating Scheme** tab sits beside it. On the tracker, search and filter, select a row to open its Evaluation, or press
+**Start evaluation**. **Export** downloads the rows shown. Chains are edited on the Rating Scheme tab. Return to the
+Organization Dashboard through its visible navigation to inspect upcoming evaluations. A member with Personnel access
+alone cannot enter Evals.
 
 ## Helper controls
 
@@ -70,44 +73,38 @@ the owned worker. Run `$V seed rating-scheme` once and save its returned exact I
 [helper controls](#helper-controls) describe the `rating*` actors. Use `$V actor ROLE evals` or `home`; use `manager` as
 the Personnel-only denied actor and `orgOwner` for direct deletion.
 
-1. **Read, filter, due and export.** Enter with `ratingView`. Verify view access without Personnel, no Add/Edit
-   affordance, and actual loaded examples rather than actor arrival alone. The seed stores nine A entries, one of them
-   an archived Alpha Person's (−2 days). Evals hides that entry, so `ratingView` sees eight: one overdue (Able −5 days),
-   three due within 30 days (Alpha NCO +20, Bravo +25, unassigned +15), one Officer +45, one Warrant +90 and two
-   completed: the NCO −90 and the Officer +10 closed as a Change of Rater (`CR`) report. Both stay listed on their
-   Person's scheme, grouped under the chain that signed them (`External Rater completed`, `External Rater changed`)
-   while their scheme's open entry follows its current chain. Completed entries count in no due bucket. A Change of
-   Rater is a completed entry with report type `CR`, not a separate status. The default listing (On scheme) shows all
-   eight, both completed entries among them with `Completed` workflow and due text; Archived shows none; All shows
-   eight. Check the three evaluation types
-   and the NCO's **With Rater** workflow independently, in Grouped and Table views. Evals never lists the archived Alpha
-   entry in Grouped, Table, filters or the workbook, and none of its rows reads "Unknown" for the rated Person;
-   `$V rows evaluations orgA id ARCHIVED_ENTRY_ID` still reads it, since archiving keeps the stored row.
-   Export active, all-status and Alpha-filtered examples through the visible button. Arm `$V export arm PAGE`, save with
+1. **Read, filter, due and export.** Enter with `ratingView`. Verify view access without Personnel, no
+   `Start evaluation` and rows that do not open, and actual loaded examples rather than actor arrival alone. The seed
+   stores nine A Evaluations, one of them an archived Alpha Person's (−2 days), which the tracker never lists. The
+   default Status (Open) shows six, `6 of 6 shown`, in urgency order: Able `5d past thru`, unassigned `Thru in 15d`,
+   the Alpha NCO `Thru in 20d` (`With Rater`, waiting on `RTR External Rater due30`), Bravo `Thru in 25d`, the Officer
+   `Thru in 45d` and the Warrant `Current`. The header reads `6 open`, `1 past thru`, `3 thru in 30 days` and
+   `1 thru in 31 to 60 days`. The Completed bar reads `2 completed evaluations.`; `Show completed` switches Status to
+   Open and completed and lists the NCO −90 and the Officer +10 `CR` after the open rows, each under the chain that
+   signed it. A Change of Rater is a completed Evaluation with report type `CR`, not a separate status. No seeded
+   scheme is ready to start, since every one has an Evaluation in work. Check the Report and Step filters (a Report
+   or Step choice hides Ready to start), and the search by Soldier and by any signer. Export through the visible
+   button: arm `$V export arm PAGE`, save with
    `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/evals.xlsx`, inspect
-   `$V workbook FILE 'Rating Scheme'`, then restore. Expect only filtered accessible entries and the 16 retained columns
-   with actual dates, names, statuses and notes. Pure tests cover exact 0/30/31/60/61-day boundaries; these live
-   examples cover the displayed buckets.
-2. **Create/edit, required fields and recovery.** With `ratingOperate`, open Add Entry, press **Add entry** with every
-   field empty and inspect the inline required-field errors and the focus on the first missing field. Select the seeded
-   Officer/Warrant/NCO to check rank-based OER/WOER/NCOER suggestions, without rewriting the rank catalog. On a new
-   entry, Annual start changes fill the anniversary-minus-one-day thru date; an explicitly edited thru date remains.
-   Editing an existing entry's start never autofills its thru date. Pick an internal Alpha rater, or type a synthetic
-   name into the Rater combobox and choose `Use "<name>" as an external rater` (the saved row
-   has `rater_name` set and `rater_person_id` null); populate senior rater and optional intermediate/reviewer. Add
-   notes, save, read the exact rows with `$V rows evaluations orgA id ID` (`workflow_status` `drafting`) and
-   `$V rows rating_schemes orgA rated_person_id PERSON_ID`, reload and reopen. Every seeded Person already has a
-   listed scheme, so Add saves the chain to it (`PUT api/rating-scheme`) and then opens the Evaluation on it at
-   Drafting (`POST api/rating-scheme/<scheme id>/evaluations`); the Person's other Not tracked entry now shows the new
-   chain too. A Person with no scheme gets one first (`POST api/rating-scheme`). Saving an existing entry sends the
-   chain to its scheme only when the chain or type changed, then `PUT api/evaluations`; a completed entry's signed
-   chain never moves. A new entry shows no Workflow section. Removing an optional evaluator clears only its relationship; the
-   stored step stays. Change a field: Escape and an outside click leave the dirty sheet open, and its close button is
-   absent.
-   Cancel discards the draft and leaves stored values unchanged. Reopen the entry and change a field, then arm
-   `$V network arm-fail PAGE evaluations` (or `rating-scheme` for a chain change) before a save; observe the failed request, unchanged provider row and
-   preserved visible draft, then restore and retry. Delayed save should prevent duplicate submission/closing until
-   completion.
+   `$V workbook FILE 'Rating Scheme'`, then restore. Expect only the rows shown and the 16 retained columns with actual
+   dates, names, statuses and notes. Pure tests cover exact 0/30/31/60/61-day boundaries; these live examples cover
+   the displayed buckets.
+2. **Start, edit and recovery.** With `ratingOperate`, make a scheme ready to start: open the Warrant (`Current`,
+   Not tracked) and press `Mark completed`; `rows evaluations orgA id ID` reads `completed` with
+   `chain_snapshot_at` and `snapshot_rater_name` set, and **Ready to start** lists the Warrant with
+   `Last Annual completed <today>, thru <thru>` and the next period. `Start next Annual for <Soldier>` opens the Start
+   sheet with that Soldier picked, `AN · Annual` from the day after the last thru to a year later, the chain read
+   from the scheme, and `Open, at Drafting` chosen. `Start evaluation` sends one
+   `POST api/rating-scheme/<scheme id>/evaluations`, toasts `Evaluation started at Drafting` and the new row reads
+   `drafting` with that period. `Already completed` records it `completed` with today's chain instead. The toolbar's
+   `Start evaluation` opens the same sheet with no Soldier; pressing Start then marks `Rated Soldier`
+   `aria-invalid` with `Rated Soldier is required.`. Open an Evaluation and change notes, report or period: every
+   move is disabled with `Save or cancel your edits to move the workflow.`; `Save changes` sends one
+   `PUT api/evaluations` carrying only the changed fields, toasts `Evaluation saved` and closes the sheet. The
+   scheme's `eval_type` and chain never change from this sheet; chain edits belong to the Rating Scheme line. Escape
+   and an outside click leave a dirty sheet open; Cancel discards it. Arm `$V network arm-fail PAGE evaluations`
+   before a save: the sheet stays open with every value and `The evaluation was not saved`, and the row is
+   unchanged; restore and retry. A delayed save blocks a second submit and closing until it settles.
 3. **Scope and security.** With `ratingScoped`, expect only Alpha entries, without the archived Person's record (six
    rows, all in the default listing);
    its lookup includes active Alpha People and excludes Bravo, unassigned, archived and foreign People. With
@@ -130,19 +127,20 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    legacy row can also block local Person deletion when several SET NULL effects recheck untouched foreign slots; expect
    full rollback, not an automatic history rewrite. `rating_scheme_lane_scope.sql` supplies distinct positive/negative
    RLS coverage on a disposable provider.
-4. **Deletion and approval recovery.** Open a dedicated new entry with the ordinary operator and confirm Delete submits
-   a request, returns approval-required behavior and leaves the entry stored. Observe the request row and visible
-   feedback; repeat for the existing-pending case. Fail the Rating Scheme DELETE and then the `deletion-requests`
-   submission independently using the matching network helper. Failure must not claim success, remove the stored entry
-   or lose the open draft and confirmation; restore and retry. Hold the DELETE and approval POST separately: pending
-   confirmation blocks repeated submission, Cancel/Escape and editor close/save/delete until settlement. The helper
-   holds the real response after provider processing, so pending UI does not imply an unchanged database. A pending Save
-   also blocks starting Delete. With `orgOwner`, directly delete only the UI-created entry and read its absence after
-   reload. For the consumed Rating effect, create a separate expendable entry and submit deletion with the operator.
-   Observe DELETE202 and the actual successful submission status, an unchanged evaluation and a matching pending
-   request. Enter owner **Settings → Approvals**, locate the article by resource description/request ID and Approve.
-   Observe review POST200, evaluation absence, matching request approved with reviewer/time, and unchanged seeded A/B
-   sentinels. Reload Approvals/Evals and read persistence; do not substitute direct owner deletion.
+4. **Deletion and approval recovery.** Start a dedicated Evaluation (flow 2) with the ordinary operator, open it and
+   confirm `Delete evaluation` submits a request, returns approval-required behavior and leaves the Evaluation
+   stored. Observe the request row and visible feedback; repeat for the existing-pending case. Fail the `evaluations`
+   DELETE and then the `deletion-requests` submission independently using the matching network helper. Failure must
+   not claim success, remove the stored Evaluation or close the open confirmation; restore and retry. Hold the DELETE
+   and approval POST separately: pending confirmation blocks repeated submission, Cancel/Escape and sheet
+   close/save/delete until settlement. The helper holds the real response after provider processing, so pending UI
+   does not imply an unchanged database. A pending Save also disables `Delete evaluation`. With `orgOwner`, directly
+   delete only the UI-created Evaluation (`Evaluation deleted`) and read its absence after reload. For the consumed
+   Rating effect, start a separate expendable Evaluation and submit deletion with the operator. Observe DELETE202 and
+   the actual successful submission status, an unchanged evaluation and a matching pending request. Enter owner
+   **Settings → Approvals**, locate the article by resource description/request ID and Approve. Observe review
+   POST200, evaluation absence, matching request approved with reviewer/time, and unchanged seeded A/B sentinels.
+   Reload Approvals/Evals and read persistence; do not substitute direct owner deletion.
 5. **Dashboard and switching.** With `ratingOperate` and then `ratingScoped`, compare the Dashboard due projection
    against their accessible open Evals entries, meaning neither completed nor archived: Organization-wide has one overdue and three within 30 days;
    Alpha has one overdue and one within 30 days. The archived Alpha entry (−2 days) is in neither count. The Dashboard's
@@ -153,7 +151,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    each as a Past thru row that names the rated Person,
    including for an actor without Personnel access (`ratingOperate`). Evals also displays the 60-day bucket. Completed
    and archived entries are excluded; archiving the past-thru entry from its sheet empties Needs you and the `past thru`
-   share after a reload, and Restore brings it back. A Past thru row's `Update status` opens this page's entry editor for that one entry. Its
+   share after a reload, and Restore brings it back. A Past thru row's `Update status` opens the Evaluation sheet for that one Evaluation. Its
    Workflow moves post `api/evaluations/<id>/workflow`; a step keeps the panel open, and `Mark completed` saves
    through the row, which leaves the queue. The entry must read Completed here after reload
    ([Dashboard actions](dashboard.md#actions)). The projection must not borrow Personnel capability or expose
@@ -183,7 +181,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    Officer/NCO details. The Overview's **Rating chain · <eval type>** card names the active entry's Rater, Intermediate
    rater (only when set), Senior rater and Reviewer, with `Not set` for an empty role; saved internal IDs and nonblank
    external names both resolve. A drafting or due evaluation also appears in **Needs attention**, and its row opens
-   Evals with that entry's editor (`/evals?entry=<id>`, which drops the parameter once open). Current positive seed
+   Evals with that entry's editor (`/evals?entry=<id>`, which opens its Evaluation sheet; Back closes it, and closing it drops the parameter). Current positive seed
    entries alone do not prove missing-rater branches or which otherwise-identical entry is newest; separate owner rule
    tests cover those. The Personnel-only `manager` gets no Rating chain card and a `Couldn't check the evaluation` line
    under Needs attention. As owner, enter **Settings → Exports**, capture **Export JSON** and **Export Excel**
@@ -202,181 +200,116 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
 7. **Evals screen states.** Use the [component foundation](component-foundation.md) recipe's `reader.js`. Run
    `$V seed rating-scheme` first. Record each row PASS, FAIL, UNAVAILABLE or UNRUN with actor, width and theme; a FAIL
    stays FAIL until the same row passes on a later candidate.
-   - ID: E1 - Screen and control: Page header, search and Grouped rows - How to reach it: `ratingOperate`, `Grouped`,
-     1440, 1024 and 390 - Expected: The eyebrow reads `Rating scheme · <Organization>` above a large uppercase display
-     `Evals` heading (about 48 px at 1440, smaller at 390), with the live status `8 of 8 shown` and four 15 px counts,
-     the due ones semibold in their tones (`6 active`, `1 past thru`, `3 thru in 30 days`, `1 thru in 31 to 60 days` on
-     the seed), separated by thin vertical rules at 1440. Each Senior rater section opens with a mono `SR` label, the
-     name as a 28 px uppercase display heading, an `External` tag for a typed name and `Senior rates N`, all on one
-     baseline, above a 2 px foreground rule; right-aligned non-zero counts in 12 px mono read
-     `1 past thru · 3 in 30 days · 1 in 31–60` (middle dots, never `30d`). Each rater block has a 200 px left column at
-     1024 and up (the rater name 15 px semibold, then `Rater · rates N` muted with an orange `· External` word for a
-     typed name, on the same line at every width) and a bordered list of rows. A row has a 3 px due rail, the rated
-     Person (`SPC Able`), a small bordered eval tag (`NCOER`) with the report label (`Annual`), the period as
-     `25 Oct 25 → 20 Oct 26` (day padded to two digits), the workflow step or `Not tracked`, and the due text in its
-     tone (`5d past thru` red, `Thru in 15d` orange, `Current` green). At 1440 every row is one line about 47 px tall
-     and the first row of a rater is not stretched to the rater column's height; below that the rows keep two lines
-     (Soldier and due text, then eval and workflow) with nothing clipped. The first row is the most urgent. Each row is
-     one `Button` whose name carries every visible cell; Tab reaches it, Enter and Space open the sheet, and focus
-     returns to that row after Escape on an unchanged draft or after Save, or to `Add Entry` when the row is gone.
-     `Group order` offers `Sort: Most urgent` and `Sort: Senior rater A to Z` and exists only in Grouped. With at least
-     three Senior raters, one whose surname sorts last, whatever the rank, holding the most overdue entry comes first by
-     urgency and last A
-     to Z (add them through the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and
-     `0 of 8 shown`; `Clear search and filters` restores `8 of 8 shown`. Search also finds a Soldier by any label the
-     page shows: `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
+   - ID: E1 - Screen and control: Tracker header, table and search - How to reach it: `ratingOperate`, 1440, 1024
+     and 390 - Expected: The eyebrow reads `Eval tracker · <Organization>` above the display `Evals` heading, with the
+     live status `6 of 6 shown` and the counts `6 open`, `1 past thru`, `3 thru in 30 days` and
+     `1 thru in 31 to 60 days` (the last hidden at 390). At 1440 the table's columns read Due, Rated Soldier (with
+     `Rater <name>` under it), Report (a bordered eval tag and the report label), Period (`13 Nov 25 → 03 Dec 26`),
+     Workflow (meter and step, or `Not tracked`) and Waiting on (a mono role code and the name, `—` when nobody), each
+     row 60 px with a 3 px due rail. Below 1280 Period folds under Report and Waiting on under Workflow, and the table
+     fits a 1024 window with no sideways scroll (its `Evaluations, scrollable` region reads equal client and scroll
+     widths). Each row is focusable with the name `Open evaluation for <Soldier>`; Enter or Space opens the sheet and
+     focus returns to that row after it closes. At 390 each Evaluation is a card button with the same name: the
+     Soldier and due text, the eval tag with report code and period, the meter and step, then who it waits on. An
+     Evaluation at `Submitted to HRC` reads a muted `Submitted` instead of a due text. Typing `zzzz` into
+     `Search by Soldier or signer` shows `No evaluations match` and `0 of 6 shown`; `Clear search and filters`
+     restores the list. No document overflow at any width
 
-   - ID: E2
-     - Screen and control: Table view and view mode
-     - How to reach it: `Table`; click a header; then reload
-     - Expected: Columns read Status, Rated Soldier, Eval, Rater, Senior rater, Thru and Workflow. The table opens
-       sorted by rated Soldier last name A to Z (Able, Baker, Evalnco…, Evalofficer…, Evalwarrant…, Unassigned on the
-       seed) with the arrow on `Rated Soldier`; the Status header sorts overdue first. Every row carries its due rail on
-       the left edge and an `ext` tag beside a typed rater. `Evaluation view mode` buttons expose `aria-pressed` (a
-       radio group in More once folded). Each row opens the editor by keyboard. View mode, search and filters live only
-       in page state; a reload returns to `Grouped` with the default filters. At 1024 the table scrolls inside its own
-       region and the document does not
+   - ID: E2 - Screen and control: Evaluation sheet - How to reach it: Open the Alpha NCO (`With Rater`) at 1440 and
+     390 - Expected: A sheet slides in from the right (full screen at 390) with the eyebrow
+     `Evaluation · Annual NCOER`, the rated Soldier as the display title and `Thru in 20 days · 13 Nov 25 → 03 Dec 26`.
+     Workflow reads `With Rater · step 2 of 5 · waiting on External Rater due30` over a five-segment meter, with
+     `Back to Drafting` and `Move to Rater Signed`, then the step list with `NOW` on the current step and a
+     `Jump to <step>` button on every other step the chain allows. Report and period hold the Report select
+     (`AN · Annual`), Start and Thru, and `NCOER, from the scheme line. Change the type on the Rating Scheme.`. Rating
+     chain is read-only with `Edit on Rating Scheme ›` (`/evals/rating-scheme?line=<scheme id>`) and `Change rater`.
+     `<Rank Last>'s evaluations` lists the Person's other Evaluations and opens one in place; Notes; then
+     `Delete evaluation`. The footer reads `Workflow moves save on click.` with Cancel and `Save changes`
 
-   - ID: E3
-     - Screen and control: Entry sheet focus and required fields
-     - How to reach it: `Add Entry`, then `Add entry` with every field empty
-     - Expected: A sheet slides in from the right, about 560 px wide at 1440 and the full screen below 640 px, focus
-       moves into it, and the header reads the mono eyebrow `New entry` above the uppercase display title `Add entry`.
-       Each missing control is `aria-invalid="true"` with a resolving `aria-describedby` and its own message below it
-       (`Rated Soldier is required.`, `Start date is required.`, `Thru date is required.`, `Rater is required.`,
-       `Senior rater is required.`) and focus moves to `Rated Soldier`. Type is a segmented control with the selected
-       item raised. Escape closes an unchanged draft; Cancel also discards a dirty draft. Both return focus to
-       `Add Entry`. Sections (`Rated Soldier`, `Evaluation`, `Rating period`, `Rating chain`, `Workflow` on an existing
-       entry, then Notes) are divided by rules. The Report trigger reads the code and label (`AN · Annual`). Editing a row shows `Edit entry · SR <name>`, the rated Soldier as the title
-       (`SPC Able, Synthetic`), a tone dot with `Thru 20 Oct 2026 · 5 days past` (an entry due in 15 days reads
-       `Thru in 15 days`), and a `Delete entry` link only for an actor who may delete. The link opens
-       `Delete this entry?`; confirming submits the approval request and closes the sheet
+   - ID: E3 - Screen and control: Workflow moves - How to reach it: The same sheet; a second `ratingOperate` page
+     opens the same Evaluation for the stale cases - Expected: Not tracked offers `Start tracking` and
+     `Mark completed`; Drafting offers `Stop tracking`, `Send to Command Review` and `Move to With Rater`; Completed
+     offers `Back to Submitted to HRC` and `Reopen`, which returns to Not tracked on the scheme's current chain. The
+     step list omits `With Intermediate Rater`, `IR Signed`, `With Reviewer` and `Reviewer Signed` when the chain
+     lacks that evaluator; the Warrant, whose chain has both, lists all fourteen. Each press sends one
+     `POST api/evaluations/<id>/workflow`, the sheet shows the new step at once and `rows` reads the new
+     `workflow_status` (`Move to Rater Signed` then `Jump to SR Signed` read `rater-signed` then `sr-signed`). While an
+     edit is unsaved every move is disabled. Move the Evaluation forward in the second page, then step back in the
+     first: the POST returns 409, the sheet shows `The workflow did not move` with
+     `This evaluation has changed since you opened it. Refresh it and try again.`, and the row keeps the second
+     page's step. With `$V network arm-fail PAGE evaluations/<id>/workflow` armed, a move returns 503, the sheet shows
+     `The workflow did not move` and the step stays; after `network restore` the same press moves it
 
-   - ID: E4 - Screen and control: Rating chain comboboxes and failed save - How to reach it: Open an entry, `Rater`,
-     type a name nobody in the unit has (`COL Visiting Guest`), press Enter - Expected: The list reads
-     `No one in the unit matches.` and ends with `Use "COL Visiting Guest" as an external rater`, wrapped on a narrow
-     sheet. The default `take_snapshot` leaves every listbox option out, this one and the unit People alike. Take
-     the snapshot with `verbose` to see `option "Use "COL Visiting Guest" as an external rater"` and press it with
-     `tool click` on its uid. A unit Person shows a muted mono `In unit` hint; a typed name shows orange mono `External` text, not a
-     filled badge. Under the chain a line reads
-     `Search the unit, or type a name that isn't in it to add an external rater.`; `+ Intermediate rater` and
-     `+ Reviewer` are underlined links, and each added slot has a remove button. After Save,
-     `$V rows rating_schemes orgA rated_person_id PERSON_ID` reads `rater_name` `COL Visiting Guest` and `rater_person_id` null, and
-     the grouped row sits under that rater with its tag. Then `network arm-fail PAGE rating-scheme` and save a chain change: the sheet
-     stays open with every value; an `Alert` (`role="alert"`, `Rating entry was not saved`) inside the sheet states the
-     failure; focus stays on `Save changes` (`Add entry` for a new one); the row is unchanged. A toast alone is a FAIL.
-     Restore, retry once and read the row back
+   - ID: E4 - Screen and control: Change rater - How to reach it: An open Evaluation's `Change rater` - Expected: The
+     dialog asks for `New rater` and `Last day with <current rater>` and states the rated days, with
+     `A Change of Rater report needs at least 90.` when fewer, which does not block. One
+     `POST api/evaluations/<id>/change-rater` closes the dialog and the sheet with
+     `Rater changed. A new Annual opened at Drafting.`: the Evaluation reads `CR`, `completed`, ends on the chosen day
+     and keeps the old rater in `snapshot_rater_*`; the scheme reads the new rater, and a new `AN` Evaluation starts
+     the next day at Drafting. With `$V network arm-fail PAGE evaluations/<id>/change-rater` armed, confirming keeps
+     the dialog open with `The rater was not changed` and no new row. Two buttons carry the name `Change rater`, so
+     click the dialog's by UID
 
-   - ID: E5
-     - Screen and control: Workspace loading
-     - How to reach it: On Home, `server-source arm evaluations hold 1 120000`, then choose Evals
-     - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region,
-       named `Loading evaluations`) whose blocks match the loaded page: three header lines, the two-tab row, one toolbar block and two
-       Senior rater sections (a heading on a 2 px rule, a rater column at 1024 and up and a list), so nothing shifts
-       when rows arrive. At 390 the toolbar block is two rows tall. Release with `server-source restore`
+   - ID: E5 - Screen and control: Completed sheet - How to reach it: `Show completed`, then the completed NCO row (two
+     rows share its name, so click by UID) - Expected: The eyebrow ends `· Completed` and the due line reads
+     `Completed <signed day>` in the completed tone. Workflow offers `Back to Submitted to HRC` and `Reopen` and the
+     full step list. Report, Start and Thru are disabled with
+     `Locked while completed. Reopen to change the report or period.`. `Signed by · kept <day>` lists the chain that
+     signed it (`External Rater completed`) with `Current chain on Rating Scheme ›`, and a note names the scheme's
+     current rater when it differs. Notes stay editable and save without validating the signed chain. The footer
+     shows only Close until something changes
 
-   - ID: E6
-     - Screen and control: Workspace error (`evals/+layout`, `+page`)
-     - How to reach it: On Home, `server-source arm evaluations fail-hard 1`, then choose Evals; repeat with a
-       full load of `/evals`
-     - Expected: `WorkspaceLoadError`: `role="alert"` `Unable to load Evals` (or the evaluations subject) with a Retry
-       button; the header and sidebar stay usable; Retry recovers after `restore`. A skeleton or blank page with no
-       alert or Retry is a FAIL. Save the console
+   - ID: E6 - Screen and control: Start evaluation sheet - How to reach it: Flow 2's Ready to start row, then the
+     toolbar's `Start evaluation` - Expected: The eyebrow reads `Start evaluation · From the rating scheme` above the
+     Soldier's name and `Last Annual completed <day> · thru <day>`. `Rated Soldier` lists only schemes ready to start,
+     with the eval tag beside it. Report and period are prefilled (`Starts the day after the last thru.`), the chain
+     section reads `Rating chain · copied from the scheme` with `Edit on Rating Scheme ›`, `Opens as` offers
+     `Open, at Drafting` and `Already completed`, then Notes, Cancel and `Start evaluation`. Opened from the toolbar it
+     has no Soldier picked
 
-   - ID: E7
-     - Screen and control: Empty, view, denied and foreign
-     - How to reach it: `ratingEmpty`, `ratingView`, Personnel-only `manager`; `ratingForeign` opens A's Evals address
-     - Expected: Empty: a settled `Empty` state. View: entries with no Add Entry or write control. Personnel-only:
-       `Access Restricted`. Foreign: 404 `Page not found` with no A data
+   - ID: E7 - Screen and control: Workspace loading - How to reach it: On Home,
+     `server-source arm evaluations hold 1 120000`, then choose Evals - Expected: A labelled loading region
+     (`role="status"`, named `Loading evaluations`) whose blocks match the tracker: three header lines, the tab row, a
+     toolbar block, then a table header and five rows at 640 px and up or three card blocks at 390, so nothing
+     shifts when rows arrive. Release with `server-source restore`
 
-   - ID: E8
-     - Screen and control: Narrow and dark
-     - How to reach it: 390x844 dark: Grouped, Table, the Add and Edit sheets, Filters
-     - Expected: No horizontal document overflow. The toolbar is two rows: `Search by Soldier or rater` across the full
-       width (about 322 px), then `Grouped` / `Table`, `Filters` and an icon-only `Add Entry` (a 32 px square whose
-       accessible name is still `Add Entry`) on one row. The header counts wrap to two lines. Grouped rows are two lines
-       with the due text on the right and the rail on the left; the Senior rater heading wraps under its name; the table
-       scrolls inside its region. The sheet fills the whole screen with reachable `Save changes` (`Add entry`) and
-       Cancel; `Add entry` with every field empty lists the five inline errors inside it. `Filters` opens a menu of
-       `Evaluation type, Eval Type: All`, `Evaluation listing, Listing: On scheme`, `Evaluation workflow, Workflow: All`,
-       `Group order, Sort: Most urgent` (Grouped only) and `Export`
+   - ID: E8 - Screen and control: Workspace error (`evals/+layout`, `+page`) - How to reach it: On Home,
+     `server-source arm evaluations fail-hard 1`, then choose Evals; repeat with a full load of `/evals` - Expected:
+     `WorkspaceLoadError`: `role="alert"` `Unable to load Evals` (or the evaluations subject) with a Retry button; the
+     header and sidebar stay usable; Retry recovers after `restore`. A skeleton or blank page with no alert or Retry is
+     a FAIL. Save the console
 
-   - ID: E9
-     - Screen and control: Toolbar fold sweep and Filters
-     - How to reach it: `ratingOperate` on Evals.
-       `$V toolbar-sweep PAGE "Evaluation controls" RUN_DIR --expect export,grouped-sort,workflow,status,eval-type --pinned add-entry,view-mode --search --step 4 --record sweep-light`,
-       then dark. At 390, switch to `Table` on the row, open `Filters`, set `Evaluation type` to NCOER, then choose
-       `Export`; as `ratingView`, read the row and Filters
-     - Expected: `toolbar-sweep.json` passes with zero failures: `Export` folds first (near 1368), then `Group order`
-       (1316), workflow (1160), status (1032) and type (960), each restoring within 4 px. The toolbar switches to its
-       compact form when its own width falls below 640 px (a 390 phone, and a tablet beside the open sidebar), not by
-       viewport: there search is a full-width row of its own, every filter and action is in `Filters` and only the view
-       mode and the icon-only `Add Entry` stay on the second row. `Add Entry` and the search stay present at every width
-       and no control changes membership twice in one 4 px step. A non-default folded filter puts the dot on `Filters`.
-       `Export` downloads only the filtered entries. The viewer has no `Add Entry` on the row or in the menu
+   - ID: E9 - Screen and control: Empty, view, denied and foreign - How to reach it: `ratingEmpty`, `ratingView`,
+     Personnel-only `manager`; `ratingForeign` opens A's Evals address - Expected: Empty: `No evaluations in work` with
+     `Open the Rating Scheme`. View: the rows with no `Start evaluation`, rows that do not open, and `?entry=<id>`
+     opens nothing. Personnel-only: `Access Restricted`. Foreign: 404 `Page not found` with no A data
 
-   - ID: E10
-     - Screen and control: Workflow section and Change rater
-     - How to reach it: `ratingOperate` at 1280 and 390, open the Alpha NCO entry (`With Rater`); a second
-       `ratingOperate` page opens the same entry for the stale cases
-     - Expected: Below Rating chain, `Workflow` reads the step and `· step N of 5`, with `Back to <step>`,
-       `Move to <step>`, the `Jump to step` select and `Change rater`; the buttons wrap at 390 and the select takes its own
-       full-width line without moving the buttons. Not tracked offers `Start tracking`,
-       `Mark completed` and `Change rater`; Drafting offers `Stop tracking`, `Send to Command Review` and
-       `Move to With Rater`; Completed offers `Back to Submitted to HRC` and `Reopen`, which returns to Not tracked, and no `Change rater`. `Send to Command Review` moves Drafting to `Command Review`, whose
-       buttons are `Back to Drafting` and `Move to With Rater`; `With Rater` then steps `Back to Drafting`, past
-       Command Review. `Jump to step` lists every present step but the current one in chain order, with no
-       `With Intermediate Rater`, `IR Signed`, `With Reviewer` or `Reviewer Signed` when the entry lacks that evaluator:
-       from `SM Signed`, choose `Drafting` (a listbox option, so read it with a verbose snapshot) and the section reads
-       `Drafting · step 1 of 5` at once; reload and the step persists. Each press or choice sends one
-       `POST api/evaluations/<id>/workflow` and `rows` reads the new `workflow_status`; completing or reopening
-       changes the `active` count at once (`6 active`, then `5`) and never the `8 of 8 shown`, since a completed entry stays listed. With no intermediate rater or reviewer,
-       `SR Signed` moves to `With Rated Soldier` and back. Add an external reviewer and save: the step stays, and
-       `SR Signed` now moves to `With Reviewer`. An entry with an intermediate rater (the seeded `current` Warrant entry)
-       signs before the senior rater: `Rater Signed` moves to `With Intermediate Rater`, `IR Signed` to
-       `With Senior Rater`, and `SR Signed` to `With Reviewer`. While the draft is dirty every move is disabled with
-       `Save or cancel your edits before moving the workflow.` Move the entry forward in the second page, then step back
-       in the first: the POST returns 409, the section shows `The workflow did not move` with
-       `This evaluation has changed since you opened it. Refresh it and try again.`, and the row keeps the second
-       page's step. A move whose target neighbours the newer step is refused the same way: with the first page still
-       showing Not tracked, move the entry to `Drafting` and then `With Rater` in the second page, then press
-       `Start tracking` in the first; the POST returns 409 and `rows` still reads `with-rater`. Asking for the step the row already holds returns 200
-       and shows it. With `$V network arm-fail PAGE evaluations/<id>/workflow` armed, a move returns 503, the section
-       shows `The workflow did not move` with `The workflow did not move. Try again.`, the step stays and `rows` still
-       reads the old `workflow_status`; after `network restore` the same press moves it. `Change rater` opens a dialog
-       with `New rater` and `Last day with current rater` (today, kept within the rating period). Confirming with no
-       rater shows `The rater was not changed` with `Choose the new rater and the last day with the current rater.`,
-       which clears once a rater is chosen. Confirming sends one `POST api/evaluations/<id>/change-rater` and closes
-       the sheet: the entry reads `CR`, `completed` and ends on the chosen day, keeps the old rater as its signed chain
-       (`snapshot_rater_*`) and stays listed under that rater. The scheme's `rater_*` reads the new rater, and a new
-       `AN` entry on the same scheme starts the next day, ends a year later and is Drafting with no notes, so the
-       default shows `9 of 9 shown`. With
-       `$V network arm-fail PAGE evaluations/<id>/change-rater` armed, confirming returns 503, the sheet stays open
-       with `The rater was not changed` and `The rater was not changed. Try again.`, and `rows` still reads the entry
-       unchanged with no new entry; after `network restore` confirming again changes the rater
+   - ID: E10 - Screen and control: Narrow, dark and toolbar fold - How to reach it: 390x844 dark: the tracker, both
+     sheets and Filters; then
+     `$V toolbar-sweep PAGE "Eval Tracker controls" RUN_DIR --expect export,step,report,status --pinned start-evaluation --search --step 4 --record sweep-light`
+     and dark - Expected: No horizontal document overflow. At 390 the toolbar is `Search Soldier or signer...` across
+     the full width, then `Filters` and an icon-only `Start evaluation` (accessible name still `Start evaluation`).
+     Both sheets fill the screen with a reachable footer. `Filters` holds Status, Report, Step and Export; a
+     non-default folded filter puts the dot on `Filters`. The sweep passes with zero failures, folding Export first,
+     each control restoring within 4 px; record the measured fold widths. The viewer has no `Start evaluation`
+
+   - ID: E11 - Screen and control: Address-opened sheets - How to reach it: A full load of `/evals?entry=<open id>`;
+     Escape; then an in-app link to `?entry=<id>` and native `navigate_page` with `type:"back"` - Expected: The full
+     load opens that Evaluation's sheet once the workspace streams in. Closing it removes `entry` from the address, so
+     a reload opens nothing. After an in-app link opens it, Back returns to `/evals` with no dialog. A row-opened sheet
+     adds no parameter. `?start=<scheme id>` opens the Start sheet on that scheme the same way
 
 8. **Archive, restore and listing.** On a fresh seed with `ratingOperate`, record `$V rows evaluations orgA id ID`
-   and `$V rows rating_schemes orgA rated_person_id PERSON_ID` for the overdue Able entry and the NCO's two entries.
-   At 1440 the default view lists all eight (`8 of 8 shown`). Open Able: the sheet's `Rating scheme` section reads
-   `On the rating scheme` with an `Archive` button. Press it: one `POST api/rating-scheme/<scheme id>/archive`, the
-   section reads `Archived` with `Restore to rating scheme`, the scheme's `archived_at` is set and `archived_by` is the
-   actor's user ID, and the Evaluation's `workflow_status` is unchanged. Close the sheet: `7 of 8 shown`, `5 active` and
-   `0 past thru`. Open the completed NCO entry and archive the same way. That archives the NCO's scheme: the completed
-   entry leaves the default view (`6 of 8 shown`), and the NCO's With Rater entry on the same scheme stays listed with
-   its due text, its sheet reading `Archived · Off the rating scheme. An open evaluation stays on the tracker until it
-is completed.` Choose `Archived` in the listing filter (`Evaluation listing filter`; a keyboard ArrowDown and Enter
-   picks it): two rows, Able and the completed NCO, each reading `Archived` instead of a due text and rail tone, with
-   `0 past thru` in the header and no urgent tone on the overdue one. Reload the Dashboard as `ratingOperate`: Needs you
-   reads `0`. Open Able and press `Restore to rating scheme`: the scheme's `archived_at` and `archived_by` read null,
-   the row returns to the default view, and a Dashboard reload shows Able's Past thru row again. Open the Bravo entry
-   (+25) and press `Mark completed`: the row stays in the default view with `Completed` workflow and due text, and its
-   scheme's `archived_at` reads null. Check 1024 and 390 px with the Archived listing: rows keep two lines with
-   `Archived` on the first and nothing clips. Archive Able again: its sheet header reads `Archived` in the muted tone
-   instead of its past-thru line. The NCO's With Rater sheet offers no `Change rater` while its scheme is archived; the
-   server refuses it too. Reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
-   `0 past thru, 2 thru in 30 days, 1 thru in 31 to 60 days, 1 current`, from unassigned (+15), the NCO's With Rater
-   entry on its archived scheme (+20), the Officer (+45) and the Warrant (+90).
-
+   and `$V rows rating_schemes orgA rated_person_id PERSON_ID` for the overdue Able Evaluation and the NCO's two
+   Evaluations. Archiving happens on the **Rating Scheme** tab's line sheet (`Archive`, one
+   `POST api/rating-scheme/<scheme id>/archive`; `archived_by` is the actor's user ID and no Evaluation's
+   `workflow_status` changes). Archive Able's line (its Evaluation is Not tracked): the tracker drops Able, reads
+   `5 open` and `0 past thru`, and the tab's past-thru count disappears. Archive the NCO's line: its With Rater
+   Evaluation stays on the tracker with its due text until it is completed, and its completed one stays in
+   `Show completed` as history. The NCO's sheet offers no `Change rater` while its scheme is archived; the server refuses it too.
+   Reload the Dashboard as `ratingOperate`: Needs you reads `0`. Restore Able's line: the scheme's `archived_at` and
+   `archived_by` read null, Able returns to the tracker, and a Dashboard reload shows Able's Past thru row again.
+   Check 1024 and 390 after each change: rows and cards keep their layout and nothing clips.
 9. **Rating Scheme tab.** Run `$V seed rating-scheme`, then enter as `ratingOperate` and choose the **Rating Scheme** tab
    (`/evals/rating-scheme`). Record PASS, FAIL, UNAVAILABLE or UNRUN with actor and width for each row. The seed's
    one listed scheme per Person leaves `Add to scheme` with no Person to pick, so to add a line, archive a seeded
@@ -389,16 +322,19 @@ is completed.` Choose `Archived` in the listing filter (`Evaluation listing filt
      Senior rater (`Senior rates N`, `External` tag for a typed name) and, under it, a rater block with a bordered list
      of lines; each line shows the rated Soldier, the eval type tag and the `IR` and `REV` slots (`Not set` when empty).
      A line with an open Evaluation shows a badge (five-segment meter, step label, and thru text such as `Thru in 20d`
-     in its tone) that links to `/evals?entry=<evaluation id>`; following it opens that Evaluation in the tracker's
-     modal. Table has Rated Soldier, Eval type, Rater, Intermediate, Senior Rater, Reviewer and Evaluation columns, opens
+     in its tone) that links to `/evals?entry=<evaluation id>`; following it opens that Evaluation's sheet on the
+     tracker, and Back closes it. Table has Rated Soldier, Eval type, Rater, Intermediate, Senior Rater, Reviewer and Evaluation columns, opens
      by Rated Soldier and scrolls inside its own region at 1024. No document overflow at 1440, 1024 or 390; at 390 the
      toolbar is two rows with `Filters` and an icon-only `Add to scheme`, the line's slots wrap and the badge takes its
      own row
 
    - ID: R2 - Screen and control: Line sheet - How to reach it: Select a line, then `Add to scheme` - Expected: A sheet
      slides in from the right (full screen at 390). An existing line reads `Rating scheme line · SR <name>`, the rated
-     Soldier as the title, and its read-only badge with `Open in Eval Tracker ›`; a line with no open Evaluation reads
-     `No open evaluation.`. A new line asks for the Rated Soldier first (only Persons with no listed scheme are offered,
+     Soldier as the title, and its read-only badge with `Open in Eval Tracker ›`; a line with no Evaluation in work
+     reads `No open evaluation.` with `Start evaluation ›` (`/evals?start=<scheme id>`), a line whose Evaluation is
+     Not tracked reads `Not tracked.` with `Open in Eval Tracker ›`, and an archived line reads
+     `Archived. Off the rating scheme.`. A full load of `/evals/rating-scheme?line=<scheme id>` opens that line's sheet,
+     as the Evaluation sheet's `Edit on Rating Scheme ›` does. A new line asks for the Rated Soldier first (only Persons with no listed scheme are offered,
      else `No one left to add.`), then Rater and Senior rater, optional `+ Intermediate rater` and `+ Reviewer`, the eval
      type (taken from rank) and notes. `Add to scheme` with every field empty marks the three required fields
      `aria-invalid` with `... is required.` and focuses `Rated Soldier`. A valid add sends one `POST api/rating-scheme`

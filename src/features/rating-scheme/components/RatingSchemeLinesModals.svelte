@@ -65,6 +65,13 @@
 	}
 
 	const sheetLine = $derived(lineById(sheetPayload?.lineId));
+	/** A Not tracked Evaluation is open work on the Eval Tracker, though it does not lock the rater. */
+	const notTrackedId = $derived(
+		sheetLine
+			? (evaluationStore.items.find((row) => row.ratingSchemeId === sheetLine.id && row.workflowStatus === null)?.id ??
+					null)
+			: null
+	);
 	const raterLine = $derived.by(() => {
 		const line = lineById(raterPayload?.lineId);
 		return line?.open ? { ...line, open: line.open } : null;
@@ -124,6 +131,7 @@
 		<RatingSchemeLineSheet
 			orgId={initialOrgId}
 			line={sheetLine}
+			{notTrackedId}
 			personnel={personnelLookup}
 			{listedPersonIds}
 			{isCurrentWorkspace}

@@ -159,6 +159,20 @@ describe('RatingSchemeLineSheet with an open Evaluation', () => {
 		).toBe('/org/org-1/evals?entry=eval-1');
 	});
 
+	it('starts the next evaluation only on a line with nothing in work', () => {
+		renderSheet({ line: line('scheme-1', { open: null }) });
+		expect(screen.getByRole('link', { name: /Start evaluation/ }).getAttribute('href')).toBe(
+			'/org/org-1/evals?start=scheme-1'
+		);
+		cleanup();
+
+		renderSheet({ line: line('scheme-1', { open: null }), notTrackedId: 'eval-untracked' });
+		expect(screen.queryByRole('link', { name: /Start evaluation/ })).toBeNull();
+		expect(screen.getByRole('link', { name: /Open in Eval Tracker/ }).getAttribute('href')).toBe(
+			'/org/org-1/evals?entry=eval-untracked'
+		);
+	});
+
 	it('leaves the rater editable when no Evaluation is open', () => {
 		renderSheet({ line: line('scheme-1', { open: null }) });
 

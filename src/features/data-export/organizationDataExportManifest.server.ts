@@ -495,6 +495,12 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 					evaluation.snapshot_senior_rater_person_id,
 					evaluation.snapshot_senior_rater_name
 				),
+				signed_intermediate_rater: evaluator(
+					labels,
+					evaluation.snapshot_intermediate_rater_person_id,
+					evaluation.snapshot_intermediate_rater_name
+				),
+				signed_reviewer: evaluator(labels, evaluation.snapshot_reviewer_person_id, evaluation.snapshot_reviewer_name),
 				chain_signed_at: evaluation.chain_snapshot_at,
 				notes: evaluation.notes
 			}))

@@ -68,9 +68,10 @@
 		updates.putRecord(orgId, { list: 'ratingSchemeEntries', record });
 	}
 
-	const onSave: ComponentProps<EntryModal>['onSave'] = (data) =>
+	const onSave: ComponentProps<EntryModal>['onSave'] = (data, isCurrent) =>
 		save(async () => {
-			putEntry((await saveRatingSchemeEntry(orgId, editor, data)).evaluation);
+			const saved = await saveRatingSchemeEntry(orgId, editor, data, isCurrent);
+			if (saved && isCurrent()) putEntry(saved.evaluation);
 		});
 
 	/**

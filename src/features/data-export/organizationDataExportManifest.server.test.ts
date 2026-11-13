@@ -78,7 +78,11 @@ describe('Organization Data Export manifest', () => {
 			snapshot_rater_person_id: rater,
 			snapshot_rater_name: raterName,
 			snapshot_senior_rater_person_id: senior,
-			snapshot_senior_rater_name: seniorName
+			snapshot_senior_rater_name: seniorName,
+			snapshot_intermediate_rater_person_id: null,
+			snapshot_intermediate_rater_name: 'MSG Intermediate',
+			snapshot_reviewer_person_id: 'rater-1',
+			snapshot_reviewer_name: null
 		});
 		const sheet = ORGANIZATION_DATA_EXPORT_READABLE_SHEETS.find((candidate) => candidate.name === 'Evaluations');
 
@@ -95,6 +99,10 @@ describe('Organization Data Export manifest', () => {
 		expect(rows?.map((row) => [row.signed_rater, row.signed_senior_rater])).toEqual([
 			['SSG Rater', 'COL Kept'],
 			['SSG Named', 'gone-2']
+		]);
+		expect(rows?.map((row) => [row.signed_intermediate_rater, row.signed_reviewer])).toEqual([
+			['MSG Intermediate', 'SSG Rater'],
+			['MSG Intermediate', 'SSG Rater']
 		]);
 	});
 });

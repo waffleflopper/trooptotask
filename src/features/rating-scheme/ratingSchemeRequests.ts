@@ -76,12 +76,14 @@ export function changeEvaluationRater(
 export async function saveRatingSchemeEntry(
 	orgId: string,
 	current: Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'>,
-	data: RatingSchemeEntrySaveData
-): Promise<Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'>> {
+	data: RatingSchemeEntrySaveData,
+	isCurrent: () => boolean
+): Promise<Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'> | undefined> {
 	const plan = planRatingSchemeEntrySave(toRatingSchemeEntry(current.ratingScheme, current.evaluation), data);
 	const ratingScheme = plan.scheme
 		? await saveRatingScheme(orgId, current.ratingScheme.id, plan.scheme)
 		: current.ratingScheme;
+	if (!isCurrent()) return undefined;
 	const evaluation = await saveEvaluation(orgId, current.evaluation.id, plan.evaluation);
 	return { ratingScheme, evaluation };
 }

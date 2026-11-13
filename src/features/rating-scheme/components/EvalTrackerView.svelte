@@ -453,7 +453,7 @@
 								id="ready-to-start"
 								class="font-heading text-[22px] leading-6 font-extrabold uppercase max-sm:font-mono max-sm:text-[0.6875rem] max-sm:leading-3.5 max-sm:font-medium max-sm:tracking-[0.08em] max-sm:text-muted-foreground"
 							>
-								Ready to start<span class="sm:hidden"> · {ready.length}</span>
+								Ready to start<span class="sm:hidden">{` · ${ready.length}`}</span>
 							</h2>
 							<p class="text-sm text-muted-foreground max-sm:hidden">On the rating scheme with no open evaluation</p>
 						</div>
@@ -505,7 +505,7 @@
 							{plural(ctx.completedCount, 'completed evaluation', 'completed evaluations')}. Each keeps the chain that
 							signed it.
 						</p>
-						<Button variant="link" size="none" class="text-sm underline" onclick={() => (ctx.status = 'all')}>
+						<Button variant="link" size="none" class="gap-1 text-sm underline" onclick={() => (ctx.status = 'all')}>
 							Show completed <span class="sm:hidden">({ctx.completedCount})</span>
 						</Button>
 					</div>

@@ -87,6 +87,13 @@
 		};
 	}
 
+	/** A sheet the address named stays named by it, so Back still closes it and a reload opens the one shown. */
+	function openFromHistory(evaluationId: string) {
+		const fromUrl = sheetPayload?.fromUrl ?? false;
+		modals.open(EVALUATION_SHEET_MODAL, { evaluationId, fromUrl } satisfies EvaluationSheetPayload);
+		if (fromUrl) void writeAddress({ url: (url) => url.searchParams.set(ENTRY_PARAM, evaluationId) });
+	}
+
 	async function save(id: string, patch: EvaluationPatchValues, isCurrent: () => boolean): Promise<void> {
 		if (!isCurrent()) return;
 		const fallback = 'The evaluation was not saved. Try again.';
@@ -158,7 +165,7 @@
 			onMove={move}
 			onChangeRater={changeRater}
 			onDelete={remove}
-			onOpenEvaluation={(id) => modals.open(EVALUATION_SHEET_MODAL, { evaluationId: id, fromUrl: false })}
+			onOpenEvaluation={openFromHistory}
 			onClose={closer(EVALUATION_SHEET_MODAL, ENTRY_PARAM)}
 		/>
 	{/key}

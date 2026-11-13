@@ -1026,4 +1026,3 @@ BEGIN
   RETURN pg_catalog.cardinality(v_ids);
 END;
 $$;
-

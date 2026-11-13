@@ -23,7 +23,7 @@ export { exportRatingScheme } from './utils/ratingSchemeExport';
 export { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 export { RatingSchemeLinesContext, RatingSchemeLinesViewState } from './contexts/RatingSchemeLinesContext.svelte';
-export { EvalTrackerContext, EVALUATION_SHEET_MODAL } from './contexts/EvalTrackerContext.svelte';
+export { EvalTrackerContext, EvalTrackerViewState, EVALUATION_SHEET_MODAL } from './contexts/EvalTrackerContext.svelte';
 export { default as EvalTrackerView } from './components/EvalTrackerView.svelte';
 export { default as RatingSchemeLinesView } from './components/RatingSchemeLinesView.svelte';
 export { default as EvalsTabs } from './components/EvalsTabs.svelte';

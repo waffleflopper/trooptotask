@@ -53,13 +53,19 @@ const defaultSources: EvalTrackerSources = {
 	evaluations: evaluationStore
 };
 
-/** What the Eval Tracker shows and controls: the Evaluations in work by urgency, the schemes ready to start, and the sheets. */
-export class EvalTrackerContext {
+/** How the Eval Tracker is searched and filtered. The page keeps one per Organization, so a reload of its data leaves these choices alone. */
+export class EvalTrackerViewState {
 	searchQuery = $state('');
 	status = $state<TrackerStatusFilter>('open');
 	reportFilter = $state<'all' | ReportType>('all');
 	stepFilter = $state<TrackerStepFilter>('all');
 
+	constructor(readonly orgId: string) {}
+}
+
+/** What the Eval Tracker shows and controls: the Evaluations in work by urgency, the schemes ready to start, and the sheets. */
+export class EvalTrackerContext {
+	readonly view: EvalTrackerViewState;
 	readonly #data: EvalTrackerData;
 	readonly #modals: ModalRegistry;
 	readonly #org: RatingSchemePageAccess;
@@ -69,8 +75,10 @@ export class EvalTrackerContext {
 		data: EvalTrackerData,
 		modals: ModalRegistry,
 		org: RatingSchemePageAccess,
+		view: EvalTrackerViewState = new EvalTrackerViewState(data.orgId),
 		sources: EvalTrackerSources = defaultSources
 	) {
+		this.view = view;
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
@@ -99,23 +107,23 @@ export class EvalTrackerContext {
 	}
 
 	#search(): (chain: Parameters<ReturnType<typeof createChainSearch>>[0]) => boolean {
-		return createChainSearch(this.searchQuery, this.#data.personnelLookup);
+		return createChainSearch(this.view.searchQuery, this.#data.personnelLookup);
 	}
 
 	/** Every Evaluation the status filter lists, before search, report and step narrow it. */
 	get listed(): RatingSchemeEntry[] {
-		return this.#sources.entries.items.filter((entry) => isTrackerListed(entry, this.status));
+		return this.#sources.entries.items.filter((entry) => isTrackerListed(entry, this.view.status));
 	}
 
 	get rows(): RatingSchemeEntry[] {
 		const matches = this.#search();
 		const rows = this.listed.filter(
 			(entry) =>
-				(this.reportFilter === 'all' || entry.reportType === this.reportFilter) &&
-				(this.stepFilter === 'all' ||
-					(this.stepFilter === 'not-tracked'
+				(this.view.reportFilter === 'all' || entry.reportType === this.view.reportFilter) &&
+				(this.view.stepFilter === 'all' ||
+					(this.view.stepFilter === 'not-tracked'
 						? entry.workflowStatus === null
-						: entry.workflowStatus === this.stepFilter)) &&
+						: entry.workflowStatus === this.view.stepFilter)) &&
 				matches(entry)
 		);
 		return byUrgency(rows);
@@ -123,7 +131,8 @@ export class EvalTrackerContext {
 
 	/** Shown beside open work; a report or step filter is about Evaluations, so it hides them. */
 	get ready(): ReadyToStart[] {
-		if (this.status === 'completed' || this.reportFilter !== 'all' || this.stepFilter !== 'all') return [];
+		if (this.view.status === 'completed' || this.view.reportFilter !== 'all' || this.view.stepFilter !== 'all')
+			return [];
 		const matches = this.#search();
 		return readyToStart(this.#sources.schemes.items, this.#sources.evaluations.items).filter(({ scheme }) =>
 			matches(scheme)
@@ -150,15 +159,18 @@ export class EvalTrackerContext {
 
 	get hasActiveSearchOrFilters(): boolean {
 		return (
-			!!this.searchQuery.trim() || this.status !== 'open' || this.reportFilter !== 'all' || this.stepFilter !== 'all'
+			!!this.view.searchQuery.trim() ||
+			this.view.status !== 'open' ||
+			this.view.reportFilter !== 'all' ||
+			this.view.stepFilter !== 'all'
 		);
 	}
 
 	clearSearchAndFilters(): void {
-		this.searchQuery = '';
-		this.status = 'open';
-		this.reportFilter = 'all';
-		this.stepFilter = 'all';
+		this.view.searchQuery = '';
+		this.view.status = 'open';
+		this.view.reportFilter = 'all';
+		this.view.stepFilter = 'all';
 	}
 
 	get sheet(): EvaluationSheetPayload | undefined {

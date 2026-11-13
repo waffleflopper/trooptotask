@@ -11,6 +11,7 @@ function scheme(ratingScheme: 'view' | 'operate' = 'operate') {
 		{ orgId: 'org-1', orgName: 'Test Org', personnelLookup: linePersonnel },
 		modals,
 		createClientAccess({ membershipRole: 'member', capabilityMap: { ...createCapabilityMap('none'), ratingScheme } }),
+		undefined,
 		{ items: [line('scheme-1')] },
 		{ items: [] }
 	);

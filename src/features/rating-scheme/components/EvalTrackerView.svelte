@@ -115,9 +115,9 @@
 			label: 'Evaluation status',
 			ariaLabel: 'Status filter',
 			options: statusOptions,
-			value: ctx.status,
+			value: ctx.view.status,
 			defaultValue: 'open',
-			onValueChange: (value) => (ctx.status = value as TrackerStatusFilter)
+			onValueChange: (value) => (ctx.view.status = value as TrackerStatusFilter)
 		},
 		{
 			kind: 'select',
@@ -125,9 +125,9 @@
 			label: 'Report type',
 			ariaLabel: 'Report filter',
 			options: reportOptions,
-			value: ctx.reportFilter,
+			value: ctx.view.reportFilter,
 			defaultValue: 'all',
-			onValueChange: (value) => (ctx.reportFilter = value as 'all' | ReportType)
+			onValueChange: (value) => (ctx.view.reportFilter = value as 'all' | ReportType)
 		},
 		{
 			kind: 'select',
@@ -135,9 +135,9 @@
 			label: 'Workflow step',
 			ariaLabel: 'Step filter',
 			options: stepOptions,
-			value: ctx.stepFilter,
+			value: ctx.view.stepFilter,
 			defaultValue: 'all',
-			onValueChange: (value) => (ctx.stepFilter = value as TrackerStepFilter)
+			onValueChange: (value) => (ctx.view.stepFilter = value as TrackerStepFilter)
 		},
 		{
 			kind: 'action',
@@ -152,8 +152,8 @@
 	const toolbarSearch = $derived({
 		label: 'Search by Soldier or signer',
 		placeholder: 'Search Soldier or signer...',
-		value: ctx.searchQuery,
-		onValueChange: (value) => (ctx.searchQuery = value)
+		value: ctx.view.searchQuery,
+		onValueChange: (value) => (ctx.view.searchQuery = value)
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
@@ -496,7 +496,7 @@
 					</section>
 				{/if}
 
-				{#if ctx.status === 'open' && ctx.completedCount > 0}
+				{#if ctx.view.status === 'open' && ctx.completedCount > 0}
 					<div
 						class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-dashed px-4 py-3.5 max-sm:border-0 max-sm:px-0 max-sm:py-1"
 					>
@@ -505,7 +505,12 @@
 							{plural(ctx.completedCount, 'completed evaluation', 'completed evaluations')}. Each keeps the chain that
 							signed it.
 						</p>
-						<Button variant="link" size="none" class="gap-1 text-sm underline" onclick={() => (ctx.status = 'all')}>
+						<Button
+							variant="link"
+							size="none"
+							class="gap-1 text-sm underline"
+							onclick={() => (ctx.view.status = 'all')}
+						>
 							Show completed <span class="sm:hidden">({ctx.completedCount})</span>
 						</Button>
 					</div>

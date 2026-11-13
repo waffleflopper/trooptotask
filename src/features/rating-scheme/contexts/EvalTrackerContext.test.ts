@@ -27,6 +27,7 @@ function tracker(ratingScheme: 'view' | 'operate' = 'operate') {
 		{ orgId: 'org-1', orgName: 'Test Org', personnelLookup: linePersonnel },
 		modals,
 		createClientAccess({ membershipRole: 'member', capabilityMap: { ...createCapabilityMap('none'), ratingScheme } }),
+		undefined,
 		{ entries: { items: entries }, schemes: { items: schemes }, evaluations: { items: evaluations } }
 	);
 	return { ctx, modals };
@@ -41,14 +42,14 @@ describe('EvalTrackerContext', () => {
 		expect(ctx.rows.map((row) => row.id)).toEqual(['open']);
 		expect(ctx.ready.map((row) => row.scheme.id)).toEqual(['scheme-park']);
 
-		ctx.status = 'all';
+		ctx.view.status = 'all';
 		expect(ctx.rows.map((row) => row.id)).toEqual(['open', 'signed']);
 	});
 
 	it('hides Ready to start under a step filter, since those schemes have no step', () => {
 		const { ctx } = tracker();
 
-		ctx.stepFilter = 'with-rater';
+		ctx.view.stepFilter = 'with-rater';
 
 		expect(ctx.rows.map((row) => row.id)).toEqual(['open']);
 		expect(ctx.ready).toEqual([]);

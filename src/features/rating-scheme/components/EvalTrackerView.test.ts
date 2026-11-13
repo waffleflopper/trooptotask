@@ -32,6 +32,7 @@ function renderTracker() {
 			membershipRole: 'member',
 			capabilityMap: { ...createCapabilityMap('none'), ratingScheme: 'operate' }
 		}),
+		undefined,
 		{
 			entries: { items: evaluations.map((row) => toRatingSchemeEntry(schemes[0], row)) },
 			schemes: { items: schemes },

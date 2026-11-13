@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { EvalTrackerContext, EvalTrackerView, loadEvalTrackerModals } from '$features/rating-scheme';
+	import {
+		EvalTrackerContext,
+		EvalTrackerView,
+		EvalTrackerViewState,
+		loadEvalTrackerModals
+	} from '$features/rating-scheme';
 	import { submitDeletionRequest } from '$features/deletion-requests';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
@@ -9,6 +14,8 @@
 
 	const org = getAppShellContext();
 	const modals = new ModalRegistry();
+	const orgId = $derived(data.shell.org.id);
+	const view = $derived(new EvalTrackerViewState(orgId));
 </script>
 
 <svelte:head>
@@ -21,7 +28,8 @@
 		{@const ctx = new EvalTrackerContext(
 			{ orgId: data.shell.org.id, orgName: data.shell.org.name, personnelLookup },
 			modals,
-			org
+			org,
+			view
 		)}
 		<EvalTrackerView {ctx} />
 		{#await loadEvalTrackerModals() then { default: EvalTrackerModals }}

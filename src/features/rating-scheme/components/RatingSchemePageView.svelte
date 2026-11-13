@@ -19,6 +19,7 @@
 		type ToolbarItem,
 		type WorkspaceToolbarProps
 	} from '$lib/components/patterns/workspace-toolbar';
+	import EvalsTabs from '$features/rating-scheme/components/EvalsTabs.svelte';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import type {
@@ -256,6 +257,7 @@
 				subtitle={headerCounts}
 				aside={shownCount}
 			/>
+			<EvalsTabs orgId={ctx.orgId} section="tracker" pastThru={ratingStats.overdue} />
 
 			<WorkspaceToolbar
 				ariaLabel="Evaluation controls"

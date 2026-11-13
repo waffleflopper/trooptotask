@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import type { SchemeSort } from '../utils/ratingSchemeLineGroups';
 	import type { RatingSchemeLinesContext } from '../contexts/RatingSchemeLinesContext.svelte';
-	import type { RatingSchemeListingFilter } from '../contexts/RatingSchemePageContext.svelte';
+	import type { RatingSchemeListingFilter } from '../contexts/RatingSchemeLinesContext.svelte';
 	import EvalsTabs from './EvalsTabs.svelte';
 	import RatingSchemeLinesGroupedView from './RatingSchemeLinesGroupedView.svelte';
 	import RatingSchemeLinesTableView from './RatingSchemeLinesTableView.svelte';
@@ -24,6 +25,10 @@
 	}
 
 	let { ctx }: Props = $props();
+
+	afterNavigate(({ to }) => {
+		if (to) ctx.followAddress(to.url);
+	});
 
 	let exportLoading = $state(false);
 	let workspace = $state<HTMLElement | null>(null);

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RatingSchemeEntryEditorData } from '$features/rating-scheme';
 import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
-import EntryModalTestDouble from './EntryModalTestDouble.svelte';
+import EvaluationSheetTestDouble from './EvaluationSheetTestDouble.svelte';
 import UpdateStatusPanel from './UpdateStatusPanel.svelte';
 
 const ratingScheme = {
@@ -63,7 +63,7 @@ function open({
 			close,
 			orgId: 'org-1',
 			editor: { ratingScheme, evaluation: entry, personnelLookup },
-			Modal: EntryModalTestDouble as never
+			Sheet: EvaluationSheetTestDouble as never
 		}
 	});
 	return { updates, close, save };
@@ -86,7 +86,7 @@ describe('UpdateStatusPanel', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
-		expect(await screen.findByText('Modal says: done completed')).toBeTruthy();
+		expect(await screen.findByText('Step: completed')).toBeTruthy();
 		const [url, request] = fetchMock.mock.calls[0];
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
 			'/org/org-1/api/evaluations/e1/workflow',
@@ -110,7 +110,7 @@ describe('UpdateStatusPanel', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
-		expect(await screen.findByText('Modal says: done completed')).toBeTruthy();
+		expect(await screen.findByText('Step: completed')).toBeTruthy();
 		expect(save).toHaveBeenCalledTimes(1);
 	});
 
@@ -120,10 +120,26 @@ describe('UpdateStatusPanel', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Start tracking' }));
 
-		expect(await screen.findByText('Modal says: done drafting')).toBeTruthy();
+		expect(await screen.findByText('Step: drafting')).toBeTruthy();
 		expect(updates.putRecord.mock.calls[0][1].record.workflowStatus).toBe('drafting');
 		expect(save).not.toHaveBeenCalled();
 		expect(close).not.toHaveBeenCalled();
+	});
+
+	it('saves only the fields the sheet changed, so a signed chain is never sent back', async () => {
+		open();
+		respond({ ...entry, notes: 'Updated' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save notes' }));
+
+		expect(await screen.findByText('Sheet says: done')).toBeTruthy();
+		const [url, request] = fetchMock.mock.calls[0];
+		expect([url, request.method, JSON.parse(request.body)]).toEqual([
+			'/org/org-1/api/evaluations',
+			'PUT',
+			{ id: 'e1', notes: 'Updated' }
+		]);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('keeps the rated person named when a save leaves the entry overdue', async () => {
@@ -135,13 +151,6 @@ describe('UpdateStatusPanel', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Save notes' }));
 
 		await waitFor(() => expect(updates.putRecord).toHaveBeenCalledTimes(1));
-		const [url, request] = fetchMock.mock.calls[0];
-		expect([url, request.method, JSON.parse(request.body)]).toEqual([
-			'/org/org-1/api/evaluations',
-			'PUT',
-			{ id: 'e1', evalType: 'NCOER', ratingPeriodEnd: '2026-09-30', notes: 'Updated' }
-		]);
-		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(updates.putRecord.mock.calls[0][1].record).toEqual({ ...dueRow(entry), ratedPersonName: 'SPC Patel, Ravi' });
 	});
 
@@ -168,7 +177,7 @@ describe('UpdateStatusPanel', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Change rater' }));
 
-		expect(await screen.findByText('Modal says: done true')).toBeTruthy();
+		expect(await screen.findByText('Sheet says: done')).toBeTruthy();
 		const [url, request] = fetchMock.mock.calls[0];
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
 			'/org/org-1/api/evaluations/e1/change-rater',
@@ -181,22 +190,22 @@ describe('UpdateStatusPanel', () => {
 		]);
 	});
 
-	it('hands a refused move back to the editor and leaves the page unchanged', async () => {
+	it('hands a refused move back to the sheet and leaves the page unchanged', async () => {
 		const { updates } = open();
 		respond({ message: 'This evaluation has changed since you opened it. Refresh it and try again.' }, 409);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
 		expect(
-			await screen.findByText('Modal says: This evaluation has changed since you opened it. Refresh it and try again.')
+			await screen.findByText('Sheet says: This evaluation has changed since you opened it. Refresh it and try again.')
 		).toBeTruthy();
 		expect(updates.putRecord).not.toHaveBeenCalled();
 	});
 
-	it('closes with the editor', async () => {
+	it('closes with the sheet', async () => {
 		const { close } = open();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Close entry' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Close evaluation' }));
 
 		expect(close).toHaveBeenCalledTimes(1);
 	});

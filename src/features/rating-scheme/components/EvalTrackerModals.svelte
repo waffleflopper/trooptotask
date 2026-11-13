@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import type { EvaluationPatchValues, EvaluationStart, RatingSchemeMove, RatingSchemeRaterChange } from '../contracts';
+	import type {
+		Evaluation,
+		EvaluationPatchValues,
+		EvaluationStart,
+		RatingScheme,
+		RatingSchemeMove,
+		RatingSchemeRaterChange
+	} from '../contracts';
 	import {
 		ENTRY_PARAM,
 		EVALUATION_SHEET_MODAL,
@@ -52,11 +59,23 @@
 
 	const sheetPayload = $derived(modals.payload<EvaluationSheetPayload>(EVALUATION_SHEET_MODAL));
 	const startPayload = $derived(modals.payload<StartEvaluationPayload>(START_EVALUATION_MODAL));
-	const sheetEvaluation = $derived(
+	const liveEvaluation = $derived(
 		sheetPayload ? evaluationStore.items.find((row) => row.id === sheetPayload.evaluationId) : undefined
 	);
-	const sheetScheme = $derived(
-		sheetEvaluation ? ratingSchemeStore.items.find((row) => row.id === sheetEvaluation.ratingSchemeId) : undefined
+	const liveScheme = $derived(
+		liveEvaluation ? ratingSchemeStore.items.find((row) => row.id === liveEvaluation.ratingSchemeId) : undefined
+	);
+	/** A delete takes the row out of the store before it settles, so the sheet keeps what it showed until it closes. */
+	let lastShown = $state<{ evaluation: Evaluation; scheme: RatingScheme } | null>(null);
+	$effect(() => {
+		if (liveEvaluation && liveScheme) lastShown = { evaluation: liveEvaluation, scheme: liveScheme };
+	});
+	const shown = $derived(
+		liveEvaluation && liveScheme
+			? { evaluation: liveEvaluation, scheme: liveScheme }
+			: lastShown?.evaluation.id === sheetPayload?.evaluationId
+				? lastShown
+				: null
 	);
 	const ready = $derived(readyToStart(ratingSchemeStore.items, evaluationStore.items));
 
@@ -126,12 +145,12 @@
 	}
 </script>
 
-{#if sheetEvaluation && sheetScheme}
-	{#key sheetEvaluation.id}
+{#if shown}
+	{#key shown.evaluation.id}
 		<EvaluationSheet
 			orgId={initialOrgId}
-			evaluation={sheetEvaluation}
-			scheme={sheetScheme}
+			evaluation={shown.evaluation}
+			scheme={shown.scheme}
 			personnel={personnelLookup}
 			evaluations={evaluationStore.items}
 			{isCurrentWorkspace}

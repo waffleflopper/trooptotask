@@ -224,9 +224,9 @@
 		deleting = true;
 		try {
 			const removed = await onDelete(evaluation.id, isCurrent);
-			if (!isCurrent()) return;
+			if (!isCurrent() || !removed) return;
 			confirmingDelete = false;
-			if (removed) onClose();
+			onClose();
 		} catch (error) {
 			if (isCurrent()) toastStore.error(failure(error, 'The evaluation was not deleted. Try again.'));
 		} finally {
@@ -516,7 +516,13 @@
 						<p class="text-[13px] leading-[18px] text-muted-foreground">
 							Delete removes this record. Use it for an evaluation added by mistake.
 						</p>
-						<Button variant="outline" size="sm" class="text-destructive-text" onclick={() => (confirmingDelete = true)}>
+						<Button
+							variant="outline"
+							size="sm"
+							class="text-destructive-text"
+							disabled={busy}
+							onclick={() => (confirmingDelete = true)}
+						>
 							Delete evaluation
 						</Button>
 					</section>

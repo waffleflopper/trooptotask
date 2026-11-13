@@ -3,7 +3,7 @@ import type { EvalType } from '../rating-scheme.types';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues } from '../contracts';
 import { getEvalTypeForRank } from './ratingScheme';
 import { EVALUATOR_CHAIN_KEYS } from './ratingSchemeEntries';
-import { evaluatorDraft, type EvaluatorDraft } from './ratingSchemeEntryDraft';
+import { evaluatorDraft, type EvaluatorDraft } from './evaluatorDraft';
 import type { RatingSchemeLine } from './ratingSchemeLines';
 
 /** What the scheme line sheet edits: the standing chain, the eval type each new Evaluation starts with, and notes. */

@@ -5,8 +5,8 @@ import {
 	isWorkflowMoveAllowed,
 	parseWorkflowStatus,
 	waitingOn,
-	workflowJumpTargets,
 	workflowMoves,
+	workflowStepList,
 	workflowRoles,
 	type WorkflowRoles
 } from './evaluationWorkflow';
@@ -121,8 +121,8 @@ describe('evaluation workflow moves', () => {
 		]);
 	});
 
-	it('lists every present step but the current one as a jump target, in chain order', () => {
-		expect(workflowJumpTargets('sm-signed', ROLES.none).map((target) => target.value)).toEqual([
+	it('lists the steps the chain makes possible, in chain order', () => {
+		expect(workflowStepList(ROLES.none).map((step) => step.value)).toEqual([
 			'drafting',
 			'command-review',
 			'with-rater',
@@ -130,12 +130,13 @@ describe('evaluation workflow moves', () => {
 			'with-senior-rater',
 			'sr-signed',
 			'with-rated-soldier',
+			'sm-signed',
 			'submitted-to-hrc',
 			'completed'
 		]);
-		expect(workflowJumpTargets(null, ROLES.reviewer).map((target) => target.label)).toContain('With Reviewer');
-		expect(workflowJumpTargets(null, ROLES.reviewer).map((target) => target.label)).not.toContain('IR Signed');
-		expect(workflowJumpTargets('command-review', ROLES.both)).toHaveLength(13);
+		expect(workflowStepList(ROLES.reviewer).map((step) => step.label)).toContain('With Reviewer');
+		expect(workflowStepList(ROLES.reviewer).map((step) => step.label)).not.toContain('IR Signed');
+		expect(workflowStepList(ROLES.both)).toHaveLength(14);
 	});
 
 	it('counts an evaluator the way the database does', () => {

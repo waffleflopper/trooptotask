@@ -68,11 +68,6 @@ function presentSteps(roles: WorkflowRoles): WorkflowStep[] {
 	return WORKFLOW_STEPS.filter((step) => isPresentStep(step, roles));
 }
 
-/** Where the Jump to step control can send an entry: every present step but the one it is on, in chain order. */
-export function workflowJumpTargets(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WorkflowStep[] {
-	return presentSteps(roles).filter((step) => step.value !== workflowStatus);
-}
-
 /**
  * The one-step buttons. Back and Next walk the present steps and skip the optional Command Review, which drafting
  * reaches with its own button. A step left by a removed role still moves to its present neighbours.

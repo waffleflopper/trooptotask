@@ -1,33 +1,28 @@
 <script lang="ts">
-	import type { Component, ComponentProps } from 'svelte';
+	import { untrack, type Component } from 'svelte';
 	import type { RatingSchemeEntryEditorData } from '$features/rating-scheme';
 	import type {
 		Evaluation,
+		EvaluationPatchValues,
+		RatingScheme,
 		RatingSchemeDueEntry,
-		RatingSchemeEntry,
 		RatingSchemeMove,
 		RatingSchemeRaterChange
 	} from '$features/rating-scheme/contracts';
-	import {
-		changeEvaluationRater,
-		moveEvaluation,
-		saveRatingSchemeEntry,
-		toRatingSchemeEntry
-	} from '$features/rating-scheme';
+	import { changeEvaluationRater, moveEvaluation, saveEvaluation } from '$features/rating-scheme';
 	import { isEvaluationCompleted } from '$features/rating-scheme/contracts';
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { NeedsYouPanelProps } from '../../sections/needsYou';
 
-	type EntryModal = Component<{
-		entry: RatingSchemeEntry | null;
+	type EvaluationSheet = Component<{
+		orgId: string;
+		evaluation: Evaluation;
+		scheme: RatingScheme;
 		personnel: RatingSchemeEntryEditorData['personnelLookup'];
 		isCurrentWorkspace: () => boolean;
-		onSave: (
-			data: Omit<RatingSchemeEntry, 'id' | 'ratingSchemeId' | 'workflowStatus' | 'archivedAt' | 'chainSigned'>,
-			isCurrent: () => boolean
-		) => Promise<void>;
-		onMove: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<RatingSchemeEntry | undefined>;
-		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
+		onSave: (id: string, patch: EvaluationPatchValues, isCurrent: () => boolean) => Promise<void>;
+		onMove: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<void>;
+		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<void>;
 		onClose: () => void;
 	}>;
 
@@ -38,11 +33,13 @@
 		close,
 		orgId,
 		editor,
-		Modal
-	}: NeedsYouPanelProps & { orgId: string; editor: RatingSchemeEntryEditorData; Modal: EntryModal } = $props();
+		Sheet
+	}: NeedsYouPanelProps & { orgId: string; editor: RatingSchemeEntryEditorData; Sheet: EvaluationSheet } = $props();
 
 	const isCurrentWorkspace = () => model.inputs.page.orgId === orgId;
-	const entry = $derived(toRatingSchemeEntry(editor.ratingScheme, editor.evaluation));
+	/** The sheet shows each step as it lands, so the panel keeps what the server answered. */
+	let evaluation = $state(untrack(() => editor.evaluation));
+	let scheme = $state(untrack(() => editor.ratingScheme));
 
 	/** A viewer without Personnel access names the rated person from the entry itself, so the overlay keeps it. */
 	type NamedDueEntry = RatingSchemeDueEntry & { ratedPersonName?: string };
@@ -68,48 +65,52 @@
 		updates.putRecord(orgId, { list: 'ratingSchemeEntries', record });
 	}
 
-	const onSave: ComponentProps<EntryModal>['onSave'] = (data, isCurrent) =>
+	const rejected = (fallback: string) => (failure: unknown) => {
+		throw new Error(rejectedRequestMessage(failure, fallback));
+	};
+
+	const onSave = (id: string, patch: EvaluationPatchValues, isCurrent: () => boolean) =>
 		save(async () => {
-			const saved = await saveRatingSchemeEntry(orgId, editor, data, isCurrent);
-			if (saved && isCurrent()) putEntry(saved.evaluation);
+			const saved = await saveEvaluation(orgId, id, patch).catch(rejected('The evaluation was not saved. Try again.'));
+			if (!isCurrent()) return;
+			evaluation = saved;
+			putEntry(saved);
 		});
 
 	/**
 	 * A step keeps the Evaluation past thru, so the panel stays open for the next one. Completing it removes the row,
 	 * so that move saves through the row and focus moves on with it.
 	 */
-	const onMove: ComponentProps<EntryModal>['onMove'] = async (id, workflowMove, isCurrent) => {
+	async function onMove(id: string, workflowMove: RatingSchemeMove, isCurrent: () => boolean): Promise<void> {
 		const move = async () => {
-			const { evaluation } = await moveEvaluation(orgId, id, workflowMove).catch((failure: unknown) => {
-				throw new Error(rejectedRequestMessage(failure, 'The workflow did not move. Try again.'));
-			});
-			if (!isCurrent()) return undefined;
-			putEntry(evaluation);
-			return toRatingSchemeEntry(editor.ratingScheme, evaluation);
-		};
-		if (!isEvaluationCompleted(workflowMove.to)) return move();
-		let reached: RatingSchemeEntry | undefined;
-		await save(async () => {
-			reached = await move();
-		});
-		return reached;
-	};
-
-	const onChangeRater: ComponentProps<EntryModal>['onChangeRater'] = async (id, change, isCurrent) => {
-		let opened = false;
-		await save(async () => {
-			const { evaluation, successor } = await changeEvaluationRater(orgId, id, change);
+			const moved = await moveEvaluation(orgId, id, workflowMove).catch(
+				rejected('The workflow did not move. Try again.')
+			);
 			if (!isCurrent()) return;
-			putEntry(evaluation);
-			if (successor) putEntry(successor);
-			opened = successor !== null;
+			evaluation = moved.evaluation;
+			putEntry(moved.evaluation);
+		};
+		if (isEvaluationCompleted(workflowMove.to)) await save(move);
+		else await move();
+	}
+
+	const onChangeRater = (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) =>
+		save(async () => {
+			const result = await changeEvaluationRater(orgId, id, change).catch(
+				rejected('The rater was not changed. Try again.')
+			);
+			if (!isCurrent()) return;
+			evaluation = result.evaluation;
+			scheme = result.ratingScheme;
+			putEntry(result.evaluation);
+			if (result.successor) putEntry(result.successor);
 		});
-		return opened;
-	};
 </script>
 
-<Modal
-	{entry}
+<Sheet
+	{orgId}
+	{evaluation}
+	{scheme}
 	personnel={editor.personnelLookup}
 	{isCurrentWorkspace}
 	{onSave}

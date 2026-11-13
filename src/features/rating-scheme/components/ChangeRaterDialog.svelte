@@ -2,7 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeRaterChange } from '../contracts';
-	import type { EvaluatorDraft } from '../utils/ratingSchemeEntryDraft';
+	import type { EvaluatorDraft } from '../utils/evaluatorDraft';
 	import type { Evaluation } from '../rating-scheme.types';
 	import { previewChangeOfRater, MIN_CHANGE_OF_RATER_DAYS } from '../utils/changeRaterPreview';
 	import { chainNames, joinNames, spokenPersonLabel } from '../utils/personLabel';

@@ -62,7 +62,7 @@ export const FEATURE_SETUP = {
 	evaluations: {
 		count: 'ratingSchemeEntries',
 		missing: 'rating scheme',
-		fix: { label: 'Add an entry', path: 'evals' }
+		fix: { label: 'Add to the rating scheme', path: 'evals/rating-scheme' }
 	},
 	onboarding: {
 		count: 'onboardingTemplates',

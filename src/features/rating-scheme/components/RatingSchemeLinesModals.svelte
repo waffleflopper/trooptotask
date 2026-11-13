@@ -2,7 +2,12 @@
 	import { onDestroy, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeRaterChange } from '../contracts';
-	import { CHANGE_RATER_MODAL, LINE_SHEET_MODAL } from '../contexts/RatingSchemeLinesContext.svelte';
+	import {
+		CHANGE_RATER_MODAL,
+		LINE_PARAM,
+		LINE_SHEET_MODAL,
+		type LineSheetPayload
+	} from '../contexts/RatingSchemeLinesContext.svelte';
 	import { evaluationStore, ratingSchemeLines, ratingSchemeStore } from '../stores/ratingScheme.svelte';
 	import { archiveRatingScheme, changeEvaluationRater, createRatingScheme } from '../ratingSchemeRequests';
 	import type { RatingSchemeLineSave } from '../utils/ratingSchemeLineDraft';
@@ -11,7 +16,9 @@
 	import RatingSchemeLineSheet from './RatingSchemeLineSheet.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 
 	interface Props {
 		orgId: string;
@@ -42,7 +49,14 @@
 		};
 	}
 
-	const sheetPayload = $derived(modals.payload<{ lineId: string | null }>(LINE_SHEET_MODAL));
+	const sheetPayload = $derived(modals.payload<LineSheetPayload>(LINE_SHEET_MODAL));
+
+	/** Closing the line sheet takes `?line=` off the address, so a reload does not reopen it. */
+	function closeLineSheet() {
+		modals.close(LINE_SHEET_MODAL);
+		if (visibleUrl().searchParams.has(LINE_PARAM))
+			void writeAddress({ url: (url) => url.searchParams.delete(LINE_PARAM) });
+	}
 	const raterPayload = $derived(modals.payload<{ lineId: string }>(CHANGE_RATER_MODAL));
 
 	/** The line as the stores hold it now; a rater change or an archive may have moved it since the sheet opened. */
@@ -101,7 +115,7 @@
 		if (successor) toastStore.success('Rater changed. A new evaluation was opened.');
 		else toastStore.info('This evaluation was already completed.');
 		modals.close(CHANGE_RATER_MODAL);
-		modals.close(LINE_SHEET_MODAL);
+		closeLineSheet();
 	}
 </script>
 
@@ -116,7 +130,7 @@
 			onSave={saveLine}
 			onArchive={archiveLine}
 			onChangeRater={(line) => modals.open(CHANGE_RATER_MODAL, { lineId: line.id })}
-			onClose={modals.closerFor(LINE_SHEET_MODAL)}
+			onClose={closeLineSheet}
 		/>
 	{/key}
 {/if}

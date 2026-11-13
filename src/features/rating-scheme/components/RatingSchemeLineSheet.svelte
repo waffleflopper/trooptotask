@@ -19,7 +19,7 @@
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
 		type EvaluatorDraft
-	} from '../utils/ratingSchemeEntryDraft';
+	} from '../utils/evaluatorDraft';
 	import EvalStatusBadge from './EvalStatusBadge.svelte';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -228,8 +228,16 @@
 					>
 						Open in Eval Tracker ›
 					</a>
+				{:else if line && archived}
+					Archived. Off the rating scheme.
 				{:else if line}
-					{archived ? 'Archived. Off the rating scheme.' : 'No open evaluation.'}
+					No open evaluation.
+					<a
+						href="/org/{orgId}/evals?start={line.id}"
+						class="rounded-sm text-[13px] underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					>
+						Start evaluation ›
+					</a>
 				{:else}
 					Pick the Soldier first. Eval type comes from their rank.
 				{/if}

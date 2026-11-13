@@ -340,16 +340,20 @@ A reusable, ordered in-processing workflow definition, including checkbox steps,
 _Avoid_: Active onboarding record, checklist
 
 **Rating Scheme**:
-The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain. Each Rated Individual has at most one listed rating scheme, which holds their rating chain: rater, intermediate rater, senior rater and reviewer. A rating scheme leaves the Rating Scheme when it is archived and returns when it is restored.
+The independently authorized feature tracking rated people, rating relationships, and evaluation workflows. Evals is its navigation label, not a separate domain. Its Rating Scheme tab lists each Rated Individual's standing chain, and its Eval Tracker tab holds their Evaluations. Each Rated Individual has at most one listed rating scheme, which holds their rating chain and eval type: rater, intermediate rater, senior rater and reviewer. A rating scheme leaves the Rating Scheme when it is archived and returns when it is restored.
 _Avoid_: Personnel metadata
 
 **Evaluation**:
-The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other present step. Each Evaluation belongs to one rating scheme and is rated by that scheme's current chain until it is completed; a completed Evaluation keeps the chain that signed it. An Evaluation stays on the tracker while its scheme is listed, and while it is open after its scheme is archived. Completing an Evaluation does not archive its scheme, and archiving a scheme keeps every Evaluation's step.
+The military evaluation context supported by Rating Scheme relationships and tracking. Its one lifecycle state is its workflow step: Not tracked, a signature step, or Completed. It is open until Completed. Command Review is an optional step after Drafting for units whose leadership reviews an Evaluation before it is signed. A step can be jumped to from any other step the chain makes possible. Each Evaluation belongs to one rating scheme and takes its eval type from it. An open Evaluation is rated by that scheme's current chain, so a new intermediate rater, senior rater or reviewer applies to it at once. Its rater changes only through Change of Rater. A completed Evaluation keeps the chain that signed it and when it was signed, and reopening it returns it to the scheme's current chain. An Evaluation starts at Drafting or is recorded as already completed. Completing an Evaluation does not archive its scheme, and archiving a scheme keeps every Evaluation's step.
 _Avoid_: Training, counseling, a separate record status
 
 **Change of Rater**:
-The action that completes an open Evaluation as a Change of Rater report through the last day with its rater, gives its rating scheme the new rater, and opens the next Evaluation on that scheme the following day.
+The action that completes an open Evaluation as a Change of Rater report through the last day with its rater, gives its rating scheme the new rater, and opens the next Evaluation on that scheme the following day. A rater period under the 90-day minimum shows a hint and does not block the change.
 _Avoid_: A status value
+
+**Eval Tracker**:
+The Evals tab that lists open Evaluations by urgency, past thru first, with who each one waits on. It keeps an open Evaluation whose scheme was archived. Listed schemes with no open Evaluation wait under Ready to start, and completed Evaluations show on request.
+_Avoid_: Rating scheme list, status board
 
 **Rated Individual**:
 The person represented by a Personnel Record whose evaluation relationships are tracked in a rating scheme.

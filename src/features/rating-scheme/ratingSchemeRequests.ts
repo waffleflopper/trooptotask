@@ -14,7 +14,6 @@ import type {
 	RatingSchemeRaterChange,
 	RatingSchemeRaterChangeResult
 } from './contracts';
-import { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 async function send<T>(orgId: string, method: string, path: string, body?: unknown): Promise<T> {
 	const response = await fetch(`/org/${orgId}/api/${path}`, {

@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ratingSchemeWorkspaceHydrator, loadEvalTrackerModals } from '$features/rating-scheme';
-import { EVALUATION_SHEET_MODAL } from '$features/rating-scheme/contexts/EvalTrackerContext.svelte';
+import { EVALUATION_SHEET_MODAL, ratingSchemeWorkspaceHydrator, loadEvalTrackerModals } from '$features/rating-scheme';
 import type { RatingSchemeEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';

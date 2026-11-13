@@ -26,6 +26,7 @@ describe('EvalStatusBadge', () => {
 	it('is not a link or a button without a destination, because it never moves a step', () => {
 		render(EvalStatusBadgeHost, { props: { badge } });
 
+		expect(screen.getByText(badge.label)).toBeTruthy();
 		expect(screen.queryByRole('link')).toBeNull();
 		expect(screen.queryByRole('button')).toBeNull();
 	});

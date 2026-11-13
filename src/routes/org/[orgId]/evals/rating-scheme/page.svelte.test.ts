@@ -51,6 +51,7 @@ import Page from './+page.svelte';
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 });
 
 function deferred<T>() {
@@ -132,16 +133,19 @@ describe('rating scheme page', () => {
 		const onError = (event: ErrorEvent) => errors.push(event.error);
 		window.addEventListener('error', onError);
 
-		render(Page, { props: { data: makeRouteData(workspace.promise) } });
-		expect(screen.getByRole('status')).toBeTruthy();
+		try {
+			render(Page, { props: { data: makeRouteData(workspace.promise) } });
+			expect(screen.getByRole('status')).toBeTruthy();
 
-		workspace.reject(new Error('rating scheme failed'));
+			workspace.reject(new Error('rating scheme failed'));
 
-		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
-		expect(screen.queryByRole('alert')).toBeNull();
-		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
-		expect(errors).toEqual([]);
-		window.removeEventListener('error', onError);
+			await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+			expect(screen.queryByRole('alert')).toBeNull();
+			expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
+			expect(errors).toEqual([]);
+		} finally {
+			window.removeEventListener('error', onError);
+		}
 	});
 
 	it('shows a load error with Retry when Rating Scheme route data is missing', async () => {
@@ -155,7 +159,6 @@ describe('rating scheme page', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry Evals' }));
 		expect(reload).toHaveBeenCalledTimes(1);
-		vi.unstubAllGlobals();
 	});
 
 	it('keeps the search when the page data reloads for the same Organization', async () => {

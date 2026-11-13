@@ -81,9 +81,11 @@
 	async function exportLines(): Promise<void> {
 		exportLoading = true;
 		const current = stillInOrganizationLifetime();
+		const selection = filtered;
+		const personnel = ctx.personnelLookup;
 		try {
 			const { exportRatingSchemeLines } = await import('../utils/ratingSchemeLinesExport');
-			await exportRatingSchemeLines(filtered, ctx.personnelLookup);
+			await exportRatingSchemeLines(selection, personnel);
 		} catch (err) {
 			if (current()) {
 				reportClientFailure(err);

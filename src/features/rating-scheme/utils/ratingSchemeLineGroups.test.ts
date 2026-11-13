@@ -41,6 +41,19 @@ describe('groupRatingSchemeLines', () => {
 		expect(groups[0].external).toBe(true);
 		expect(groups[0].raterGroups[0].external).toBe(true);
 	});
+
+	it('groups an external senior rater and rater as one however the name is cased or spaced', () => {
+		const external = (id: string, seniorRaterName: string, raterName: string) =>
+			line(id, { raterPersonId: null, raterName, seniorRaterPersonId: null, seniorRaterName });
+
+		const groups = groupRatingSchemeLines(
+			[external('a', 'LTC Holt', 'Maj. Outside'), external('b', ' ltc holt ', 'maj. outside')],
+			linePersonnel,
+			'seniorRaterAZ'
+		);
+
+		expect(groups.map((group) => group.raterGroups.map((rater) => rater.lines.length))).toEqual([[2]]);
+	});
 });
 
 describe('countChainRoles', () => {

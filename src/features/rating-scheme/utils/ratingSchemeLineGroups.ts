@@ -23,6 +23,11 @@ export interface RatingSchemeLineSeniorRaterGroup {
 
 const UNASSIGNED = 'unassigned';
 
+/** Who holds a chain role: the Person, else the external name however it is cased or spaced. */
+function roleKey(personId: string | null, name: string | null): string | null {
+	return personId || name?.trim().toLowerCase() || null;
+}
+
 /** Senior rater, then rater, then Rated Soldier by name. Urgency puts the group with the earliest open thru first. */
 export function groupRatingSchemeLines(
 	lines: readonly RatingSchemeLine[],
@@ -48,7 +53,7 @@ export function groupRatingSchemeLines(
 	};
 
 	for (const line of lines) {
-		const seniorKey = line.seniorRaterPersonId || line.seniorRaterName || UNASSIGNED;
+		const seniorKey = roleKey(line.seniorRaterPersonId, line.seniorRaterName) ?? UNASSIGNED;
 		let senior = seniors.get(seniorKey);
 		if (!senior) {
 			senior = {
@@ -65,7 +70,7 @@ export function groupRatingSchemeLines(
 			seniors.set(seniorKey, senior);
 			sortName.set(senior.group, nameWithoutRank(line.seniorRaterPersonId, line.seniorRaterName));
 		}
-		const raterKey = line.raterPersonId || line.raterName || UNASSIGNED;
+		const raterKey = roleKey(line.raterPersonId, line.raterName) ?? UNASSIGNED;
 		let rater = senior.raters.get(raterKey);
 		if (!rater) {
 			rater = {
@@ -121,9 +126,9 @@ export function countChainRoles(lines: readonly RatingSchemeLine[]): { seniorRat
 	const seniorRaters = new Set<string>();
 	const raters = new Set<string>();
 	for (const line of lines) {
-		const senior = line.seniorRaterPersonId ?? line.seniorRaterName?.trim().toLowerCase();
+		const senior = roleKey(line.seniorRaterPersonId, line.seniorRaterName);
 		if (senior) seniorRaters.add(senior);
-		const rater = line.raterPersonId ?? line.raterName?.trim().toLowerCase();
+		const rater = roleKey(line.raterPersonId, line.raterName);
 		if (rater) raters.add(rater);
 	}
 	return { seniorRaters: seniorRaters.size, raters: raters.size };

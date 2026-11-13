@@ -14871,11 +14871,18 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
-  v_has_ir := v_scheme.intermediate_rater_person_id IS NOT NULL
-    OR NULLIF(pg_catalog.btrim(v_scheme.intermediate_rater_name), '') IS NOT NULL;
-  v_has_reviewer := v_scheme.reviewer_person_id IS NOT NULL
-    OR NULLIF(pg_catalog.btrim(v_scheme.reviewer_name), '') IS NOT NULL;
+  IF v_row.chain_snapshot_at IS NOT NULL AND v_row.workflow_status IS DISTINCT FROM 'completed' THEN
+    v_has_ir := v_row.snapshot_intermediate_rater_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_row.snapshot_intermediate_rater_name), '') IS NOT NULL;
+    v_has_reviewer := v_row.snapshot_reviewer_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_row.snapshot_reviewer_name), '') IS NOT NULL;
+  ELSE
+    SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+    v_has_ir := v_scheme.intermediate_rater_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_scheme.intermediate_rater_name), '') IS NOT NULL;
+    v_has_reviewer := v_scheme.reviewer_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_scheme.reviewer_name), '') IS NOT NULL;
+  END IF;
   IF NOT v_has_ir THEN
     v_absent := v_absent || ARRAY['with-intermediate-rater', 'ir-signed'];
   END IF;

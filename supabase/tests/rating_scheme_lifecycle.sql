@@ -158,6 +158,11 @@ UPDATE public.rating_schemes SET rater_person_id = pg_temp.id('306') WHERE id = 
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('departing'), NULL, 'drafting');
 INSERT INTO changed (entry) SELECT pg_temp.at_step('both', 'with-rater');
 INSERT INTO leap (entry) SELECT pg_temp.new_entry('none', '2027-03-01', '2028-03-31');
+INSERT INTO fixture VALUES ('retained', pg_temp.new_entry('none')), ('narrowed', pg_temp.new_entry('both'));
+UPDATE public.evaluations SET chain_snapshot_at = now(), snapshot_rater_person_id = pg_temp.id('302'),
+  snapshot_senior_rater_name = 'COL Senior',
+  snapshot_intermediate_rater_name = CASE WHEN id = pg_temp.f('retained') THEN 'MSG Retained' END
+WHERE id IN (pg_temp.f('retained'), pg_temp.f('narrowed'));
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('2');
 
@@ -290,6 +295,15 @@ UPDATE public.rating_schemes SET reviewer_name = 'MAJ New Reviewer' WHERE id = p
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('added'), 'completed', 'with-reviewer');
 SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('added')), 'with-reviewer',
   'a reopened Evaluation can go to a reviewer the scheme gained after it was completed');
+
+-- An unfinished Evaluation the split left with its own chain moves through that chain, not its scheme's.
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('retained'), NULL, 'with-intermediate-rater');
+SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('retained')), 'with-intermediate-rater',
+  'a kept chain''s intermediate rater is a step even when the scheme has none');
+SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, NULL, 'with-intermediate-rater') $$,
+    pg_temp.id('101'), pg_temp.f('narrowed')),
+  '55000', 'An evaluation at not tracked cannot move to with-intermediate-rater',
+  'a kept chain without an intermediate rater leaves that step out even when the scheme has one');
 
 -- The rater's link clears when their Personnel Record is deleted, but is not otherwise cleared by hand.
 SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_person_id = NULL WHERE id = %L $$,

@@ -24,9 +24,17 @@ export { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 export { RatingSchemePageContext } from './contexts/RatingSchemePageContext.svelte';
 export type { RatingSchemePageData } from './contexts/RatingSchemePageContext.svelte';
+export { RatingSchemeLinesContext } from './contexts/RatingSchemeLinesContext.svelte';
+export { default as RatingSchemeLinesView } from './components/RatingSchemeLinesView.svelte';
+export { default as EvalsTabs } from './components/EvalsTabs.svelte';
 export { ratingSchemeWorkspaceHydrator } from './ratingSchemeWorkspaceHydration.svelte';
 export { default as RatingSchemePageView } from './components/RatingSchemePageView.svelte';
 export { default as PersonnelEvaluationCard } from './components/PersonnelEvaluationCard.svelte';
+
+/** Keeps the Rating Scheme's sheet and Change rater dialog out of the page's first load. */
+export function loadRatingSchemeLinesModals() {
+	return import('./components/RatingSchemeLinesModals.svelte');
+}
 
 /** Keep the editor deferred while delivery consumes the public Web seam. */
 export function loadRatingSchemeModals() {

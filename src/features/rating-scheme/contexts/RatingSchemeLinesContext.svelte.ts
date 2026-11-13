@@ -1,0 +1,142 @@
+import { SvelteSet } from 'svelte/reactivity';
+import type { PersonnelLookup } from '$features/personnel/contracts';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import type { RatingSchemeAffordance, RatingSchemePageAccess } from '../contracts';
+import type { EvalType } from '../rating-scheme.types';
+import { ratingSchemeEntries, ratingSchemeLines } from '../stores/ratingScheme.svelte';
+import { ratingDueCounts } from '../utils/ratingScheme';
+import { countChainRoles, type SchemeSort } from '../utils/ratingSchemeLineGroups';
+import type { RatingSchemeLine } from '../utils/ratingSchemeLines';
+import { createChainSearch } from '../utils/ratingSchemeSearch';
+import type { RatingSchemeListingFilter } from './RatingSchemePageContext.svelte';
+
+export interface RatingSchemeLinesData {
+	orgId: string;
+	orgName: string;
+	personnelLookup: PersonnelLookup[];
+}
+
+interface LinesAccessor {
+	readonly items: readonly RatingSchemeLine[];
+}
+
+interface PastThruAccessor {
+	readonly items: Parameters<typeof ratingDueCounts>[0];
+}
+
+export const LINE_SHEET_MODAL = 'rating-scheme-line';
+export const CHANGE_RATER_MODAL = 'rating-scheme-change-rater';
+
+/** What the Rating Scheme page shows and controls: the chain lines, how they are filtered and grouped, and who may edit them. */
+export class RatingSchemeLinesContext {
+	viewMode = $state<'grouped' | 'table'>('grouped');
+	sort = $state<SchemeSort>('seniorRaterAZ');
+	searchQuery = $state('');
+	listing = $state<RatingSchemeListingFilter>('on-scheme');
+	evalTypeFilter = $state<'all' | EvalType>('all');
+
+	readonly #data: RatingSchemeLinesData;
+	readonly #modals: ModalRegistry;
+	readonly #org: RatingSchemePageAccess;
+	readonly #lines: LinesAccessor;
+	readonly #tracker: PastThruAccessor;
+
+	constructor(
+		data: RatingSchemeLinesData,
+		modals: ModalRegistry,
+		org: RatingSchemePageAccess,
+		lines: LinesAccessor = ratingSchemeLines,
+		tracker: PastThruAccessor = ratingSchemeEntries
+	) {
+		this.#data = data;
+		this.#modals = modals;
+		this.#org = org;
+		this.#lines = lines;
+		this.#tracker = tracker;
+	}
+
+	get orgId(): string {
+		return this.#data.orgId;
+	}
+
+	get orgName(): string {
+		return this.#data.orgName;
+	}
+
+	get personnelLookup(): PersonnelLookup[] {
+		return this.#data.personnelLookup;
+	}
+
+	get canViewRatingScheme(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, { kind: 'unscoped' })
+			.visible;
+	}
+
+	get writeAffordance(): RatingSchemeAffordance {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.ratingScheme.updateEntries, { kind: 'unscoped' });
+	}
+
+	get lines(): readonly RatingSchemeLine[] {
+		return this.#lines.items;
+	}
+
+	get filteredLines(): RatingSchemeLine[] {
+		let lines = [...this.#lines.items];
+		if (this.listing !== 'all') {
+			const onScheme = this.listing === 'on-scheme';
+			lines = lines.filter((line) => (line.archivedAt === null) === onScheme);
+		}
+		if (this.evalTypeFilter !== 'all') lines = lines.filter((line) => line.evalType === this.evalTypeFilter);
+		if (this.searchQuery.trim()) lines = lines.filter(createChainSearch(this.searchQuery, this.#data.personnelLookup));
+		return lines;
+	}
+
+	get hasActiveSearchOrFilters(): boolean {
+		return !!this.searchQuery.trim() || this.listing !== 'on-scheme' || this.evalTypeFilter !== 'all';
+	}
+
+	clearSearchAndFilters(): void {
+		this.searchQuery = '';
+		this.listing = 'on-scheme';
+		this.evalTypeFilter = 'all';
+	}
+
+	/** The header facts: lines on the scheme, their distinct senior raters and raters, and how many have an eval open. */
+	get summary(): { onScheme: number; seniorRaters: number; raters: number; inProgress: number } {
+		const onScheme = this.#lines.items.filter((line) => line.archivedAt === null);
+		return {
+			onScheme: onScheme.length,
+			...countChainRoles(onScheme),
+			inProgress: onScheme.filter((line) => line.open).length
+		};
+	}
+
+	/** Open Evaluations past thru, which the Eval Tracker tab flags. */
+	get pastThru(): number {
+		return ratingDueCounts(this.#tracker.items).overdue;
+	}
+
+	/** People who already have a listed scheme; a person has at most one. */
+	get listedPersonIds(): ReadonlySet<string> {
+		return new SvelteSet(
+			this.#lines.items.filter((line) => line.archivedAt === null).map((line) => line.ratedPersonId)
+		);
+	}
+
+	get editingLineId(): string | null {
+		return this.#modals.payload<{ lineId: string | null }>(LINE_SHEET_MODAL)?.lineId ?? null;
+	}
+
+	get sheetOpen(): boolean {
+		return this.#modals.isOpen(LINE_SHEET_MODAL);
+	}
+
+	openNewLine(): void {
+		this.#modals.open(LINE_SHEET_MODAL, { lineId: null });
+	}
+
+	openLine(line: RatingSchemeLine): void {
+		this.#modals.open(LINE_SHEET_MODAL, { lineId: line.id });
+	}
+}

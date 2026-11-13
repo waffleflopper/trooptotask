@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import { afterNavigate } from '$app/navigation';
+	import { tick, untrack } from 'svelte';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { EvalTrackerContext, TrackerStepFilter } from '../contexts/EvalTrackerContext.svelte';
 	import { NCOER_REPORT_TYPES, WORKFLOW_STEPS, type RatingSchemeEntry, type ReportType } from '../rating-scheme.types';
@@ -24,6 +23,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDayMonthShortYear } from '$lib/utils/dates';
 	import { cn } from '$lib/utils';
@@ -34,8 +34,10 @@
 
 	let { ctx }: Props = $props();
 
-	afterNavigate(({ to }) => {
-		if (to) ctx.followAddress(to.url);
+	// The view mounts once the workspace streams in, after the first navigation, so it follows the shown address itself.
+	$effect(() => {
+		const url = visibleUrl();
+		untrack(() => ctx.followAddress(url));
 	});
 
 	let exportLoading = $state(false);
@@ -223,6 +225,16 @@
 		ctx.openEvaluation(entry.id);
 	}
 
+	/** Below xl the table fits a 1024 px window: Period folds under Report and Waiting on under Workflow, as on a card. */
+	const columns = [
+		['Due', 'w-[108px]'],
+		['Rated Soldier', ''],
+		['Report', 'w-[132px] max-xl:w-[168px]'],
+		['Period', 'w-[176px] max-xl:hidden'],
+		['Workflow', 'w-[184px] max-xl:w-[208px]'],
+		['Waiting on', 'w-[180px] max-xl:hidden'],
+		['', 'w-10']
+	] as const;
 	const cardClass = 'relative grid w-full gap-1.5 overflow-clip rounded-md border bg-card py-3 pr-3.5 pl-4 text-left';
 
 	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -344,10 +356,10 @@
 
 				{#if rows.length > 0}
 					<div class="overflow-clip rounded-md border bg-card max-sm:hidden">
-						<Table.Root class="min-w-[880px] table-fixed" scrollRegionLabel="Evaluations, scrollable">
+						<Table.Root class="min-w-[640px] table-fixed" scrollRegionLabel="Evaluations, scrollable">
 							<Table.Header>
 								<Table.Row class="h-9 hover:bg-transparent">
-									{#each [['Due', 'w-[108px]'], ['Rated Soldier', 'w-[200px]'], ['Report', 'w-[132px]'], ['Period', 'w-[176px]'], ['Workflow', ''], ['Waiting on', 'w-[180px]'], ['', 'w-10']] as [label, width] (label)}
+									{#each columns as [label, width] (label)}
 										<Table.Head
 											class={cn(
 												'font-mono text-[0.6875rem] font-medium tracking-[0.08em] text-muted-foreground uppercase',
@@ -388,8 +400,11 @@
 												<Badge variant="outline" class="font-mono text-[11px]">{entry.evalType}</Badge>
 												<span class="truncate text-sm">{row.report}</span>
 											</span>
+											<p class="mt-1 truncate font-mono text-xs xl:hidden">
+												{period(entry.ratingPeriodStart, entry.ratingPeriodEnd)}
+											</p>
 										</Table.Cell>
-										<Table.Cell class="font-mono text-xs">
+										<Table.Cell class="font-mono text-xs max-xl:hidden">
 											{period(entry.ratingPeriodStart, entry.ratingPeriodEnd)}
 										</Table.Cell>
 										<Table.Cell>
@@ -397,8 +412,9 @@
 												{@render meter(row.phase, 'w-[62px]')}
 												<span class="truncate text-sm">{row.phase.label}</span>
 											</span>
+											<span class="mt-1 block text-sm xl:hidden">{@render waitingCell(row.waiting)}</span>
 										</Table.Cell>
-										<Table.Cell class="text-sm">{@render waitingCell(row.waiting)}</Table.Cell>
+										<Table.Cell class="text-sm max-xl:hidden">{@render waitingCell(row.waiting)}</Table.Cell>
 										<Table.Cell>
 											{#if canEdit}<ChevronRightIcon class="size-4 text-muted-foreground" aria-hidden="true" />{/if}
 										</Table.Cell>

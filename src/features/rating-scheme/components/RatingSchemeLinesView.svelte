@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import { afterNavigate } from '$app/navigation';
+	import { tick, untrack } from 'svelte';
 	import type { SchemeSort } from '../utils/ratingSchemeLineGroups';
 	import type { RatingSchemeLinesContext } from '../contexts/RatingSchemeLinesContext.svelte';
 	import type { RatingSchemeListingFilter } from '../contexts/RatingSchemeLinesContext.svelte';
 	import EvalsTabs from './EvalsTabs.svelte';
 	import RatingSchemeLinesGroupedView from './RatingSchemeLinesGroupedView.svelte';
 	import RatingSchemeLinesTableView from './RatingSchemeLinesTableView.svelte';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
@@ -26,8 +26,10 @@
 
 	let { ctx }: Props = $props();
 
-	afterNavigate(({ to }) => {
-		if (to) ctx.followAddress(to.url);
+	// The view mounts once the workspace streams in, after the first navigation, so it follows the shown address itself.
+	$effect(() => {
+		const url = visibleUrl();
+		untrack(() => ctx.followAddress(url));
 	});
 
 	let exportLoading = $state(false);

@@ -52,7 +52,7 @@ function seed(): Record<string, Row[]> {
 			...rows(1, ORG, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` })),
 			...rows(8, OTHER, { archived_at: null })
 		],
-		rating_scheme_entries: [...rows(12, ORG), ...rows(8, OTHER)],
+		rating_schemes: [...rows(12, ORG), ...rows(8, OTHER)],
 		onboarding_templates: [...rows(2, ORG), ...rows(8, OTHER)],
 		calendar_events: [...rows(3, ORG), ...rows(1, OTHER)]
 	};

@@ -20,7 +20,6 @@
 		return {
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
-			ratingSchemeEntries: workspace.data.ratingSchemeEntries,
 			personnelLookup: workspace.data.personnelLookup
 		};
 	}
@@ -112,14 +111,7 @@
 				{personnelLookup}
 				orgId={ctx.orgId}
 				onRequestDeletion={(id, description, isCurrent) =>
-					submitDeletionRequest(
-						ctx.orgId,
-						'rating_scheme_entry',
-						id,
-						description,
-						`/org/${ctx.orgId}/evals`,
-						isCurrent
-					)}
+					submitDeletionRequest(ctx.orgId, 'evaluation', id, description, `/org/${ctx.orgId}/evals`, isCurrent)}
 			/>
 		{/await}
 	{/if}

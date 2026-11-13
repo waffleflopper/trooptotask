@@ -1,5 +1,6 @@
--- An Evaluation stays on the rating scheme until an Evals operator archives it, whatever step its evaluation has
--- reached. Every call below is made as an ordinary signed-in member.
+-- A rating scheme stays listed until an Evals operator archives it, whatever step its Evaluations have reached, and
+-- an open Evaluation under an archived scheme stays on the tracker until it is completed. Every call below is made as
+-- an ordinary signed-in member; fixtures are written before the signed-in role is taken.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -11,22 +12,37 @@ CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claim.sub', pg_temp.id(p_user)::text, true),
     set_config('request.jwt.claims', json_build_object('sub', pg_temp.id(p_user), 'role', 'authenticated')::text, true);
 $$;
-CREATE FUNCTION pg_temp.new_entry(p_person text DEFAULT '301', p_start date DEFAULT '2030-01-01',
+-- A rated Person with a listed scheme and one Evaluation that is not tracked; returns the Evaluation.
+CREATE FUNCTION pg_temp.new_entry(p_person uuid DEFAULT NULL, p_start date DEFAULT '2030-01-01',
   p_end date DEFAULT '2030-12-31') RETURNS uuid LANGUAGE plpgsql AS $$
-DECLARE v_id uuid := gen_random_uuid();
+DECLARE
+  v_person uuid := COALESCE(p_person, gen_random_uuid());
+  v_scheme uuid := gen_random_uuid();
+  v_id uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id,
-    senior_rater_name, rating_period_start, rating_period_end, report_type)
-  VALUES (v_id, pg_temp.id('101'), pg_temp.id(p_person), 'NCOER', pg_temp.id('302'), 'COL Senior', p_start, p_end, 'AN');
+  IF p_person IS NULL THEN
+    INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug)
+    VALUES (v_person, pg_temp.id('101'), pg_temp.id('201'), 'SGT', 'Rated', 'Able', 'membership-' || v_person);
+  END IF;
+  INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, rater_person_id, senior_rater_name)
+  VALUES (v_scheme, pg_temp.id('101'), v_person, 'NCOER', pg_temp.id('302'), 'COL Senior');
+  INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start,
+    rating_period_end, report_type)
+  VALUES (v_id, pg_temp.id('101'), v_scheme, v_person, 'NCOER', p_start, p_end, 'AN');
   RETURN v_id;
 END;
 $$;
-CREATE FUNCTION pg_temp.stored(p_entry uuid) RETURNS jsonb LANGUAGE sql AS $$
-  SELECT to_jsonb(r) FROM public.rating_scheme_entries r WHERE r.id = p_entry;
+CREATE FUNCTION pg_temp.scheme(p_evaluation uuid) RETURNS uuid LANGUAGE sql AS $$
+  SELECT rating_scheme_id FROM public.evaluations WHERE id = p_evaluation;
 $$;
-CREATE TEMP TABLE probe (label text, entry uuid, result jsonb);
-CREATE TEMP TABLE changed (entry uuid, successor uuid);
-GRANT ALL ON probe, changed TO authenticated;
+CREATE FUNCTION pg_temp.stored(p_scheme uuid) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT to_jsonb(s) - 'archived_by' FROM public.rating_schemes s WHERE s.id = p_scheme;
+$$;
+CREATE TEMP TABLE probe (label text PRIMARY KEY, entry uuid, result jsonb);
+GRANT ALL ON probe TO authenticated;
+CREATE FUNCTION pg_temp.f(p_label text) RETURNS uuid LANGUAGE sql AS $$
+  SELECT entry FROM probe WHERE label = p_label;
+$$;
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT pg_temp.id(n::text), 'authenticated', 'authenticated', 'membership-' || n || '@example.test', now()
@@ -48,177 +64,190 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   (pg_temp.id('301'), pg_temp.id('101'), pg_temp.id('201'), 'SGT', 'Rated', 'Able', 'membership-rated'),
   (pg_temp.id('302'), pg_temp.id('101'), pg_temp.id('201'), 'SSG', 'First', 'Rater', 'membership-rater'),
   (pg_temp.id('303'), pg_temp.id('101'), pg_temp.id('201'), 'SFC', 'Next', 'Rater', 'membership-next'),
-  (pg_temp.id('304'), pg_temp.id('101'), pg_temp.id('201'), 'SGT', 'Roster', 'Baker', 'membership-roster');
+  (pg_temp.id('304'), pg_temp.id('101'), pg_temp.id('201'), 'SGT', 'Roster', 'Baker', 'membership-roster'),
+  (pg_temp.id('305'), pg_temp.id('101'), pg_temp.id('201'), 'SGT', 'New', 'Charlie', 'membership-new');
 
-SELECT ok(NOT has_function_privilege('anon', 'public.set_rating_scheme_entry_archived(uuid,uuid,boolean)', 'EXECUTE'),
-  'signed-out callers cannot archive an evaluation');
-SELECT hasnt_column('public', 'rating_scheme_entries', 'status', 'membership does not bring the status column back');
+INSERT INTO probe (label, entry) VALUES
+  ('open', pg_temp.new_entry()), ('completed', pg_temp.new_entry()), ('named', pg_temp.new_entry()),
+  ('scope', pg_temp.new_entry()), ('changed', pg_temp.new_entry(NULL, '2032-01-01', '2032-12-31')),
+  ('archived first', pg_temp.new_entry(NULL, '2033-01-01', '2033-12-31')), ('roster', pg_temp.new_entry(pg_temp.id('304')));
+
+SELECT ok(NOT has_function_privilege('anon', 'public.set_rating_scheme_archived(uuid,uuid,boolean)', 'EXECUTE'),
+  'signed-out callers cannot archive a rating scheme');
+SELECT hasnt_column('public', 'evaluations', 'archived_at', 'an Evaluation has no archive state of its own');
 
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('2');
 
--- Archive and restore, with the evaluation open and then completed.
-INSERT INTO probe (label, entry) VALUES ('open', pg_temp.new_entry()), ('completed', pg_temp.new_entry());
-UPDATE probe SET result = public.transition_rating_scheme_entry(pg_temp.id('101'), entry, NULL, 'completed')
-WHERE label = 'completed';
-UPDATE probe SET result = NULL;
-
+-- A member creates a scheme and starts its Evaluation; a Person has one listed scheme.
+SELECT lives_ok(format($$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type, rater_name)
+    VALUES (%L, %L, 'OER', 'CPT Rater') $$, pg_temp.id('101'), pg_temp.id('305')),
+  'an operator creates a rating scheme');
+INSERT INTO probe (label, result) SELECT 'started', public.start_evaluation(pg_temp.id('101'), id, 'AN', '2030-01-01',
+  '2030-12-31', false, 'First report') FROM public.rating_schemes WHERE rated_person_id = pg_temp.id('305');
 SELECT results_eq(
-  $$ SELECT archived_at IS NULL, archived_by FROM public.rating_scheme_entries WHERE id IN (SELECT entry FROM probe) $$,
+  $$ SELECT p.result ->> 'created', e.workflow_status, e.eval_type, e.report_type, e.notes, e.chain_snapshot_at
+     FROM probe p JOIN public.evaluations e ON e.id = (p.result #>> '{evaluation,id}')::uuid WHERE p.label = 'started' $$,
+  $$ VALUES ('true'::text, 'drafting'::text, 'OER'::text, 'AN'::text, 'First report'::text, NULL::timestamptz) $$,
+  'starting an Evaluation opens it at drafting with the scheme''s evaluation type and no signed chain');
+SELECT throws_ok(format($$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type)
+    VALUES (%L, %L, 'OER') $$, pg_temp.id('101'), pg_temp.id('305')),
+  '23505', NULL, 'a Person cannot have a second listed scheme');
+
+-- Archive and restore, with the Evaluation open and then completed.
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('open'), NULL, 'drafting');
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('completed'), NULL, 'completed');
+SELECT results_eq(
+  $$ SELECT archived_at IS NULL, archived_by FROM public.rating_schemes
+     WHERE id IN (pg_temp.scheme(pg_temp.f('open')), pg_temp.scheme(pg_temp.f('completed'))) $$,
   $$ VALUES (true, NULL::text), (true, NULL::text) $$,
-  'a new or completed entry is on the scheme');
+  'a scheme with an open or completed Evaluation is listed');
 
-INSERT INTO changed (entry) SELECT entry FROM probe WHERE label = 'open';
-UPDATE probe SET result = public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) WHERE label = 'open';
-SELECT is(result, jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry)), 'archiving returns the entry as stored')
+UPDATE probe SET result = public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(entry), true) WHERE label = 'open';
+SELECT is(result, jsonb_build_object('changed', true, 'ratingScheme', pg_temp.stored(pg_temp.scheme(entry))),
+  'archiving returns the scheme as stored')
 FROM probe WHERE label = 'open';
 SELECT results_eq(
-  $$ SELECT archived_at IS NOT NULL, archived_by, workflow_status FROM public.rating_scheme_entries
-     WHERE id = (SELECT entry FROM changed) $$,
-  $$ VALUES (true, pg_temp.id('2')::text, NULL::text) $$,
-  'archiving an open evaluation names the member and leaves its step alone');
-SELECT is((public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) ->> 'changed')::boolean, false,
-  'archiving an archived entry again changes nothing')
-FROM changed;
-UPDATE probe SET result = public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, false) WHERE label = 'open';
-SELECT is(result, jsonb_build_object('changed', true, 'entry', pg_temp.stored(entry)),
-  'restoring returns the entry on the scheme again')
+  $$ SELECT s.archived_at IS NOT NULL, s.archived_by, e.workflow_status
+     FROM public.rating_schemes s JOIN public.evaluations e ON e.rating_scheme_id = s.id WHERE e.id = pg_temp.f('open') $$,
+  $$ VALUES (true, pg_temp.id('2')::text, 'drafting'::text) $$,
+  'archiving a scheme names the member and leaves its open Evaluation at its step');
+SELECT throws_ok(format($$ SELECT public.start_evaluation(%L, %L, 'AN', '2031-01-01', '2031-12-31', true) $$,
+    pg_temp.id('101'), pg_temp.scheme(pg_temp.f('open'))),
+  '55000', 'The rating scheme is archived', 'an archived scheme starts no Evaluation');
+SELECT is((public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('open')), true) ->> 'changed')::boolean,
+  false, 'archiving an archived scheme again changes nothing');
+UPDATE probe SET result = public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(entry), false) WHERE label = 'open';
+SELECT is(result, jsonb_build_object('changed', true, 'ratingScheme', pg_temp.stored(pg_temp.scheme(entry))),
+  'restoring returns the scheme listed again')
 FROM probe WHERE label = 'open';
 SELECT results_eq(
-  $$ SELECT archived_at, archived_by FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM changed) $$,
+  $$ SELECT archived_at, archived_by FROM public.rating_schemes WHERE id = pg_temp.scheme(pg_temp.f('open')) $$,
   $$ VALUES (NULL::timestamptz, NULL::text) $$,
-  'a restored entry has no archive time or member');
-SELECT is((public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, false) ->> 'changed')::boolean, false,
-  'restoring a listed entry changes nothing')
-FROM changed;
+  'a restored scheme has no archive time or member');
+SELECT is((public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('open')), false) ->> 'changed')::boolean,
+  false, 'restoring a listed scheme changes nothing');
 
-SELECT is((public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) -> 'entry' ->> 'workflow_status'),
-  'completed', 'a completed evaluation archives and stays completed')
-FROM probe WHERE label = 'completed';
-SELECT results_eq(
-  $$ SELECT archived_at IS NOT NULL, workflow_status FROM public.rating_scheme_entries
-     WHERE id = (SELECT entry FROM probe WHERE label = 'completed') $$,
-  $$ VALUES (true, 'completed'::text) $$,
-  'the archived completed entry keeps its completed step');
-SELECT is((public.transition_rating_scheme_entry(pg_temp.id('101'), entry, 'completed', NULL) -> 'entry' ->> 'archived_at') IS NOT NULL,
-  true, 'moving the evaluation does not put an archived entry back on the scheme')
-FROM probe WHERE label = 'completed';
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('completed')), true);
+SELECT is((public.transition_evaluation(pg_temp.id('101'), pg_temp.f('completed'), 'completed', 'drafting') -> 'evaluation' ->> 'workflow_status'),
+  'drafting', 'an Evaluation under an archived scheme still moves');
+SELECT is((SELECT archived_at IS NOT NULL FROM public.rating_schemes WHERE id = pg_temp.scheme(pg_temp.f('completed'))),
+  true, 'moving the Evaluation does not list its archived scheme again');
 
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, NULL) $$, pg_temp.id('101'),
-    (SELECT entry FROM changed)), '22023', 'Choose whether to archive or restore the evaluation',
+-- Restoring fails while the Person has another listed scheme.
+SELECT lives_ok(format($$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type)
+    SELECT organization_id, rated_person_id, 'OER' FROM public.rating_schemes WHERE id = %L $$,
+    pg_temp.scheme(pg_temp.f('completed'))),
+  'a Person whose scheme is archived can be given a new scheme');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, false) $$, pg_temp.id('101'),
+    pg_temp.scheme(pg_temp.f('completed'))),
+  '23505', 'This person already has a rating scheme', 'an archived scheme cannot be restored beside a listed one');
+
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, NULL) $$, pg_temp.id('101'),
+    pg_temp.scheme(pg_temp.f('open'))), '22023', 'Choose whether to archive or restore the rating scheme',
   'an unnamed request is refused');
 
--- Direct writes to either column are refused, on update and on insert.
-SELECT throws_ok(format($$ UPDATE public.rating_scheme_entries SET archived_at = now() WHERE id = %L $$,
-    (SELECT entry FROM changed)), '42501', NULL, 'an operator cannot write archived_at directly');
-SELECT throws_ok(format($$ UPDATE public.rating_scheme_entries SET archived_by = %L WHERE id = %L $$,
-    pg_temp.id('1')::text, (SELECT entry FROM probe WHERE label = 'completed')),
-  '42501', NULL, 'an operator cannot name who archived an entry');
-SELECT throws_ok(format($$ INSERT INTO public.rating_scheme_entries (organization_id, rated_person_id, eval_type,
-    rating_period_start, rating_period_end, archived_at) VALUES (%L, %L, 'NCOER', '2031-01-01', '2031-12-31', now()) $$,
-    pg_temp.id('101'), pg_temp.id('301')), '42501', NULL, 'an operator cannot create an entry already archived');
-SELECT throws_ok(format($$ INSERT INTO public.rating_scheme_entries (organization_id, rated_person_id, eval_type,
-    rating_period_start, rating_period_end, archived_by) VALUES (%L, %L, 'NCOER', '2031-01-01', '2031-12-31', %L) $$,
-    pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('1')::text), '42501', NULL,
-  'an operator cannot create an entry archived by someone');
-SELECT is((SELECT count(*)::int FROM public.rating_scheme_entries WHERE rating_period_start = '2031-01-01'), 0,
+-- Direct writes to either archive column are refused, on update and on insert.
+SELECT throws_ok(format($$ UPDATE public.rating_schemes SET archived_at = now() WHERE id = %L $$,
+    pg_temp.scheme(pg_temp.f('open'))), '42501', NULL, 'an operator cannot write archived_at directly');
+SELECT throws_ok(format($$ UPDATE public.rating_schemes SET archived_by = %L WHERE id = %L $$,
+    pg_temp.id('1')::text, pg_temp.scheme(pg_temp.f('completed'))),
+  '42501', NULL, 'an operator cannot name who archived a scheme');
+SELECT throws_ok(format($$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type, archived_by)
+    VALUES (%L, %L, 'NCOER', %L) $$, pg_temp.id('101'), pg_temp.id('303'), pg_temp.id('1')::text), '42501', NULL,
+  'an operator cannot create a scheme archived by someone');
+SELECT is((SELECT count(*)::int FROM public.rating_schemes WHERE rated_person_id = pg_temp.id('303')), 0,
   'the refused inserts created nothing');
 
--- The first member to archive stays named when another member repeats or changes the entry later.
-INSERT INTO probe (label, entry) VALUES ('named', pg_temp.new_entry());
-SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) FROM probe WHERE label = 'named';
+-- The first member to archive stays named when another member repeats it later.
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('named')), true);
 SELECT pg_temp.act_as('1');
-SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) FROM probe WHERE label = 'named';
-SELECT is((SELECT archived_by FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM probe WHERE label = 'named')),
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('named')), true);
+SELECT is((SELECT archived_by FROM public.rating_schemes WHERE id = pg_temp.scheme(pg_temp.f('named'))),
   pg_temp.id('2')::text, 'a repeated archive does not name a second member');
 SELECT pg_temp.act_as('2');
 
 -- Scope and access.
-INSERT INTO probe (label, entry) VALUES ('scope', pg_temp.new_entry());
 SELECT pg_temp.act_as('3');
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, true) $$, pg_temp.id('101'),
-    (SELECT entry FROM probe WHERE label = 'scope')), 'P0002', 'Evaluation not found',
-  'an operator outside the rated Person''s Group cannot find the entry to archive it');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true) $$, pg_temp.id('101'),
+    pg_temp.scheme(pg_temp.f('scope'))), 'P0002', 'Rating scheme not found',
+  'an operator outside the rated Person''s Group cannot find the scheme to archive it');
 SELECT pg_temp.act_as('4');
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, true) $$, pg_temp.id('101'),
-    (SELECT entry FROM probe WHERE label = 'scope')), '42501', NULL, 'a view-only member cannot archive an evaluation');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true) $$, pg_temp.id('101'),
+    pg_temp.scheme(pg_temp.f('scope'))), '42501', NULL, 'a view-only member cannot archive a scheme');
 SELECT set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.claims', '{"role":"authenticated"}', true);
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, true) $$, pg_temp.id('101'),
-    (SELECT entry FROM probe WHERE label = 'scope')), 'P0002', 'Evaluation not found', 'a request without a user finds nothing');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true) $$, pg_temp.id('101'),
+    pg_temp.scheme(pg_temp.f('scope'))), 'P0002', 'Rating scheme not found', 'a request without a user finds nothing');
 SELECT pg_temp.act_as('2');
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, true) $$, pg_temp.id('102'),
-    (SELECT entry FROM probe WHERE label = 'scope')), 'P0002', 'Evaluation not found',
-  'the entry cannot be archived through another Organization');
-SELECT throws_ok(format($$ SELECT public.set_rating_scheme_entry_archived(%L, %L, true) $$, pg_temp.id('101'),
-    gen_random_uuid()), 'P0002', 'Evaluation not found', 'an entry that does not exist cannot be archived');
-SELECT is((SELECT archived_at FROM public.rating_scheme_entries WHERE id = (SELECT entry FROM probe WHERE label = 'scope')),
-  NULL::timestamptz, 'denied calls left the entry on the scheme');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true) $$, pg_temp.id('102'),
+    pg_temp.scheme(pg_temp.f('scope'))), 'P0002', 'Rating scheme not found',
+  'the scheme cannot be archived through another Organization');
+SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true) $$, pg_temp.id('101'),
+    gen_random_uuid()), 'P0002', 'Rating scheme not found', 'a scheme that does not exist cannot be archived');
+SELECT is((SELECT archived_at FROM public.rating_schemes WHERE id = pg_temp.scheme(pg_temp.f('scope'))),
+  NULL::timestamptz, 'denied calls left the scheme listed');
 
--- Change of rater takes the closed entry off the scheme and starts the successor on it.
-INSERT INTO changed (entry) SELECT pg_temp.new_entry('301', '2032-01-01', '2032-12-31');
-UPDATE changed SET successor = (public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2032-06-15', pg_temp.id('303'), NULL)
-  -> 'successor' ->> 'id')::uuid WHERE entry NOT IN (SELECT entry FROM probe) AND successor IS NULL
-  AND entry = (SELECT entry FROM changed ORDER BY ctid DESC LIMIT 1);
+-- Change of rater keeps the scheme listed: the closed Evaluation keeps its chain, and the successor is the open one.
+UPDATE probe SET result = public.change_evaluation_rater(pg_temp.id('101'), entry, '2032-06-15', pg_temp.id('303'), NULL)
+WHERE label = 'changed';
 SELECT results_eq(
-  $$ SELECT workflow_status, archived_at IS NOT NULL, archived_by FROM public.rating_scheme_entries
-     WHERE id = (SELECT entry FROM changed ORDER BY ctid DESC LIMIT 1) $$,
-  $$ VALUES ('completed'::text, true, pg_temp.id('2')::text) $$,
-  'the closed entry is completed and archived by the member who changed the rater');
-SELECT results_eq(
-  $$ SELECT workflow_status, archived_at, archived_by FROM public.rating_scheme_entries
-     WHERE id = (SELECT successor FROM changed ORDER BY ctid DESC LIMIT 1) $$,
-  $$ VALUES (NULL::text, NULL::timestamptz, NULL::text) $$,
-  'the successor starts on the scheme');
-SELECT is(public.change_rating_scheme_rater(pg_temp.id('101'), entry, '2032-06-15', pg_temp.id('303'), NULL),
-  jsonb_build_object('entry', pg_temp.stored(entry), 'successor', pg_temp.stored(successor)),
-  'replaying the change returns the archived entry and its successor')
-FROM (SELECT * FROM changed ORDER BY ctid DESC LIMIT 1) latest;
+  $$ SELECT e.workflow_status, e.snapshot_rater_person_id, s.archived_at, s.rater_person_id
+     FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('changed') $$,
+  $$ VALUES ('completed'::text, pg_temp.id('302'), NULL::timestamptz, pg_temp.id('303')) $$,
+  'the closed Evaluation is completed with the old rater and its scheme stays listed with the new one');
+SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = (result #>> '{successor,id}')::uuid), 'drafting',
+  'the successor is open on the same scheme')
+FROM probe WHERE label = 'changed';
 
-INSERT INTO probe (label, entry) VALUES ('archived first', pg_temp.new_entry('301', '2033-01-01', '2033-12-31'));
-SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) FROM probe WHERE label = 'archived first';
-SELECT throws_ok(format($$ SELECT public.change_rating_scheme_rater(%L, %L, '2033-06-15', %L, NULL) $$, pg_temp.id('101'),
-    (SELECT entry FROM probe WHERE label = 'archived first'), pg_temp.id('303')), '55000', 'The evaluation is archived',
-  'an open entry taken off the scheme cannot change its rater');
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('archived first')), true);
+SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2033-06-15', %L, NULL) $$, pg_temp.id('101'),
+    pg_temp.f('archived first'), pg_temp.id('303')), '55000', 'The rating scheme is archived',
+  'an Evaluation under an archived scheme cannot change its rater');
 SELECT results_eq(
-  $$ SELECT workflow_status, rating_period_end, archived_by,
-       (SELECT count(*) FROM public.rating_scheme_entries s WHERE s.rated_person_id = r.rated_person_id
-          AND s.rating_period_start = '2033-06-16') FROM public.rating_scheme_entries r
-     WHERE id = (SELECT entry FROM probe WHERE label = 'archived first') $$,
-  $$ VALUES (NULL::text, '2033-12-31'::date, pg_temp.id('2')::text, 0::bigint) $$,
-  'the refused change left the archived entry open and opened no successor');
+  $$ SELECT e.workflow_status, e.rating_period_end, s.rater_person_id,
+       (SELECT count(*) FROM public.evaluations o WHERE o.rating_scheme_id = e.rating_scheme_id)
+     FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('archived first') $$,
+  $$ VALUES (NULL::text, '2033-12-31'::date, pg_temp.id('302'), 1::bigint) $$,
+  'the refused change left the Evaluation, its period and the scheme''s rater alone and opened no successor');
 
--- The rating scheme the Person's card and the roster read lists only entries still on it.
-INSERT INTO probe (label, entry) VALUES ('roster', pg_temp.new_entry('304'));
+-- The tracker the Person's card and the roster read: a listed scheme's Evaluation, or an open one under an archived scheme.
 CREATE FUNCTION pg_temp.roster_entries() RETURNS jsonb LANGUAGE sql AS $$
   SELECT public.roster_signals(pg_temp.id('101'), '2030-06-01', '2029-06-01', ARRAY['evaluations'], ARRAY[pg_temp.id('304')])
     -> 'evaluations' -> 'entries';
 $$;
-SELECT is(pg_temp.roster_entries() -> 0 ->> 1, (SELECT entry::text FROM probe WHERE label = 'roster'),
-  'an open evaluation on the scheme is the Person''s active evaluation');
-SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, true) FROM probe WHERE label = 'roster';
-SELECT is(pg_temp.roster_entries(), '[]'::jsonb, 'an open evaluation taken off the scheme is no longer active');
-SELECT public.set_rating_scheme_entry_archived(pg_temp.id('101'), entry, false) FROM probe WHERE label = 'roster';
-SELECT is(pg_temp.roster_entries() -> 0 ->> 1, (SELECT entry::text FROM probe WHERE label = 'roster'),
-  'restoring it makes the evaluation active again');
+SELECT is(pg_temp.roster_entries() -> 0 ->> 1, pg_temp.f('roster')::text,
+  'a not-tracked Evaluation on a listed scheme is the Person''s active evaluation');
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('roster')), true);
+SELECT is(pg_temp.roster_entries(), '[]'::jsonb, 'a not-tracked Evaluation under an archived scheme is not active');
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('roster')), false);
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('roster'), NULL, 'drafting');
+SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('roster')), true);
+SELECT is(pg_temp.roster_entries() -> 0 ->> 1, pg_temp.f('roster')::text,
+  'an open Evaluation stays active after its scheme is archived');
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('roster'), 'drafting', 'completed');
+SELECT is(pg_temp.roster_entries(), '[]'::jsonb, 'completing it takes it off the tracker');
 
 -- The audit log names the member for each change.
 RESET ROLE;
 SELECT results_eq(
   $$ SELECT action, user_id, details -> 'change' FROM public.audit_logs
-     WHERE org_id = pg_temp.id('101') AND resource_id = (SELECT entry FROM changed ORDER BY ctid LIMIT 1)
-       AND action LIKE 'rating_scheme.%' ORDER BY action $$,
+     WHERE org_id = pg_temp.id('101') AND resource_id = pg_temp.scheme(pg_temp.f('open'))
+       AND action IN ('rating_scheme.archived', 'rating_scheme.restored') ORDER BY action $$,
   $$ VALUES ('rating_scheme.archived'::text, pg_temp.id('2'), NULL::jsonb),
-    ('rating_scheme.created'::text, pg_temp.id('2'), NULL::jsonb),
     ('rating_scheme.restored'::text, pg_temp.id('2'), NULL::jsonb) $$,
   'archiving and restoring are recorded as their own entries with the member');
 SELECT results_eq(
   $$ SELECT action, user_id, details -> 'change' FROM public.audit_logs
-     WHERE org_id = pg_temp.id('101') AND action = 'rating_scheme.updated'
-       AND resource_id = (SELECT entry FROM changed ORDER BY ctid DESC LIMIT 1) $$,
-  $$ VALUES ('rating_scheme.updated'::text, pg_temp.id('2'),
+     WHERE org_id = pg_temp.id('101') AND resource_id IN (pg_temp.scheme(pg_temp.f('changed')), pg_temp.f('changed'))
+       AND action IN ('rating_scheme.updated', 'evaluation.updated') ORDER BY action $$,
+  $$ VALUES ('evaluation.updated'::text, pg_temp.id('2'),
     '{"periodEnd": {"from": "2032-12-31", "to": "2032-06-15"}, "reportType": {"from": "AN", "to": "CR"},
-      "membership": true, "workflowStatus": {"from": null, "to": "completed"}}'::jsonb) $$,
-  'a change of rater records that the entry also left the scheme');
+      "workflowStatus": {"from": null, "to": "completed"}}'::jsonb),
+    ('rating_scheme.updated'::text, pg_temp.id('2'), '{"raters": true}'::jsonb) $$,
+  'a change of rater records the closed Evaluation and the scheme''s new rater');
+SELECT is((SELECT count(*)::int FROM public.audit_logs WHERE org_id = pg_temp.id('101') AND action = 'evaluation.created'
+    AND resource_id = (SELECT (result #>> '{successor,id}')::uuid FROM probe WHERE label = 'changed') AND user_id = pg_temp.id('2')),
+  1, 'the successor is recorded as a new Evaluation by the member');
 
 SELECT * FROM finish();
 ROLLBACK;

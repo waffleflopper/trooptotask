@@ -6,6 +6,7 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
 import type { RatingSchemeDueEntry, RatingSchemeDuePort } from './contracts';
 import { parseWorkflowStatus } from './utils/evaluationWorkflow';
+import { isOnTracker } from './utils/ratingSchemeEntries';
 
 interface RatingSchemeDueRow {
 	id: string;
@@ -13,6 +14,7 @@ interface RatingSchemeDueRow {
 	eval_type: string;
 	rating_period_end: string;
 	workflow_status: string | null;
+	rating_schemes: { archived_at: string | null } | null;
 }
 
 /** The authenticated request client retains Rating Scheme RLS without a Personnel SELECT. */
@@ -31,10 +33,9 @@ export function createSupabaseRatingSchemeDuePort(
 				selectAllSupabaseRows<RatingSchemeDueRow>(
 					async (from, to) =>
 						await supabase
-							.from('rating_scheme_entries')
-							.select('id, rated_person_id, eval_type, rating_period_end, workflow_status')
+							.from('evaluations')
+							.select('id, rated_person_id, eval_type, rating_period_end, workflow_status, rating_schemes(archived_at)')
 							.eq('organization_id', actor.orgId)
-							.is('archived_at', null)
 							.order('id', { ascending: true })
 							.range(from, to)
 				),
@@ -47,8 +48,13 @@ export function createSupabaseRatingSchemeDuePort(
 				personnel.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`])
 			);
 			return (data ?? [])
-				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
-				.map((row) => toDueEntry(row, names.get(row.rated_person_id)));
+				.map((row) => ({ row, entry: toDueEntry(row, names.get(row.rated_person_id)) }))
+				.filter(
+					({ row, entry }) =>
+						!isArchivedPerson(archived, row.rated_person_id) &&
+						isOnTracker({ archivedAt: row.rating_schemes?.archived_at ?? null, workflowStatus: entry.workflowStatus })
+				)
+				.map(({ entry }) => entry);
 		}
 	};
 }

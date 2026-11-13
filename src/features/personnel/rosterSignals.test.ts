@@ -52,7 +52,7 @@ function evaluation(daysUntilThru: number, dueStatus: 'current' | 'due-60' | 'du
 	return {
 		ok: true as const,
 		value: {
-			entryId: 'eval',
+			evaluationId: 'eval',
 			evalType: 'Annual',
 			reportTypeLabel: 'NCOER',
 			periodEnd: '2026-12-07',

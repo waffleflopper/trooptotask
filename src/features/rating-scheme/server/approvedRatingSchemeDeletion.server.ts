@@ -12,20 +12,20 @@ interface ApprovedRatingSchemeDeletionActor {
 }
 
 export interface ApprovedRatingSchemeDeletionPort {
-	approveRatingSchemeEntryDeletion(
+	approveEvaluationDeletion(
 		ctx: { readonly auth: ApprovedRatingSchemeDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
-		entryId: string,
+		evaluationId: string,
 		reviewedAt: string
 	): Promise<void>;
 }
 
-/** Delete an entry and approve its pending Organization review in one database command. */
+/** Delete an Evaluation and approve its pending Organization review in one database command. */
 export function createSupabaseApprovedRatingSchemeDeletionPort(
 	getAdminClient: () => SupabaseClient
 ): ApprovedRatingSchemeDeletionPort {
 	return {
-		async approveRatingSchemeEntryDeletion(ctx, requestId, entryId, reviewedAt) {
+		async approveEvaluationDeletion(ctx, requestId, evaluationId, reviewedAt) {
 			const actor = ctx.auth;
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
@@ -41,8 +41,8 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 			const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
 				p_organization_id: actor.orgId,
 				p_request_id: requestId,
-				p_resource_type: 'rating_scheme_entry',
-				p_resource_id: entryId,
+				p_resource_type: 'evaluation',
+				p_resource_id: evaluationId,
 				p_reviewer_id: actor.userId,
 				p_reviewed_at: reviewedAt
 			});

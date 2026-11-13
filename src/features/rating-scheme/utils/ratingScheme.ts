@@ -8,6 +8,7 @@ import type {
 	WorkflowStatus
 } from '../rating-scheme.types';
 import { isEvaluationCompleted } from './evaluationWorkflow';
+import { isOnTracker } from './ratingSchemeEntries';
 import { calendarDayDiff, parseDate } from '$lib/utils/dates';
 
 function armyRankCodes(category: RankCategory): ReadonlySet<string> {
@@ -70,7 +71,7 @@ export function getEntryDueLabel(
 	entry: Pick<RatingSchemeEntry, 'ratingPeriodEnd' | 'workflowStatus' | 'archivedAt'>,
 	today: Date = new Date()
 ): RatingDueLabel {
-	if (entry.archivedAt !== null) return { status: 'completed', text: 'Archived' };
+	if (!isOnTracker(entry)) return { status: 'completed', text: 'Archived' };
 	return getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus, today);
 }
 

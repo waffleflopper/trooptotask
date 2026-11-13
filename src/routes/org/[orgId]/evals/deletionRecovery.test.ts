@@ -12,33 +12,55 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest } from '$features/deletion-requests';
 import * as deletionRequests from '$features/deletion-requests';
-import { ratingSchemeStore } from '$features/rating-scheme/ratingSchemeStore.test-support.svelte';
+import {
+	evaluationStore,
+	ratingSchemeEntries,
+	ratingSchemeEntryFixture,
+	ratingSchemeStore,
+	splitRatingSchemeEntries
+} from '$features/rating-scheme/ratingSchemeStore.test-support.svelte';
 import { settles } from '$lib/test-support/settles';
 const { default: RatingSchemeModals } = await loadRatingSchemeModals();
 let snapshot = 0;
 let ctx: RatingSchemePageContext;
 
-const entry: RatingSchemeEntry = {
+const entry: RatingSchemeEntry = ratingSchemeEntryFixture({
 	id: 'evaluation-a',
+	ratingSchemeId: 'scheme-a',
 	ratedPersonId: 'person-a',
-	evalType: 'NCOER',
-	raterPersonId: null,
 	raterName: 'External Rater',
-	seniorRaterPersonId: null,
 	seniorRaterName: 'External Senior Rater',
-	intermediateRaterPersonId: null,
-	intermediateRaterName: null,
-	reviewerPersonId: null,
-	reviewerName: null,
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
 	notes: 'Saved notes',
-	reportType: 'AN',
-	workflowStatus: null,
-	archivedAt: null
+	workflowStatus: null
+});
+const otherEntry = {
+	...entry,
+	id: 'evaluation-b',
+	ratingSchemeId: 'scheme-b',
+	ratedPersonId: 'person-b',
+	notes: 'Other evaluation'
 };
-const otherEntry = { ...entry, id: 'evaluation-b', ratedPersonId: 'person-b', notes: 'Other evaluation' };
-const foreignEntry = { ...otherEntry, id: 'foreign-evaluation', notes: 'B saved notes' };
+const foreignEntry = {
+	...otherEntry,
+	id: 'foreign-evaluation',
+	ratingSchemeId: 'foreign-scheme',
+	notes: 'B saved notes'
+};
+
+/** The Evals hydration that lists these page rows. */
+function hydration(orgId: string, items: readonly RatingSchemeEntry[], snapshotKey: string) {
+	const { ratingSchemes, evaluations } = splitRatingSchemeEntries(items);
+	return {
+		orgId,
+		ratingSchemes: { mode: 'replace' as const, snapshotKey, items: ratingSchemes },
+		evaluations: { mode: 'replace' as const, snapshotKey, items: evaluations }
+	};
+}
+
+/** The saved Evaluation the server answers an edit of this row with. */
+const savedEvaluation = (row: RatingSchemeEntry) => splitRatingSchemeEntries([row]).evaluations[0];
 
 const foreignEditorOptions = {
 	orgId: 'org-b',
@@ -58,14 +80,11 @@ async function openEditor({
 	editingEntry?: RatingSchemeEntry | null;
 	personnelLookup?: PersonnelLookup[];
 } = {}) {
-	await ratingSchemeWorkspaceHydrator.hydrate({
-		orgId,
-		ratingSchemeEntries: { mode: 'replace', snapshotKey: `recovery-${++snapshot}`, items }
-	});
+	await ratingSchemeWorkspaceHydrator.hydrate(hydration(orgId, items, `recovery-${++snapshot}`));
 	const modals = new ModalRegistry();
 	modals.open('rating-modal', { entry: editingEntry });
 	ctx = new RatingSchemePageContext(
-		{ orgId, orgName: 'Synthetic workspace', ratingSchemeEntries: items, personnelLookup: [] },
+		{ orgId, orgName: 'Synthetic workspace', personnelLookup: [] },
 		modals,
 		{} as ConstructorParameters<typeof RatingSchemePageContext>[2]
 	);
@@ -74,7 +93,7 @@ async function openEditor({
 		modals,
 		personnelLookup,
 		onRequestDeletion: (id, description, isCurrent) =>
-			submitDeletionRequest(orgId, 'rating_scheme_entry', id, description, `/org/${orgId}/evals`, isCurrent)
+			submitDeletionRequest(orgId, 'evaluation', id, description, `/org/${orgId}/evals`, isCurrent)
 	});
 	return { modals, ...editor };
 }
@@ -121,20 +140,26 @@ describe('Evals deletion recovery', () => {
 	it('retains a failed create draft and supports explicit retry through the current form', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
 		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
-		const requests: unknown[] = [];
-		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
-			const data = JSON.parse(init.body as string);
-			requests.push(data);
+		const requests: { url: string; body: Record<string, unknown> }[] = [];
+		vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+			const body = JSON.parse(init.body as string);
+			requests.push({ url, body });
 			if (requests.length === 1) return Response.json({ message: 'Create temporarily unavailable' }, { status: 503 });
-			return Response.json({ id: 'created-evaluation', ...data });
+			if (url.endsWith('/evaluations')) {
+				return Response.json({
+					created: true,
+					evaluation: { ...body, id: 'created-evaluation', ratingSchemeId: 'created-scheme', ratedPersonId: 'person-a' }
+				});
+			}
+			return Response.json({ ...body, id: 'created-scheme', archivedAt: null });
 		});
-		const { modals } = await openEditor({ editingEntry: null });
+		const { modals } = await openEditor({ editingEntry: null, items: [otherEntry] });
 		await prepareNewEntry();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'New current draft' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 		await waitFor(() =>
 			expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.replace(/\s+/g, ' ').trim()).toBe(
-				'Rating entry was not saved Create temporarily unavailable'
+				'Rating entry was not saved Failed to add rating entry'
 			)
 		);
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add entry' })));
@@ -146,18 +171,25 @@ describe('Evals deletion recovery', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 		await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
 		expect(successToast).toHaveBeenCalledWith('Rating entry added');
-		expect(requests).toHaveLength(2);
-		expect(requests[0]).toEqual(requests[1]);
 		expect(errorToast).not.toHaveBeenCalled();
-		expect(requests[1]).toEqual(
+		expect(requests.map(({ url }) => url)).toEqual([
+			'/org/org-a/api/rating-scheme',
+			'/org/org-a/api/rating-scheme',
+			'/org/org-a/api/rating-scheme/created-scheme/evaluations'
+		]);
+		expect(requests[0].body).toEqual(requests[1].body);
+		expect(requests[1].body).toEqual(
+			expect.objectContaining({ ratedPersonId: 'person-a', raterName: 'MAJ Current Rater' })
+		);
+		expect(requests[2].body).toEqual(
 			expect.objectContaining({
-				ratedPersonId: 'person-a',
 				notes: 'New current draft',
 				reportType: 'AN',
 				ratingPeriodStart: '2026-01-01',
 				ratingPeriodEnd: '2026-12-31'
 			})
 		);
+		expect(ratingSchemeEntries.items.map(({ id }) => id)).toEqual(['evaluation-b', 'created-evaluation']);
 	});
 
 	it('retires held update feedback after leaving the originating workspace', async () => {
@@ -167,7 +199,7 @@ describe('Evals deletion recovery', () => {
 		});
 		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-		const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
+		const update = vi.spyOn(evaluationStore, 'updateOrThrow');
 		vi.stubGlobal('fetch', () => pending);
 		const origin = await openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Held A edit' } });
@@ -177,12 +209,12 @@ describe('Evals deletion recovery', () => {
 		const { modals: foreignModals } = await openEditor(foreignEditorOptions);
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'B retained draft' } });
 		await act(async () => {
-			release(Response.json({ ...entry, notes: 'Held A edit' }));
+			release(Response.json(savedEvaluation({ ...entry, notes: 'Held A edit' })));
 			expect(await settles(update.mock.results[0].value)).toBe(false);
 		});
 		expect(errorToast).not.toHaveBeenCalled();
 		expect(successToast).not.toHaveBeenCalled();
-		expect(ratingSchemeStore.items).toEqual([foreignEntry]);
+		expect(ratingSchemeEntries.items).toEqual([foreignEntry]);
 		expect(foreignModals.isOpen('rating-modal')).toBe(true);
 		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('B retained draft');
 	});
@@ -191,22 +223,34 @@ describe('Evals deletion recovery', () => {
 		['create', 'success'],
 		['create', 'HTTP failure'],
 		['create', 'transport failure'],
+		['create with a new scheme', 'success'],
+		['create with a new scheme', 'HTTP failure'],
 		['update', 'HTTP failure'],
 		['update', 'transport failure']
 	] as const)('retires held %s %s without touching the new editor', async (operation, outcome) => {
 		const held = Promise.withResolvers<Response>();
 		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-		const mutation = vi.spyOn(ratingSchemeStore, operation === 'create' ? 'add' : 'updateOrThrow');
-		let saveData: Omit<RatingSchemeEntry, 'id'>;
+		// Adding for a person whose listed scheme has another chain saves that chain first; a person with none gets one.
+		const mutation =
+			operation === 'update'
+				? vi.spyOn(evaluationStore, 'updateOrThrow')
+				: operation === 'create'
+					? vi.spyOn(ratingSchemeStore, 'updateOrThrow')
+					: null;
+		const merges = [vi.spyOn(ratingSchemeStore, 'mergeBatchResults'), vi.spyOn(evaluationStore, 'mergeBatchResults')];
+		let saveData: Record<string, unknown>;
 		vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 			saveData = JSON.parse(init.body as string);
 			return held.promise;
 		});
-		const origin = await openEditor({ editingEntry: operation === 'create' ? null : entry });
-		if (operation === 'create') await prepareNewEntry();
+		const origin = await openEditor({
+			editingEntry: operation === 'update' ? entry : null,
+			items: operation === 'create with a new scheme' ? [otherEntry] : [entry, otherEntry]
+		});
+		if (operation !== 'update') await prepareNewEntry();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retired A draft' } });
-		await fireEvent.click(screen.getByRole('button', { name: operation === 'create' ? 'Add entry' : 'Save changes' }));
+		await fireEvent.click(screen.getByRole('button', { name: operation === 'update' ? 'Save changes' : 'Add entry' }));
 		expect((screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement).disabled).toBe(true);
 		origin.unmount();
 		const { modals } = await openEditor(foreignEditorOptions);
@@ -217,13 +261,15 @@ describe('Evals deletion recovery', () => {
 				held.resolve(
 					Response.json({ id: 'created-evaluation', ...saveData }, { status: outcome === 'success' ? 200 : 503 })
 				);
-			expect(await settles(mutation.mock.results[0].value)).toBe(false);
+			if (mutation) expect(await settles(mutation.mock.results[0].value)).toBe(false);
+			else await settles(held.promise);
 		});
 		expect(errorToast).not.toHaveBeenCalled();
 		expect(successToast).not.toHaveBeenCalled();
+		for (const merge of merges) expect(merge).not.toHaveBeenCalled();
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Fresh B draft');
-		expect(ratingSchemeStore.items).toEqual([foreignEntry]);
+		expect(ratingSchemeEntries.items).toEqual([foreignEntry]);
 	});
 
 	it.each(['success', 'HTTP failure', 'transport failure'] as const)(
@@ -232,7 +278,7 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const infoToast = vi.spyOn(toastStore, 'info').mockReturnValue('info');
-			const remove = vi.spyOn(ratingSchemeStore, 'remove');
+			const remove = vi.spyOn(evaluationStore, 'remove');
 			const methods: string[] = [];
 			vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 				methods.push(init.method!);
@@ -262,7 +308,7 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const infoToast = vi.spyOn(toastStore, 'info').mockReturnValue('info');
-			const remove = vi.spyOn(ratingSchemeStore, 'remove');
+			const remove = vi.spyOn(evaluationStore, 'remove');
 			const methods: string[] = [];
 			vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 				methods.push(init.method!);
@@ -314,9 +360,9 @@ describe('Evals deletion recovery', () => {
 				url: '/org/org-a/api/deletion-requests',
 				method: 'POST',
 				body: {
-					resourceType: 'rating_scheme_entry',
+					resourceType: 'evaluation',
 					resourceId: entry.id,
-					resourceDescription: 'Rating scheme entry for SGT Able',
+					resourceDescription: 'Evaluation for SGT Able',
 					resourceUrl: '/org/org-a/evals'
 				}
 			});
@@ -332,7 +378,7 @@ describe('Evals deletion recovery', () => {
 			expect(infoToast).not.toHaveBeenCalled();
 			expect(modals.isOpen('rating-modal')).toBe(true);
 			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Fresh B draft');
-			expect(ratingSchemeStore.items).toEqual([foreignEntry]);
+			expect(ratingSchemeEntries.items).toEqual([foreignEntry]);
 		}
 	);
 
@@ -357,15 +403,15 @@ describe('Evals deletion recovery', () => {
 			url: '/org/org-a/api/deletion-requests',
 			method: 'POST',
 			body: {
-				resourceType: 'rating_scheme_entry',
+				resourceType: 'evaluation',
 				resourceId: entry.id,
-				resourceDescription: 'Rating scheme entry for SGT Able',
+				resourceDescription: 'Evaluation for SGT Able',
 				resourceUrl: '/org/org-a/evals'
 			}
 		});
 		expect(infoToast).toHaveBeenCalledTimes(1);
 		expect(errorToast).not.toHaveBeenCalled();
-		expect(ratingSchemeStore.items).toEqual([entry, otherEntry]);
+		expect(ratingSchemeEntries.items).toEqual([entry, otherEntry]);
 	});
 
 	it.each(['same Organization departure', 'A to B to fresh A'] as const)(
@@ -374,7 +420,7 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-			const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
+			const update = vi.spyOn(evaluationStore, 'updateOrThrow');
 			vi.stubGlobal('fetch', () => held.promise);
 			const origin = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retired A save' } });
@@ -384,7 +430,7 @@ describe('Evals deletion recovery', () => {
 			const { modals } = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Fresh A draft' } });
 			await act(async () => {
-				held.resolve(Response.json({ ...entry, notes: 'Retired A save' }));
+				held.resolve(Response.json(savedEvaluation({ ...entry, notes: 'Retired A save' })));
 				if (departure === 'A to B to fresh A') expect(await settles(update.mock.results[0].value)).toBe(false);
 				else await update.mock.results[0].value;
 			});
@@ -401,13 +447,13 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-			const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
+			const update = vi.spyOn(evaluationStore, 'updateOrThrow');
 			const requests: unknown[] = [];
 			vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 				requests.push(JSON.parse(init.body as string));
 				return requests.length === 1
 					? held.promise
-					: Promise.resolve(Response.json({ ...entry, notes: 'Current retained draft' }));
+					: Promise.resolve(Response.json(savedEvaluation({ ...entry, notes: 'Current retained draft' })));
 			});
 			const origin = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Current retained draft' } });
@@ -416,17 +462,14 @@ describe('Evals deletion recovery', () => {
 				orgId: 'org-a',
 				personnelLookup: [{ id: 'person-a', rank: 'SSG', firstName: 'Refreshed', lastName: 'Able' }]
 			});
-			await ratingSchemeWorkspaceHydrator.hydrate({
-				orgId: 'org-a',
-				ratingSchemeEntries: {
-					mode: 'replace',
-					snapshotKey: `refresh-${++snapshot}`,
-					items: [{ ...entry }, { ...otherEntry }]
-				}
-			});
+			await ratingSchemeWorkspaceHydrator.hydrate(
+				hydration('org-a', [{ ...entry }, { ...otherEntry }], `refresh-${++snapshot}`)
+			);
 			await act(async () => {
 				held.resolve(
-					Response.json({ ...entry, notes: 'Current retained draft' }, { status: outcome === 'success' ? 200 : 503 })
+					Response.json(savedEvaluation({ ...entry, notes: 'Current retained draft' }), {
+						status: outcome === 'success' ? 200 : 503
+					})
 				);
 				expect(await settles(update.mock.results[0].value)).toBe(true);
 			});
@@ -447,7 +490,7 @@ describe('Evals deletion recovery', () => {
 				expect(origin.modals.isOpen('rating-modal')).toBe(false);
 			}
 			expect(successToast).toHaveBeenCalledWith('Rating entry updated');
-			expect(ratingSchemeStore.items.find((item) => item.id === entry.id)?.notes).toBe('Current retained draft');
+			expect(ratingSchemeEntries.items.find((item) => item.id === entry.id)?.notes).toBe('Current retained draft');
 		}
 	);
 
@@ -490,7 +533,7 @@ describe('Evals deletion recovery', () => {
 				expect(requests).toEqual([
 					expect.objectContaining({
 						resourceId: entry.id,
-						resourceType: 'rating_scheme_entry',
+						resourceType: 'evaluation',
 						resourceUrl: '/org/org-a/evals'
 					})
 				]);
@@ -584,7 +627,7 @@ describe('Evals deletion recovery', () => {
 		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect(effects).toEqual(['PUT']);
-		release(Response.json({ ...entry, notes: 'Updated notes' }));
+		release(Response.json(savedEvaluation({ ...entry, notes: 'Updated notes' })));
 		await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
 		expect(ctx.filteredRatingEntries.find((item) => item.id === entry.id)?.notes).toBe('Updated notes');
 	});

@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { createSupabaseRatingSchemePersistence } from './ratingSchemePersistence.server';
 
 type Row = Record<string, unknown>;
+type Table = 'rating_schemes' | 'evaluations';
 
-const saved: Row = {
-	id: 'entry-a',
+const schemeRow: Row = {
+	id: 'scheme-a',
 	organization_id: 'org-a',
 	rated_person_id: 'person-a',
 	eval_type: 'OER',
@@ -17,20 +18,15 @@ const saved: Row = {
 	intermediate_rater_name: 'LTC Synthetic Intermediate',
 	reviewer_person_id: 'reviewer-a',
 	reviewer_name: null,
-	rating_period_start: '2025-10-05',
-	rating_period_end: '2026-10-04',
-	notes: 'Saved historical notes',
-	report_type: 'CR',
-	workflow_status: 'with-rater',
+	notes: 'Scheme notes',
 	archived_at: null,
+	archived_by: 'who-archived',
 	created_at: '2025-10-05T12:00:00.654321+00:00',
-	updated_at: '2026-10-05T12:00:00.123456+00:00',
-	extra_saved_field: 'private provider value'
+	updated_at: '2026-10-05T12:00:00.123456+00:00'
 };
 
-const expected = {
-	id: 'entry-a',
-	organization_id: 'org-a',
+const scheme = {
+	id: 'scheme-a',
 	ratedPersonId: 'person-a',
 	evalType: 'OER',
 	raterPersonId: 'rater-a',
@@ -41,54 +37,61 @@ const expected = {
 	intermediateRaterName: 'LTC Synthetic Intermediate',
 	reviewerPersonId: 'reviewer-a',
 	reviewerName: null,
-	ratingPeriodStart: '2025-10-05',
-	ratingPeriodEnd: '2026-10-04',
-	notes: 'Saved historical notes',
-	reportType: 'CR',
-	workflowStatus: 'with-rater',
-	archivedAt: null,
+	notes: 'Scheme notes',
+	archivedAt: null
+};
+
+const snapshotColumns = {
+	snapshot_rater_person_id: null,
+	snapshot_rater_name: null,
+	snapshot_senior_rater_person_id: null,
+	snapshot_senior_rater_name: null,
+	snapshot_intermediate_rater_person_id: null,
+	snapshot_intermediate_rater_name: null,
+	snapshot_reviewer_person_id: null,
+	snapshot_reviewer_name: null
+};
+
+const evaluationRow: Row = {
+	id: 'evaluation-a',
+	organization_id: 'org-a',
+	rating_scheme_id: 'scheme-a',
+	rated_person_id: 'person-a',
+	eval_type: 'OER',
+	report_type: 'CR',
+	rating_period_start: '2025-10-05',
+	rating_period_end: '2026-10-04',
+	workflow_status: 'with-rater',
+	notes: 'Evaluation notes',
+	chain_snapshot_at: null,
+	...snapshotColumns,
 	created_at: '2025-10-05T12:00:00.654321+00:00',
 	updated_at: '2026-10-05T12:00:00.123456+00:00'
 };
 
-const savedFields = new Set([
-	'id',
-	'organization_id',
-	'rated_person_id',
-	'eval_type',
-	'rater_person_id',
-	'rater_name',
-	'senior_rater_person_id',
-	'senior_rater_name',
-	'intermediate_rater_person_id',
-	'intermediate_rater_name',
-	'reviewer_person_id',
-	'reviewer_name',
-	'rating_period_start',
-	'rating_period_end',
-	'notes',
-	'report_type',
-	'workflow_status',
-	'archived_at',
-	'created_at',
-	'updated_at'
-]);
-
-const input = {
+const evaluation = {
+	id: 'evaluation-a',
+	ratingSchemeId: 'scheme-a',
 	ratedPersonId: 'person-a',
-	evalType: 'NCOER' as const,
-	ratingPeriodStart: '2026-10-05',
-	ratingPeriodEnd: '2027-10-04'
+	evalType: 'OER',
+	reportType: 'CR',
+	ratingPeriodStart: '2025-10-05',
+	ratingPeriodEnd: '2026-10-04',
+	workflowStatus: 'with-rater',
+	notes: 'Evaluation notes',
+	signedChain: null
 };
 
-function provider(initial: Row[] = []) {
-	const rows = structuredClone(initial);
+function provider(initial: { rating_schemes?: Row[]; evaluations?: Row[] } = {}) {
+	const tables: Record<Table, Row[]> = {
+		rating_schemes: structuredClone(initial.rating_schemes ?? []),
+		evaluations: structuredClone(initial.evaluations ?? [])
+	};
 	const state = {
 		requests: [] as Array<{ url: URL; method: string; body: unknown; prefer: string | null }>,
 		failOffset: -1,
 		rejectMethod: '',
-		omitCount: false,
-		revokeDelete: false
+		omitCount: false
 	};
 	const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -98,17 +101,12 @@ function provider(initial: Row[] = []) {
 				const url = new URL(request.url);
 				const body: unknown = ['GET', 'HEAD', 'DELETE'].includes(request.method) ? null : await request.json();
 				state.requests.push({ url, method: request.method, body, prefer: request.headers.get('prefer') });
-				if (
-					state.requests.length > 40 ||
-					url.origin !== 'http://rating-ledger.invalid' ||
-					url.pathname !== '/rest/v1/rating_scheme_entries'
-				)
+				const table = url.pathname.replace('/rest/v1/', '') as Table;
+				if (state.requests.length > 40 || url.origin !== 'http://rating-ledger.invalid' || !(table in tables))
 					throw new Error('Unexpected Rating provider operation');
-				if (
-					request.headers.get('authorization') !== 'Bearer ordinary-request-key' ||
-					request.headers.get('apikey') !== 'ordinary-request-key'
-				)
+				if (request.headers.get('authorization') !== 'Bearer ordinary-request-key')
 					throw new Error('Rating provider changed supplied authority');
+				const rows = tables[table];
 				const offset = Number(url.searchParams.get('offset') ?? 0);
 				if (state.rejectMethod === request.method || (request.method === 'GET' && state.failOffset === offset))
 					return Response.json({ code: '42501', message: 'Rating provider unavailable' }, { status: 403 });
@@ -137,247 +135,213 @@ function provider(initial: Row[] = []) {
 							return 0;
 						});
 					affected = affected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000));
-				} else if (request.method === 'POST' || request.method === 'PATCH') {
-					const values = body as Row;
-					if (request.method === 'POST') {
-						affected = [
-							{
-								id: `saved-${rows.length + 1}`,
-								created_at: '2026-10-06T12:00:00.123456+00:00',
-								updated_at: '2026-10-06T12:00:00.123456+00:00',
-								...values
-							}
-						];
-						rows.push(...affected);
-					} else {
-						for (const row of affected) Object.assign(row, values, { updated_at: '2026-10-06T13:00:00.654321+00:00' });
-					}
+				} else if (request.method === 'POST') {
+					affected = [{ id: `saved-${rows.length + 1}`, archived_at: null, ...(body as Row) }];
+					rows.push(...affected);
+				} else if (request.method === 'PATCH') {
+					for (const row of affected) Object.assign(row, body as Row);
 				} else if (request.method === 'DELETE') {
-					if (!state.revokeDelete) for (const row of affected) rows.splice(rows.indexOf(row), 1);
+					for (const row of affected) rows.splice(rows.indexOf(row), 1);
 					return new Response(null, { status: 204 });
 				} else throw new Error('Unexpected Rating method');
-				const select = url.searchParams.get('select');
-				const projected = affected.map((row) => ({
-					...Object.fromEntries((select ?? '').split(',').map((field) => [field, row[field]])),
-					extra_saved_field: 'unexpected provider response field'
-				}));
+				const projected = affected.map((row) => project(row, url.searchParams.get('select') ?? '', tables));
 				if (request.headers.get('accept') === 'application/vnd.pgrst.object+json') {
 					if (projected.length !== 1)
-						return Response.json({ code: 'PGRST116', message: 'Expected one Rating entry' }, { status: 406 });
+						return Response.json({ code: 'PGRST116', message: 'Expected one Rating row' }, { status: 406 });
 					return Response.json(projected[0]);
 				}
-				const headers: Record<string, string> =
-					request.headers.get('prefer')?.includes('count=estimated') && !state.omitCount
-						? { 'Content-Range': `${offset}-${offset + projected.length - 1}/${total}` }
-						: {};
-				return Response.json(projected, { headers });
+				return Response.json(projected);
 			}
 		}
 	});
-	return { rows, state, ratingScheme: createSupabaseRatingSchemePersistence(client, 'org-a') };
+	return { tables, state, ratingScheme: createSupabaseRatingSchemePersistence(client, 'org-a') };
+}
+
+/** Selected columns, and the one embed the provider reads: an Evaluation's scheme. */
+function project(row: Row, select: string, tables: Record<Table, Row[]>) {
+	const embed = /rating_schemes\(([^)]*)\)/.exec(select);
+	const columns = select.replace(/,?rating_schemes\([^)]*\)/, '').split(',');
+	const projected: Row = Object.fromEntries(columns.map((column) => [column, row[column]]));
+	if (embed) {
+		const parent = tables.rating_schemes.find((candidate) => candidate.id === row.rating_scheme_id);
+		projected.rating_schemes = parent ? Object.fromEntries(embed[1].split(',').map((c) => [c, parent[c]])) : null;
+	}
+	return projected;
 }
 
 describe('owned Rating Scheme provider', () => {
-	it('returns all20 supported saved fields with exact metadata and excludes unrelated provider fields', async () => {
-		const { ratingScheme, state } = provider([
-			{ ...saved, id: 'later', rating_period_end: '2027-01-01' },
-			saved,
-			{ ...saved, id: 'foreign', organization_id: 'org-b' }
+	it('reads the unit’s schemes and Evaluations without who archived a scheme', async () => {
+		const { ratingScheme, state } = provider({
+			rating_schemes: [schemeRow, { ...schemeRow, id: 'foreign', organization_id: 'org-b' }],
+			evaluations: [
+				{ ...evaluationRow, id: 'later', rating_period_end: '2027-01-01' },
+				evaluationRow,
+				{ ...evaluationRow, id: 'foreign', organization_id: 'org-b' }
+			]
+		});
+		expect(await ratingScheme.listRatingSchemes()).toEqual([scheme]);
+		expect(await ratingScheme.listEvaluations()).toEqual([
+			evaluation,
+			{ ...evaluation, id: 'later', ratingPeriodEnd: '2027-01-01' }
 		]);
-		expect(await ratingScheme.listWorkspace()).toEqual([
-			expected,
-			{ ...expected, id: 'later', ratingPeriodEnd: '2027-01-01' }
-		]);
-		expect(state.requests).toHaveLength(1);
-		expect(new Set(state.requests[0].url.searchParams.get('select')?.split(','))).toEqual(savedFields);
+		expect(state.requests[0].url.searchParams.get('select')).not.toContain('archived_by');
 	});
 
-	it('loads all1001 tied-date workspace entries in stable ascending identity order', async () => {
-		const ids = Array.from({ length: 1001 }, (_, i) => `entry-${String(i).padStart(4, '0')}`);
-		const { ratingScheme, state } = provider(ids.map((id) => ({ ...saved, id })).reverse());
-		const result = await ratingScheme.listWorkspace();
-		expect(result.map((entry) => entry.id)).toEqual(ids);
-		expect(result[1000]).toEqual({ ...expected, id: 'entry-1000' });
+	it('shows the chain that signed an Evaluation once it has one', async () => {
+		const signed = {
+			...evaluationRow,
+			workflow_status: 'completed',
+			chain_snapshot_at: '2026-10-05T12:00:00+00:00',
+			snapshot_rater_name: 'SSG Signed Rater',
+			snapshot_senior_rater_person_id: 'senior-a'
+		};
+		const { ratingScheme } = provider({ evaluations: [signed] });
+		expect(await ratingScheme.listEvaluations()).toEqual([
+			{
+				...evaluation,
+				workflowStatus: 'completed',
+				signedChain: {
+					raterPersonId: null,
+					raterName: 'SSG Signed Rater',
+					seniorRaterPersonId: 'senior-a',
+					seniorRaterName: null,
+					intermediateRaterPersonId: null,
+					intermediateRaterName: null,
+					reviewerPersonId: null,
+					reviewerName: null
+				}
+			}
+		]);
+	});
+
+	it('loads every page of tied-date Evaluations in stable identity order', async () => {
+		const ids = Array.from({ length: 1001 }, (_, i) => `evaluation-${String(i).padStart(4, '0')}`);
+		const { ratingScheme, state } = provider({ evaluations: ids.map((id) => ({ ...evaluationRow, id })).reverse() });
+		const result = await ratingScheme.listEvaluations();
+		expect(result.map((row) => row.id)).toEqual(ids);
 		expect(state.requests.map(({ url }) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 	});
 
-	it('loads complete Person readiness entries in descending period/identity order', async () => {
-		const rows = Array.from({ length: 1001 }, (_, i) => ({
-			...saved,
-			id: `entry-${String(i).padStart(4, '0')}`,
-			rater_name: `Rater ${i}`
-		}));
-		const { ratingScheme } = provider([
-			...rows,
-			{ ...saved, id: 'earlier', rating_period_end: '2025-12-31', rater_name: 'Earlier Rater' },
-			{ ...saved, id: 'foreign', organization_id: 'org-b' },
-			{ ...saved, id: 'another', rated_person_id: 'person-b' }
-		]);
-		const result = await ratingScheme.listPersonReadiness('person-a');
-		expect(result).toHaveLength(1002);
-		expect(result[0]).toEqual({ ...expected, id: 'entry-1000', raterName: 'Rater 1000' });
-		expect(result[1000].raterName).toBe('Rater 0');
-		expect(result[1001].raterName).toBe('Earlier Rater');
-		expect(await ratingScheme.listPersonReadiness('missing')).toEqual([]);
-	});
-
-	it.each([0, 1000])('rejects both complete reads when page%i fails', async (offset) => {
-		const { ratingScheme, state } = provider(Array.from({ length: 1001 }, (_, i) => ({ ...saved, id: `entry-${i}` })));
-		state.failOffset = offset;
-		await expect(ratingScheme.listWorkspace()).rejects.toThrow('Rating provider unavailable');
-		await expect(ratingScheme.listPersonReadiness('person-a')).rejects.toThrow('Rating provider unavailable');
-	});
-
-	it('maps only write-reference relationships and classifies missing single rows without hiding provider failures', async () => {
-		const { ratingScheme, state } = provider([saved, { ...saved, id: 'foreign', organization_id: 'org-b' }]);
-		expect(await ratingScheme.findWriteReference('entry-a')).toEqual({
-			ratedPersonId: 'person-a',
-			raterPersonId: 'rater-a',
-			seniorRaterPersonId: null,
-			intermediateRaterPersonId: null,
-			reviewerPersonId: 'reviewer-a'
+	it('reads one Person’s scheme and Evaluations, newest period first', async () => {
+		const { ratingScheme } = provider({
+			rating_schemes: [schemeRow, { ...schemeRow, id: 'scheme-b', rated_person_id: 'person-b' }],
+			evaluations: [
+				{ ...evaluationRow, id: 'earlier', rating_period_end: '2025-12-31' },
+				evaluationRow,
+				{ ...evaluationRow, id: 'another', rated_person_id: 'person-b' }
+			]
 		});
-		expect(await ratingScheme.findWriteReference('missing')).toBeNull();
-		expect(await ratingScheme.findWriteReference('foreign')).toBeNull();
+		const readiness = await ratingScheme.listPersonReadiness('person-a');
+		expect(readiness.ratingSchemes).toEqual([scheme]);
+		expect(readiness.evaluations.map((row) => row.id)).toEqual(['evaluation-a', 'earlier']);
+		expect(await ratingScheme.listPersonReadiness('missing')).toEqual({ ratingSchemes: [], evaluations: [] });
+	});
+
+	it.each([0, 1000])('rejects a complete read when page %i fails', async (offset) => {
+		const { ratingScheme, state } = provider({
+			evaluations: Array.from({ length: 1001 }, (_, i) => ({ ...evaluationRow, id: `evaluation-${i}` }))
+		});
+		state.failOffset = offset;
+		await expect(ratingScheme.listEvaluations()).rejects.toThrow('Rating provider unavailable');
+	});
+
+	it('reads an Evaluation’s write reference through its scheme’s rater', async () => {
+		const { ratingScheme, state } = provider({
+			rating_schemes: [schemeRow],
+			evaluations: [evaluationRow, { ...evaluationRow, id: 'foreign', organization_id: 'org-b' }]
+		});
+		expect(await ratingScheme.findEvaluationReference('evaluation-a')).toEqual({
+			ratingSchemeId: 'scheme-a',
+			ratedPersonId: 'person-a',
+			raterPersonId: 'rater-a'
+		});
+		expect(await ratingScheme.findEvaluationReference('foreign')).toBeNull();
+		expect(await ratingScheme.findRatingScheme('scheme-a')).toEqual(scheme);
+		expect(await ratingScheme.findRatingScheme('missing')).toBeNull();
 		state.rejectMethod = 'GET';
-		await expect(ratingScheme.findWriteReference('entry-a')).rejects.toThrow('Rating provider unavailable');
+		await expect(ratingScheme.findEvaluationReference('evaluation-a')).rejects.toThrow('Rating provider unavailable');
 	});
 
-	it('counts the unit exactly with a head request, missing count as zero and provider error propagation', async () => {
-		const { ratingScheme, state } = provider([
-			saved,
-			{ ...saved, id: 'second' },
-			{ ...saved, id: 'foreign', organization_id: 'org-b' }
-		]);
-		expect(await ratingScheme.countEntries()).toBe(2);
-		const request = state.requests[0];
-		expect(request.method).toBe('HEAD');
-		expect(request.prefer).toContain('count=exact');
-		expect(request.url.searchParams.get('select')).toBe('id');
+	it('counts the unit’s rating schemes with a head request', async () => {
+		const { ratingScheme, state } = provider({
+			rating_schemes: [
+				schemeRow,
+				{ ...schemeRow, id: 'second' },
+				{ ...schemeRow, id: 'foreign', organization_id: 'org-b' }
+			]
+		});
+		expect(await ratingScheme.countRatingSchemes()).toBe(2);
+		expect(state.requests[0]).toMatchObject({ method: 'HEAD' });
 		state.omitCount = true;
-		expect(await ratingScheme.countEntries()).toBe(0);
+		expect(await ratingScheme.countRatingSchemes()).toBe(0);
 		state.rejectMethod = 'HEAD';
-		await expect(ratingScheme.countEntries()).rejects.toThrow('Rating provider unavailable');
+		await expect(ratingScheme.countRatingSchemes()).rejects.toThrow('Rating provider unavailable');
 	});
 
-	it('creates owned values with nullable defaults, ignores supplied protected fields and preserves string codes', async () => {
-		const { ratingScheme, rows, state } = provider();
-		const supplied = {
-			...input,
-			id: 'must not choose ID',
-			organization_id: 'foreign',
-			created_at: 'must not choose timestamp',
-			updated_at: 'must not choose timestamp',
-			extra_saved_field: 'must not write',
-			raterName: '',
-			seniorRaterName: 'COL Synthetic Senior',
-			reportType: 'historical-report',
-			workflowStatus: 'completed'
-		};
-		const result = await ratingScheme.create(supplied);
-		expect(result).toEqual({
-			id: 'saved-1',
-			organization_id: 'org-a',
+	it('creates a scheme in this unit with only its own values', async () => {
+		const { ratingScheme, tables, state } = provider();
+		const created = await ratingScheme.createRatingScheme({
 			ratedPersonId: 'person-a',
 			evalType: 'NCOER',
+			raterName: '',
+			seniorRaterName: 'COL Synthetic Senior'
+		});
+		expect(created).toEqual({
+			...scheme,
+			id: 'saved-1',
+			evalType: 'NCOER',
 			raterPersonId: null,
-			raterName: null,
-			seniorRaterPersonId: null,
 			seniorRaterName: 'COL Synthetic Senior',
-			intermediateRaterPersonId: null,
 			intermediateRaterName: null,
 			reviewerPersonId: null,
-			reviewerName: null,
-			ratingPeriodStart: '2026-10-05',
-			ratingPeriodEnd: '2027-10-04',
-			notes: null,
-			reportType: 'historical-report',
-			workflowStatus: null,
-			archivedAt: null,
-			created_at: '2026-10-06T12:00:00.123456+00:00',
-			updated_at: '2026-10-06T12:00:00.123456+00:00'
+			notes: null
 		});
-		expect(rows[0].organization_id).toBe('org-a');
-		expect(rows[0]).not.toHaveProperty('extra_saved_field');
-		expect(new Set(Object.keys(state.requests[0].body as Row))).toEqual(
-			new Set(
-				[...savedFields].filter(
-					(field) => !['id', 'workflow_status', 'archived_at', 'created_at', 'updated_at'].includes(field)
-				)
-			)
+		expect(tables.rating_schemes[0].organization_id).toBe('org-a');
+		expect(Object.keys(state.requests[0].body as Row)).not.toEqual(
+			expect.arrayContaining(['archived_at', 'archived_by'])
 		);
 	});
 
-	it('patches defined nullable values while preserving omitted fields, stored identity and creation timestamp', async () => {
-		const { ratingScheme, rows, state } = provider([saved, { ...saved, organization_id: 'org-b' }]);
-		const supplied = {
-			id: 'foreign',
-			organization_id: 'org-b',
-			created_at: 'must not change',
-			updated_at: 'must not change',
-			notes: null,
-			raterPersonId: '',
-			intermediateRaterName: null,
-			reviewerName: undefined
-		};
-		expect(await ratingScheme.update('entry-a', supplied)).toEqual({
-			...expected,
+	it('patches only supplied values on a scheme or an Evaluation and answers null when it is gone', async () => {
+		const { ratingScheme, tables, state } = provider({ rating_schemes: [schemeRow], evaluations: [evaluationRow] });
+		expect(await ratingScheme.updateRatingScheme('scheme-a', { raterPersonId: '', notes: null })).toEqual({
+			...scheme,
 			raterPersonId: null,
-			intermediateRaterName: null,
-			notes: null,
-			updated_at: '2026-10-06T13:00:00.654321+00:00'
+			notes: null
 		});
-		expect(state.requests[0].body).toEqual({ rater_person_id: null, intermediate_rater_name: null, notes: null });
-		expect(rows[1]).toEqual({ ...saved, organization_id: 'org-b' });
+		expect(state.requests[0].body).toEqual({ rater_person_id: null, notes: null });
+		expect(await ratingScheme.updateEvaluation('evaluation-a', { reportType: '' as never, notes: 'Next' })).toEqual({
+			...evaluation,
+			reportType: null,
+			notes: 'Next'
+		});
+		expect(state.requests[1].body).toEqual({ report_type: null, notes: 'Next' });
+		expect(await ratingScheme.updateEvaluation('missing', { notes: 'x' })).toBeNull();
+		expect(tables.rating_schemes[0].archived_by).toBe('who-archived');
 	});
 
-	it('propagates failed create/update, answers null for a missing update and leaves unrelated rows unchanged', async () => {
-		const { ratingScheme, rows, state } = provider([saved]);
-		const before = structuredClone(rows);
-		state.rejectMethod = 'POST';
-		await expect(ratingScheme.create(input)).rejects.toThrow('Rating provider unavailable');
-		state.rejectMethod = 'PATCH';
-		await expect(ratingScheme.update('entry-a', { notes: 'must not change' })).rejects.toThrow(
-			'Rating provider unavailable'
-		);
-		state.rejectMethod = '';
-		await expect(ratingScheme.update('missing', { notes: 'must not change' })).resolves.toBeNull();
-		expect(rows).toEqual(before);
-	});
-
-	it('keeps ordinary idempotent deletion, failed delivery and revoked-RLS zero effects separate', async () => {
-		const { ratingScheme, rows, state } = provider([saved, { ...saved, organization_id: 'org-b' }]);
-		const before = structuredClone(rows);
+	it('deletes only this unit’s Evaluation and reports a failed delete', async () => {
+		const foreign = { ...evaluationRow, organization_id: 'org-b' };
+		const { ratingScheme, tables, state } = provider({ evaluations: [evaluationRow, foreign] });
 		state.rejectMethod = 'DELETE';
-		await expect(ratingScheme.delete('entry-a')).rejects.toThrow('Rating provider unavailable');
-		expect(rows).toEqual(before);
+		await expect(ratingScheme.deleteEvaluation('evaluation-a')).rejects.toThrow('Rating provider unavailable');
 		state.rejectMethod = '';
-		state.revokeDelete = true;
-		await expect(ratingScheme.delete('entry-a')).resolves.toBeUndefined();
-		expect(rows).toEqual(before);
-		state.revokeDelete = false;
-		await ratingScheme.delete('entry-a');
-		await ratingScheme.delete('entry-a');
-		expect(rows).toEqual([{ ...saved, organization_id: 'org-b' }]);
-		for (const { url, prefer } of state.requests) {
-			expect(url.searchParams.get('organization_id')).toBe('eq.org-a');
-			expect(url.searchParams.get('id')).toBe('eq.entry-a');
-			expect(url.searchParams.has('select')).toBe(false);
-			expect(prefer ?? '').not.toContain('return=representation');
-		}
+		await ratingScheme.deleteEvaluation('evaluation-a');
+		expect(tables.evaluations).toEqual([foreign]);
 	});
 });
 
 describe('Rating Scheme lifecycle functions', () => {
 	function lifecycleProvider(result: unknown) {
-		const calls: string[] = [];
+		const calls: Array<{ path: string; body: Row }> = [];
 		const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 			global: {
 				fetch: async (input, init) => {
-					const url = new URL(new Request(input, init).url);
-					calls.push(url.pathname);
+					const request = new Request(input, init);
+					const url = new URL(request.url);
 					if (!url.pathname.startsWith('/rest/v1/rpc/')) throw new Error('Unexpected Rating provider operation');
+					calls.push({ path: url.pathname.replace('/rest/v1/rpc/', ''), body: await request.json() });
 					return Response.json(result);
 				}
 			}
@@ -386,39 +350,90 @@ describe('Rating Scheme lifecycle functions', () => {
 	}
 
 	it('answers a move from the function result with no second read', async () => {
-		const { calls, ratingScheme } = lifecycleProvider({ moved: false, entry: saved });
-		expect(await ratingScheme.transition('entry-a', { from: 'with-rater', to: 'with-rater' })).toEqual({
-			entry: expected,
+		const { calls, ratingScheme } = lifecycleProvider({ moved: false, evaluation: evaluationRow });
+		expect(await ratingScheme.transitionEvaluation('evaluation-a', { from: 'with-rater', to: 'with-rater' })).toEqual({
+			evaluation,
 			moved: false
 		});
-		expect(calls).toEqual(['/rest/v1/rpc/transition_rating_scheme_entry']);
+		expect(calls).toEqual([
+			{
+				path: 'transition_evaluation',
+				body: { p_organization_id: 'org-a', p_evaluation_id: 'evaluation-a', p_from: 'with-rater', p_to: 'with-rater' }
+			}
+		]);
 	});
 
-	it('answers an archive from the function result with no second read', async () => {
+	it('answers an archive with the scheme and no who-archived', async () => {
 		const archivedAt = '2026-10-07T09:00:00+00:00';
-		const { calls, ratingScheme } = lifecycleProvider({ changed: true, entry: { ...saved, archived_at: archivedAt } });
-		expect(await ratingScheme.setArchived('entry-a', true)).toEqual({
-			entry: { ...expected, archivedAt },
+		const { calls, ratingScheme } = lifecycleProvider({
+			changed: true,
+			ratingScheme: { ...schemeRow, archived_by: undefined, archived_at: archivedAt }
+		});
+		expect(await ratingScheme.setRatingSchemeArchived('scheme-a', true)).toEqual({
+			ratingScheme: { ...scheme, archivedAt },
 			changed: true
 		});
-		expect(calls).toEqual(['/rest/v1/rpc/set_rating_scheme_entry_archived']);
+		expect(calls.map(({ path }) => path)).toEqual(['set_rating_scheme_archived']);
 	});
 
-	it('answers a change of rater with both rows from the function result', async () => {
-		const completed = { ...saved, workflow_status: 'completed' };
-		const successor = { ...saved, id: 'entry-b', workflow_status: null, report_type: 'AN' };
-		const change = { changeDate: '2026-06-01', raterPersonId: 'rater-b', raterName: null };
-		const open = lifecycleProvider({ entry: completed, successor });
-		expect(await open.ratingScheme.changeRater('entry-a', change)).toEqual({
-			entry: { ...expected, workflowStatus: 'completed' },
-			successor: { ...expected, id: 'entry-b', workflowStatus: null, reportType: 'AN' }
+	it('starts an Evaluation on a scheme and says whether it made a new one', async () => {
+		const { calls, ratingScheme } = lifecycleProvider({ created: true, evaluation: evaluationRow });
+		const start = {
+			reportType: 'CR' as const,
+			ratingPeriodStart: '2025-10-05',
+			ratingPeriodEnd: '2026-10-04',
+			completed: false,
+			notes: null
+		};
+		expect(await ratingScheme.startEvaluation('scheme-a', start)).toEqual({ evaluation, created: true });
+		expect(calls[0]).toMatchObject({
+			path: 'start_evaluation',
+			body: { p_rating_scheme_id: 'scheme-a', p_report_type: 'CR', p_completed: false }
 		});
-		expect(open.calls).toEqual(['/rest/v1/rpc/change_rating_scheme_rater']);
+	});
 
-		const repeat = lifecycleProvider({ entry: completed, successor: null });
-		expect(await repeat.ratingScheme.changeRater('entry-a', change)).toEqual({
-			entry: { ...expected, workflowStatus: 'completed' },
-			successor: null
+	it('answers a change of rater with the closed Evaluation, the scheme and its successor', async () => {
+		const completed = { ...evaluationRow, workflow_status: 'completed' };
+		const successor = { ...evaluationRow, id: 'evaluation-b', workflow_status: 'drafting', report_type: 'AN' };
+		const change = { changeDate: '2026-06-01', raterPersonId: 'rater-b', raterName: null };
+		const open = lifecycleProvider({
+			evaluation: completed,
+			ratingScheme: { ...schemeRow, rater_person_id: 'rater-b' },
+			successor
+		});
+		expect(await open.ratingScheme.changeEvaluationRater('evaluation-a', change)).toEqual({
+			evaluation: { ...evaluation, workflowStatus: 'completed' },
+			ratingScheme: { ...scheme, raterPersonId: 'rater-b' },
+			successor: { ...evaluation, id: 'evaluation-b', workflowStatus: 'drafting', reportType: 'AN' }
+		});
+		expect(open.calls.map(({ path }) => path)).toEqual(['change_evaluation_rater']);
+
+		const repeat = lifecycleProvider({ evaluation: completed, ratingScheme: schemeRow, successor: null });
+		expect((await repeat.ratingScheme.changeEvaluationRater('evaluation-a', change)).successor).toBeNull();
+	});
+
+	it('turns a refused rule into the reason the person can act on', async () => {
+		const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async () =>
+					Response.json(
+						{ code: '55000', message: 'Another evaluation is already open on this rating scheme' },
+						{ status: 400 }
+					)
+			}
+		});
+		const ratingScheme = createSupabaseRatingSchemePersistence(client, 'org-a');
+		const start = {
+			reportType: null,
+			ratingPeriodStart: '2026-01-01',
+			ratingPeriodEnd: '2026-12-31',
+			completed: false,
+			notes: null
+		};
+		await expect(ratingScheme.startEvaluation('scheme-a', start)).rejects.toMatchObject({
+			status: 409,
+			message: 'Another evaluation is already open on this rating scheme'
 		});
 	});
 });

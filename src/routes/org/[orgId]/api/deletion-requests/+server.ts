@@ -8,7 +8,7 @@ import {
 } from '$features/deletion-requests/index.server';
 import type { DeletionRequest } from '$features/deletion-requests/contracts';
 import { describeCounselingDeletionRequest, describePersonnelArchiveRequest } from '$features/personnel/index.server';
-import { describeRatingSchemeEntryDeletionRequest } from '$features/rating-scheme/index.server';
+import { describeEvaluationDeletionRequest } from '$features/rating-scheme/index.server';
 import {
 	describeTrainingRecordDeletionRequest,
 	describeTrainingTypeDeletionRequest
@@ -48,13 +48,7 @@ export function _createGetConfig(
 // Only the request target comes from the client. The owning feature checks the
 // requester's access and supplies the text and link reviewers act on.
 const submissionInput = z.object({
-	resourceType: z.enum([
-		'personnel',
-		'personnel_training',
-		'rating_scheme_entry',
-		'training_type',
-		'counseling_record'
-	]),
+	resourceType: z.enum(['personnel', 'personnel_training', 'evaluation', 'training_type', 'counseling_record']),
 	resourceId: z.guid(),
 	userEmail: z.string()
 });
@@ -67,7 +61,7 @@ const describeTarget: Record<
 > = {
 	personnel: describePersonnelArchiveRequest,
 	personnel_training: describeTrainingRecordDeletionRequest,
-	rating_scheme_entry: describeRatingSchemeEntryDeletionRequest,
+	evaluation: describeEvaluationDeletionRequest,
 	training_type: describeTrainingTypeDeletionRequest,
 	counseling_record: describeCounselingDeletionRequest
 };

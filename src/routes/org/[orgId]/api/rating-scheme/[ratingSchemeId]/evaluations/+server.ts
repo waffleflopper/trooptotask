@@ -1,4 +1,4 @@
-import { setRatingSchemeEntryArchived } from '$features/rating-scheme/index.server';
+import { startEvaluation } from '$features/rating-scheme/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestRatingSchemeWriteContext } from '$lib/server/adapters/featureRequestContexts.server';
@@ -8,8 +8,8 @@ export const _postConfig = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
 	policyResource: { kind: 'unscoped' },
-	parseInput: async (event) => ({ id: event.params.entryId ?? '', body: await readJsonBody(event) }),
-	fn: (ctx, { id, body }) => setRatingSchemeEntryArchived(ctx, id, body)
+	parseInput: async (event) => ({ id: event.params.ratingSchemeId ?? '', body: await readJsonBody(event) }),
+	fn: (ctx, { id, body }) => startEvaluation(ctx, id, body)
 } satisfies RouteConfig<
 	{ id: string; body: Record<string, unknown> },
 	unknown,

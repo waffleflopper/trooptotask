@@ -30,6 +30,7 @@
 		type WorkflowMove
 	} from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
+	import { isEvaluationOpen } from '../utils/ratingSchemeEntries';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -57,8 +58,12 @@
 			move: RatingSchemeMove,
 			isCurrent: () => boolean
 		) => Promise<WorkflowStatus | null | undefined>;
-		/** Resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
-		onArchive?: (id: string, archived: boolean, isCurrent: () => boolean) => Promise<string | null | undefined>;
+		/** Archives or restores the entry's rating scheme; resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
+		onArchive?: (
+			ratingSchemeId: string,
+			archived: boolean,
+			isCurrent: () => boolean
+		) => Promise<string | null | undefined>;
 		/** Resolves true when a successor was opened, false when the evaluation was already completed. */
 		onChangeRater?: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
@@ -206,6 +211,10 @@
 	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
 	const jumpTargets = $derived(entry && onMove ? workflowJumpTargets(workflowStatus, workflowRoles(entry)) : []);
 	const canChangeRater = $derived(!!entry && !!onChangeRater && !archivedAt && !isEvaluationCompleted(workflowStatus));
+	/** The chain that signed a completed Evaluation is kept as it was; scheme edits no longer reach it. */
+	const chainLocked = $derived(!!entry?.chainSigned);
+	/** An open Evaluation is rated by its rater until Change rater closes it as a Change of Rater report. */
+	const raterLocked = $derived(!!entry && !chainLocked && isEvaluationOpen(workflowStatus));
 
 	function moveLabel(move: WorkflowMove): string {
 		switch (move.kind) {
@@ -247,13 +256,13 @@
 		archiveError = '';
 		isArchiving = true;
 		try {
-			const saved = await archiveHandler(entry.id, archived, isCurrent);
+			const saved = await archiveHandler(entry.ratingSchemeId, archived, isCurrent);
 			if (isCurrent() && saved !== undefined) archivedAt = saved;
 		} catch (error) {
 			if (isCurrent()) {
 				archiveError = getSaveErrorMessage(
 					error,
-					archived ? 'The evaluation was not archived. Try again.' : 'The evaluation was not restored. Try again.'
+					archived ? 'The rating scheme was not archived. Try again.' : 'The rating scheme was not restored. Try again.'
 				);
 			}
 		} finally {
@@ -500,12 +509,22 @@
 					{/if}
 				</section>
 
-				<section class="grid gap-3 border-b px-7 py-5.5">
-					{@render sectionTitle('Rating chain')}
-					{@render chainRow('Rater', 'rater', draft.rater, (next) => (draft.rater = next), {
-						field: 'rater',
-						message: 'Rater is required.'
-					})}
+				<fieldset class="grid gap-3 border-b px-7 py-5.5" disabled={chainLocked}>
+					<legend class="contents">{@render sectionTitle('Rating chain')}</legend>
+					{#if chainLocked}
+						<p class="text-[13px] text-muted-foreground">The chain that signed this evaluation. It stays as signed.</p>
+					{/if}
+					<fieldset class="contents" disabled={raterLocked}>
+						{@render chainRow('Rater', 'rater', draft.rater, (next) => (draft.rater = next), {
+							field: 'rater',
+							message: 'Rater is required.'
+						})}
+					</fieldset>
+					{#if raterLocked}
+						<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
+							Use Change rater to close this evaluation and open the next one for a new rater.
+						</p>
+					{/if}
 					{#if draft.showIntermediate}
 						{@render chainRow(
 							'Intermediate rater',
@@ -530,10 +549,12 @@
 							() => removeReviewerFromDraft(draft)
 						)}
 					{/if}
-					<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
-						Search the unit, or type a name that isn't in it to add an external rater.
-					</p>
-					{#if !draft.showIntermediate || !draft.showReviewer}
+					{#if !chainLocked}
+						<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
+							Search the unit, or type a name that isn't in it to add an external rater.
+						</p>
+					{/if}
+					{#if !chainLocked && (!draft.showIntermediate || !draft.showReviewer)}
 						<div class="flex flex-wrap gap-x-4 gap-y-1 sm:pl-[122px]">
 							{#if !draft.showIntermediate}
 								<Button
@@ -557,7 +578,7 @@
 							{/if}
 						</div>
 					{/if}
-				</section>
+				</fieldset>
 
 				{#if entry && (moves.length || jumpTargets.length || canChangeRater)}
 					<section class="grid gap-3 border-b px-7 py-5.5" aria-labelledby="workflow-step">
@@ -616,7 +637,7 @@
 							<span class="font-semibold">{archivedAt ? 'Archived' : 'On the rating scheme'}</span>
 							<span class="text-muted-foreground">
 								· {archivedAt
-									? 'Hidden from the default view and not counted as due.'
+									? 'Off the rating scheme. An open evaluation stays on the tracker until it is completed.'
 									: 'Listed until you archive it, whatever its workflow step.'}</span
 							>
 						</p>

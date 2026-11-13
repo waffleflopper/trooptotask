@@ -8,15 +8,19 @@ export {
 	type ApprovedRatingSchemeDeletionPort
 } from './server/approvedRatingSchemeDeletion.server';
 export {
-	createRatingSchemeEntry,
-	updateRatingSchemeEntry,
-	transitionRatingSchemeEntry,
-	changeRatingSchemeRater,
-	setRatingSchemeEntryArchived,
-	removeRatingSchemeEntry,
-	describeRatingSchemeEntryDeletionRequest,
-	ratingSchemeEntryCreateSchema,
-	ratingSchemeEntryUpdateSchema
+	createRatingScheme,
+	updateRatingScheme,
+	setRatingSchemeArchived,
+	startEvaluation,
+	updateEvaluation,
+	transitionEvaluation,
+	changeEvaluationRater,
+	removeEvaluation,
+	describeEvaluationDeletionRequest,
+	evaluationStartSchema,
+	evaluationUpdateSchema,
+	ratingSchemeCreateSchema,
+	ratingSchemeUpdateSchema
 } from './server/ratingSchemeEntryOperations.server';
 
 export { createRatingSchemeSupportReader } from './server/supportReadProvider.server';

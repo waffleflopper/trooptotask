@@ -6,7 +6,7 @@ import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
-import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
+import { loadRatingSchemeEntries, ratingSchemeEntryFixture } from '../ratingSchemeStore.test-support.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
@@ -49,44 +49,20 @@ vi.mock('$features/rating-scheme/utils/ratingSchemeExport', () => ({
 }));
 
 const entries: RatingSchemeEntry[] = [
-	{
+	ratingSchemeEntryFixture({
 		id: 'overdue',
 		ratedPersonId: 'p1',
-		evalType: 'NCOER',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
 		ratingPeriodStart: '2025-01-01',
-		ratingPeriodEnd: '2025-12-31',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'drafting',
-		archivedAt: null
-	},
-	{
+		ratingPeriodEnd: '2025-12-31'
+	}),
+	ratingSchemeEntryFixture({
 		id: 'due-30',
 		ratedPersonId: 'p2',
 		evalType: 'OER',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
 		ratingPeriodStart: '2026-04-01',
 		ratingPeriodEnd: '2026-05-15',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'with-rater',
-		archivedAt: null
-	}
+		workflowStatus: 'with-rater'
+	})
 ];
 
 const personnelLookup = [
@@ -114,13 +90,13 @@ function makeContext(modals = new ModalRegistry(), org = makeOrg()): RatingSchem
 describe('RatingSchemePageView', () => {
 	beforeEach(() => {
 		exportRatingSchemeMock.mockClear();
-		ratingSchemeStore.load(entries, 'org-1');
+		loadRatingSchemeEntries(entries, 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
-		ratingSchemeStore.load([], 'org-test-reset');
+		loadRatingSchemeEntries([], 'org-test-reset');
 		pageState.url = new URL(LOADED);
 		pageState.shallow = null;
 		pageState.state = {};
@@ -187,7 +163,7 @@ describe('RatingSchemePageView', () => {
 			expect(modals.isOpen('rating-modal')).toBe(true);
 			(document.activeElement as HTMLElement | null)?.blur();
 
-			ratingSchemeStore.load(
+			loadRatingSchemeEntries(
 				entries.map((entry) => (entry.id === 'due-30' ? { ...entry, seniorRaterName: 'New Senior Rater' } : entry)),
 				'org-1'
 			);
@@ -206,7 +182,7 @@ describe('RatingSchemePageView', () => {
 			await openEntry(/CPT Jones/);
 			(document.activeElement as HTMLElement | null)?.blur();
 
-			ratingSchemeStore.load(
+			loadRatingSchemeEntries(
 				entries.filter((entry) => entry.id !== 'due-30'),
 				'org-1'
 			);
@@ -368,7 +344,11 @@ describe('RatingSchemePageView', () => {
 			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
 		});
 		it('offers no clear action when only archived entries exist under the default filters', () => {
-			const archived = ordered.map((entry) => ({ ...entry, archivedAt: '2026-05-01T00:00:00.000Z' }));
+			const archived = ordered.map((entry) => ({
+				...entry,
+				workflowStatus: 'completed' as const,
+				archivedAt: '2026-05-01T00:00:00.000Z'
+			}));
 			const ctx = new RatingSchemePageContext(
 				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: archived, personnelLookup: people },
 				new ModalRegistry(),
@@ -381,10 +361,11 @@ describe('RatingSchemePageView', () => {
 			expect(screen.queryByRole('button', { name: 'Clear search and filters' })).toBeNull();
 		});
 
-		it('lists an archived overdue entry as Archived in the grouped and table views', async () => {
+		it('lists an archived entry that is no longer open as Archived, not overdue, in both views', async () => {
 			const archived = ordered.map((entry) => ({
 				...entry,
 				ratingPeriodEnd: '2026-01-01',
+				workflowStatus: null,
 				archivedAt: '2026-02-01T00:00:00Z'
 			}));
 			const ctx = new RatingSchemePageContext(

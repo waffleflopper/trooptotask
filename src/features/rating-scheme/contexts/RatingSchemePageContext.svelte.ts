@@ -7,14 +7,14 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { isEvaluationCompleted } from '$features/rating-scheme/utils/evaluationWorkflow';
-import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
+import { ratingSchemeEntries } from '../stores/ratingScheme.svelte';
+import { isOnTracker } from '../utils/ratingSchemeEntries';
 
 export type RatingSchemeListingFilter = 'on-scheme' | 'archived' | 'all';
 
 export interface RatingSchemePageData {
 	orgId: string;
 	orgName: string;
-	ratingSchemeEntries: RatingSchemeEntry[];
 	personnelLookup: PersonnelLookup[];
 	[key: string]: unknown;
 }
@@ -40,7 +40,7 @@ export class RatingSchemePageContext {
 		data: RatingSchemePageData,
 		modals: ModalRegistry,
 		org: RatingSchemePageAccess,
-		ratingStore: RatingSchemeStoreAccessor | RatingSchemeEntry[] = ratingSchemeStore
+		ratingStore: RatingSchemeStoreAccessor | RatingSchemeEntry[] = ratingSchemeEntries
 	) {
 		this.#data = data;
 		this.#modals = modals;
@@ -94,8 +94,8 @@ export class RatingSchemePageContext {
 	get filteredRatingEntries(): RatingSchemeEntry[] {
 		let entries = this.#ratingStore.items;
 		if (this.ratingFilter !== 'all') {
-			const archived = this.ratingFilter === 'archived';
-			entries = entries.filter((entry) => (entry.archivedAt !== null) === archived);
+			const onTracker = this.ratingFilter === 'on-scheme';
+			entries = entries.filter((entry) => isOnTracker(entry) === onTracker);
 		}
 		if (this.evalTypeFilter !== 'all') entries = entries.filter((entry) => entry.evalType === this.evalTypeFilter);
 		if (this.workflowFilter !== 'all') {
@@ -151,15 +151,14 @@ export class RatingSchemePageContext {
 	}
 
 	get activeEntryCount(): number {
-		return this.#ratingStore.items.filter(
-			(entry) => entry.archivedAt === null && !isEvaluationCompleted(entry.workflowStatus)
-		).length;
+		return this.#ratingStore.items.filter((entry) => isOnTracker(entry) && !isEvaluationCompleted(entry.workflowStatus))
+			.length;
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0 };
 		for (const entry of this.#ratingStore.items) {
-			if (entry.archivedAt !== null) continue;
+			if (!isOnTracker(entry)) continue;
 			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 			if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 				counts[status]++;

@@ -67,9 +67,12 @@ INSERT INTO public.sign_in_rosters (id, organization_id, title, roster_date, per
 	('f3000000-0000-4000-8000-000000001201', 'f3000000-0000-4000-8000-000000000101', 'Alpha Roster', '2030-03-01', '[]', ARRAY[]::uuid[], ARRAY[]::uuid[], 'f3000000-0000-4000-8000-000000000001'),
 	('f3000000-0000-4000-8000-000000001202', 'f3000000-0000-4000-8000-000000000102', 'Bravo Roster', '2030-03-01', '[]', ARRAY[]::uuid[], ARRAY[]::uuid[], 'f3000000-0000-4000-8000-000000000003');
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
-	('f3000000-0000-4000-8000-000000001301', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000000401', 'NCOER', 'f3000000-0000-4000-8000-000000000401', '2026-01-01', '2026-12-31'),
-	('f3000000-0000-4000-8000-000000001302', 'f3000000-0000-4000-8000-000000000102', 'f3000000-0000-4000-8000-000000000402', 'NCOER', 'f3000000-0000-4000-8000-000000000402', '2026-01-01', '2026-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, rater_person_id) VALUES
+	('f3000000-0000-4000-8000-000000001311', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000000401', 'NCOER', 'f3000000-0000-4000-8000-000000000401'),
+	('f3000000-0000-4000-8000-000000001312', 'f3000000-0000-4000-8000-000000000102', 'f3000000-0000-4000-8000-000000000402', 'NCOER', 'f3000000-0000-4000-8000-000000000402');
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end) VALUES
+	('f3000000-0000-4000-8000-000000001301', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000001311', 'f3000000-0000-4000-8000-000000000401', 'NCOER', '2026-01-01', '2026-12-31'),
+	('f3000000-0000-4000-8000-000000001302', 'f3000000-0000-4000-8000-000000000102', 'f3000000-0000-4000-8000-000000001312', 'f3000000-0000-4000-8000-000000000402', 'NCOER', '2026-01-01', '2026-12-31');
 
 INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
 	('f3000000-0000-4000-8000-000000001401', 'personnel-documents', 'f3000000-0000-4000-8000-000000000101/personnel/f3000000-0000-4000-8000-000000000401/documents/alpha.pdf', 'f3000000-0000-4000-8000-000000000001', 'f3000000-0000-4000-8000-000000000001', '{}'::jsonb),
@@ -86,12 +89,13 @@ CREATE FUNCTION pg_temp.visible_lane_tables(p_organization_id uuid) RETURNS text
 LANGUAGE sql AS $$
 	SELECT ARRAY(SELECT name FROM (
 		SELECT 'availability_entries' FROM public.availability_entries WHERE organization_id = p_organization_id
+		UNION ALL SELECT 'evaluations' FROM public.evaluations WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'groups' FROM public.groups WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'personnel' FROM public.personnel WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'personnel_ict_completions' FROM public.personnel_ict_completions WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'personnel_onboardings' FROM public.personnel_onboardings WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'personnel_trainings' FROM public.personnel_trainings WHERE organization_id = p_organization_id
-		UNION ALL SELECT 'rating_scheme_entries' FROM public.rating_scheme_entries WHERE organization_id = p_organization_id
+		UNION ALL SELECT 'rating_schemes' FROM public.rating_schemes WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'sign_in_rosters' FROM public.sign_in_rosters WHERE organization_id = p_organization_id
 		UNION ALL SELECT 'storage.objects' FROM storage.objects
 			WHERE bucket_id = 'personnel-documents' AND name LIKE p_organization_id::text || '/%'
@@ -109,13 +113,13 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000001', 'suspension-alpha-owner@example.test');
 SELECT is(
 	pg_temp.visible_lane_tables('f3000000-0000-4000-8000-000000000101'),
-	ARRAY['availability_entries', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_scheme_entries', 'sign_in_rosters', 'storage.objects'],
+	ARRAY['availability_entries', 'evaluations', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_schemes', 'sign_in_rosters', 'storage.objects'],
 	'an active Organization owner reads every representative lane table and private file directly'
 );
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000003', 'suspension-bravo-owner@example.test');
 SELECT is(
 	pg_temp.visible_lane_tables('f3000000-0000-4000-8000-000000000102'),
-	ARRAY['availability_entries', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_scheme_entries', 'sign_in_rosters', 'storage.objects'],
+	ARRAY['availability_entries', 'evaluations', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_schemes', 'sign_in_rosters', 'storage.objects'],
 	'an active account owns the same direct reads in its own Organization'
 );
 
@@ -167,7 +171,8 @@ SELECT throws_ok(
 );
 UPDATE public.personnel SET first_name = 'Changed' WHERE id = 'f3000000-0000-4000-8000-000000000401';
 UPDATE public.availability_entries SET end_date = '2030-05-01' WHERE id = 'f3000000-0000-4000-8000-000000000601';
-UPDATE public.rating_scheme_entries SET rating_period_end = '2030-05-01' WHERE id = 'f3000000-0000-4000-8000-000000001301';
+UPDATE public.evaluations SET rating_period_end = '2030-05-01' WHERE id = 'f3000000-0000-4000-8000-000000001301';
+UPDATE public.rating_schemes SET notes = 'Changed' WHERE id = 'f3000000-0000-4000-8000-000000001311';
 UPDATE public.organizations SET name = 'Renamed While Suspended' WHERE id = 'f3000000-0000-4000-8000-000000000101';
 UPDATE public.organization_memberships SET member_preset = 'editor' WHERE id = 'f3000000-0000-4000-8000-000000000202';
 DELETE FROM public.personnel_trainings WHERE id = 'f3000000-0000-4000-8000-000000000801';
@@ -205,11 +210,12 @@ SELECT is(
 	ARRAY[
 		(SELECT first_name FROM public.personnel WHERE id = 'f3000000-0000-4000-8000-000000000401'),
 		(SELECT end_date::text FROM public.availability_entries WHERE id = 'f3000000-0000-4000-8000-000000000601'),
-		(SELECT rating_period_end::text FROM public.rating_scheme_entries WHERE id = 'f3000000-0000-4000-8000-000000001301'),
+		(SELECT rating_period_end::text FROM public.evaluations WHERE id = 'f3000000-0000-4000-8000-000000001301'),
+		(SELECT coalesce(notes, 'none') FROM public.rating_schemes WHERE id = 'f3000000-0000-4000-8000-000000001311'),
 		(SELECT name FROM public.organizations WHERE id = 'f3000000-0000-4000-8000-000000000101'),
 		(SELECT member_preset FROM public.organization_memberships WHERE id = 'f3000000-0000-4000-8000-000000000202')
 	],
-	ARRAY['Avery', '2030-04-02', '2026-12-31', 'Suspension Alpha', 'viewer'],
+	ARRAY['Avery', '2030-04-02', '2026-12-31', 'none', 'Suspension Alpha', 'viewer'],
 	'direct updates in a suspended Organization persist nothing'
 );
 SELECT is(
@@ -232,7 +238,7 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000003', 'suspension-bravo-owner@example.test');
 SELECT is(
 	pg_temp.visible_lane_tables('f3000000-0000-4000-8000-000000000102'),
-	ARRAY['availability_entries', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_scheme_entries', 'sign_in_rosters', 'storage.objects'],
+	ARRAY['availability_entries', 'evaluations', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_schemes', 'sign_in_rosters', 'storage.objects'],
 	'another Organization''s suspension leaves an active owner''s reads unchanged'
 );
 
@@ -262,7 +268,7 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000001', 'suspension-alpha-owner@example.test');
 SELECT is(
 	pg_temp.visible_lane_tables('f3000000-0000-4000-8000-000000000101'),
-	ARRAY['availability_entries', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_scheme_entries', 'sign_in_rosters', 'storage.objects'],
+	ARRAY['availability_entries', 'evaluations', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_schemes', 'sign_in_rosters', 'storage.objects'],
 	'unsuspension restores the owner''s direct reads'
 );
 SELECT is(
@@ -361,7 +367,7 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000003', 'suspension-bravo-owner@example.test');
 SELECT is(
 	pg_temp.visible_lane_tables('f3000000-0000-4000-8000-000000000102'),
-	ARRAY['availability_entries', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_scheme_entries', 'sign_in_rosters', 'storage.objects'],
+	ARRAY['availability_entries', 'evaluations', 'groups', 'personnel', 'personnel_ict_completions', 'personnel_onboardings', 'personnel_trainings', 'rating_schemes', 'sign_in_rosters', 'storage.objects'],
 	'account unsuspension restores direct reads'
 );
 SELECT lives_ok(

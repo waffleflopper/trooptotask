@@ -5,6 +5,7 @@ import {
 	buildRatingSchemeEntrySaveData,
 	createRatingSchemeEntryDraft,
 	getRatingSchemeEntryDraftView,
+	planRatingSchemeEntrySave,
 	removeIntermediateRaterFromDraft,
 	removeReviewerFromDraft,
 	setEvaluatorFromPicker,
@@ -15,6 +16,7 @@ import {
 
 const baseEntry: RatingSchemeEntry = {
 	id: 'entry-1',
+	ratingSchemeId: 'scheme-1',
 	ratedPersonId: 'rated-1',
 	evalType: 'NCOER',
 	raterPersonId: 'rater-1',
@@ -30,7 +32,8 @@ const baseEntry: RatingSchemeEntry = {
 	notes: null,
 	reportType: 'AN',
 	workflowStatus: null,
-	archivedAt: null
+	archivedAt: null,
+	chainSigned: false
 };
 
 describe('Rating Scheme entry draft', () => {
@@ -220,5 +223,51 @@ describe('Rating Scheme entry draft', () => {
 		removeReviewerFromDraft(draft);
 		expect(draft.showReviewer).toBe(false);
 		expect(draft.reviewer).toEqual({ kind: 'empty' });
+	});
+
+	describe('save plan', () => {
+		const evaluation = {
+			evalType: 'NCOER',
+			reportType: 'AN',
+			ratingPeriodStart: '2026-01-01',
+			ratingPeriodEnd: '2026-12-31',
+			notes: 'Counseled'
+		};
+
+		it('saves only the Evaluation when the chain and type are unchanged', () => {
+			expect(planRatingSchemeEntrySave(baseEntry, { ...baseEntry, notes: 'Counseled' })).toEqual({
+				scheme: null,
+				evaluation
+			});
+		});
+
+		it('sends a changed chain to the scheme', () => {
+			expect(
+				planRatingSchemeEntrySave(baseEntry, { ...baseEntry, notes: 'Counseled', reviewerName: 'COL Reviewer' })
+			).toEqual({
+				scheme: {
+					raterPersonId: 'rater-1',
+					raterName: null,
+					seniorRaterPersonId: 'senior-1',
+					seniorRaterName: null,
+					intermediateRaterPersonId: null,
+					intermediateRaterName: null,
+					reviewerPersonId: null,
+					reviewerName: 'COL Reviewer',
+					evalType: 'NCOER'
+				},
+				evaluation
+			});
+		});
+
+		it('leaves the scheme alone when the chain shown is the one that signed the Evaluation', () => {
+			const signed = { ...baseEntry, chainSigned: true };
+			expect(
+				planRatingSchemeEntrySave(signed, { ...baseEntry, notes: 'Counseled', reviewerName: 'COL Reviewer' })
+			).toEqual({
+				scheme: null,
+				evaluation
+			});
+		});
 	});
 });

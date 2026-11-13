@@ -12,6 +12,7 @@ const personnel: PersonnelLookup[] = [
 function entry(id: string, overrides: Partial<RatingSchemeEntry> = {}): RatingSchemeEntry {
 	return {
 		id,
+		ratingSchemeId: `scheme-${id}`,
 		ratedPersonId: 'rated-1',
 		evalType: 'NCOER',
 		raterPersonId: null,
@@ -28,6 +29,7 @@ function entry(id: string, overrides: Partial<RatingSchemeEntry> = {}): RatingSc
 		reportType: 'AN',
 		workflowStatus: null,
 		archivedAt: null,
+		chainSigned: false,
 		...overrides
 	};
 }

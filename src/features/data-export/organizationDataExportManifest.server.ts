@@ -197,7 +197,8 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	),
 	section('personnelOnboardings', 'Personnel Onboardings', 'personnel_onboardings', 'onboarding', 'Onboarding'),
 	section('onboardingStepProgress', 'Onboarding Step Progress', 'onboarding_step_progress', 'onboarding', 'Onboarding'),
-	section('ratingSchemeEntries', 'Rating Scheme Entries', 'rating_scheme_entries', 'rating-scheme', 'Evals')
+	section('ratingSchemes', 'Rating Schemes', 'rating_schemes', 'rating-scheme', 'Evals'),
+	section('evaluations', 'Evaluations', 'evaluations', 'rating-scheme', 'Evals')
 ] as const;
 
 export type OrganizationDataExportSectionKey = (typeof ORGANIZATION_DATA_EXPORT_SECTIONS)[number]['key'];
@@ -466,20 +467,34 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 		name: 'Rating Scheme',
 		areaKey: 'rating-scheme',
 		rows: (sections, labels) =>
-			(sections.ratingSchemeEntries ?? []).map((entry) => ({
-				person: lookup(labels.personnel, entry.rated_person_id),
-				eval_type: entry.eval_type,
-				report_type: entry.report_type,
-				rater: lookup(labels.personnel, entry.rater_person_id) || entry.rater_name,
-				senior_rater: lookup(labels.personnel, entry.senior_rater_person_id) || entry.senior_rater_name,
+			(sections.ratingSchemes ?? []).map((scheme) => ({
+				person: lookup(labels.personnel, scheme.rated_person_id),
+				eval_type: scheme.eval_type,
+				rater: lookup(labels.personnel, scheme.rater_person_id) || scheme.rater_name,
+				senior_rater: lookup(labels.personnel, scheme.senior_rater_person_id) || scheme.senior_rater_name,
 				intermediate_rater:
-					lookup(labels.personnel, entry.intermediate_rater_person_id) || entry.intermediate_rater_name,
-				reviewer: lookup(labels.personnel, entry.reviewer_person_id) || entry.reviewer_name,
-				rating_period_start: entry.rating_period_start,
-				rating_period_end: entry.rating_period_end,
-				workflow_status: entry.workflow_status,
-				archived_at: entry.archived_at,
-				notes: entry.notes
+					lookup(labels.personnel, scheme.intermediate_rater_person_id) || scheme.intermediate_rater_name,
+				reviewer: lookup(labels.personnel, scheme.reviewer_person_id) || scheme.reviewer_name,
+				archived_at: scheme.archived_at,
+				notes: scheme.notes
+			}))
+	},
+	{
+		name: 'Evaluations',
+		areaKey: 'rating-scheme',
+		rows: (sections, labels) =>
+			(sections.evaluations ?? []).map((evaluation) => ({
+				person: lookup(labels.personnel, evaluation.rated_person_id),
+				eval_type: evaluation.eval_type,
+				report_type: evaluation.report_type,
+				rating_period_start: evaluation.rating_period_start,
+				rating_period_end: evaluation.rating_period_end,
+				workflow_status: evaluation.workflow_status,
+				signed_rater: lookup(labels.personnel, evaluation.snapshot_rater_person_id) || evaluation.snapshot_rater_name,
+				signed_senior_rater:
+					lookup(labels.personnel, evaluation.snapshot_senior_rater_person_id) || evaluation.snapshot_senior_rater_name,
+				chain_signed_at: evaluation.chain_snapshot_at,
+				notes: evaluation.notes
 			}))
 	},
 	{ name: 'Critical Tasks', areaKey: 'critical-tasks', rows: (sections) => sections.ictTasks ?? [] },

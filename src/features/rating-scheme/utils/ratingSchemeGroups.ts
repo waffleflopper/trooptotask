@@ -1,6 +1,7 @@
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { getRatingDueStatus } from './ratingScheme';
+import { isOnTracker } from './ratingSchemeEntries';
 
 export type GroupedSort = 'urgency' | 'seniorRaterAZ';
 
@@ -78,8 +79,9 @@ export function groupRatingSchemeEntries(
 		}
 		rater.entries.push(entry);
 		senior.group.entryCount++;
-		const status =
-			entry.archivedAt === null ? getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today) : 'completed';
+		const status = isOnTracker(entry)
+			? getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus, today)
+			: 'completed';
 		if (status === 'overdue' || status === 'due-30' || status === 'due-60') {
 			senior.group.dueCounts[status]++;
 		}

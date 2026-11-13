@@ -9,6 +9,7 @@ import type { RatingSchemeEntry } from '../rating-scheme.types';
 
 const entry: RatingSchemeEntry = {
 	id: 'entry-1',
+	ratingSchemeId: 'scheme-1',
 	ratedPersonId: 'rated-1',
 	evalType: 'NCOER',
 	raterPersonId: 'rater-1',
@@ -24,7 +25,8 @@ const entry: RatingSchemeEntry = {
 	notes: null,
 	reportType: 'AN',
 	workflowStatus: null,
-	archivedAt: null
+	archivedAt: null,
+	chainSigned: false
 };
 
 const personnel = [
@@ -326,7 +328,7 @@ describe('RatingSchemeEntryModal', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
-			expect(onArchive).toHaveBeenCalledWith('entry-1', true, expect.any(Function));
+			expect(onArchive).toHaveBeenCalledWith('scheme-1', true, expect.any(Function));
 			expect(await screen.findByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
 		});
@@ -337,7 +339,7 @@ describe('RatingSchemeEntryModal', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Restore to rating scheme' }));
 
-			expect(onArchive).toHaveBeenCalledWith('entry-1', false, expect.any(Function));
+			expect(onArchive).toHaveBeenCalledWith('scheme-1', false, expect.any(Function));
 			expect(await screen.findByRole('button', { name: 'Archive' })).toBeTruthy();
 		});
 
@@ -364,7 +366,7 @@ describe('RatingSchemeEntryModal', () => {
 			);
 		});
 
-		it('reads an archived open evaluation past its thru date as archived and offers no change of rater', () => {
+		it('keeps an archived open evaluation due past its thru date and offers no change of rater', () => {
 			vi.useFakeTimers({ toFake: ['Date'] });
 			vi.setSystemTime(new Date('2027-03-01T12:00:00'));
 			try {
@@ -382,7 +384,7 @@ describe('RatingSchemeEntryModal', () => {
 				});
 
 				const dialog = screen.getByRole('dialog');
-				expect(dialog).toHaveAccessibleDescription('Archived');
+				expect(dialog).not.toHaveAccessibleDescription('Archived');
 				expect(screen.getByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
 				expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
 			} finally {

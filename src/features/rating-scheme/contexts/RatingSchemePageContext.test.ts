@@ -4,66 +4,33 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { ratingSchemeEntryFixture } from '../ratingSchemeStore.test-support.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
 
 const entries: RatingSchemeEntry[] = [
-	{
+	ratingSchemeEntryFixture({
 		id: 'overdue',
 		ratedPersonId: 'p1',
-		evalType: 'NCOER',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
 		ratingPeriodStart: '2025-01-01',
-		ratingPeriodEnd: '2025-12-31',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'drafting',
-		archivedAt: null
-	},
-	{
+		ratingPeriodEnd: '2025-12-31'
+	}),
+	ratingSchemeEntryFixture({
 		id: 'due-30',
 		ratedPersonId: 'p2',
 		evalType: 'OER',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
 		ratingPeriodStart: '2026-04-01',
 		ratingPeriodEnd: '2026-05-15',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'with-rater',
-		archivedAt: null
-	},
-	{
+		workflowStatus: 'with-rater'
+	}),
+	ratingSchemeEntryFixture({
 		id: 'completed',
 		ratedPersonId: 'p3',
 		evalType: 'WOER',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
 		ratingPeriodStart: '2026-01-01',
 		ratingPeriodEnd: '2026-06-20',
-		notes: null,
-		reportType: 'AN',
 		workflowStatus: 'completed',
-		archivedAt: null
-	}
+		chainSigned: true
+	})
 ];
 
 function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
@@ -83,7 +50,6 @@ function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePa
 	return {
 		orgId: 'test-org',
 		orgName: 'Test Org',
-		ratingSchemeEntries: entries,
 		personnelLookup: personnel,
 		...overrides
 	};
@@ -177,27 +143,27 @@ describe('RatingSchemePageContext', () => {
 		expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30', 'completed']);
 	});
 
-	describe('rating scheme membership', () => {
-		const withArchived = [
-			entries[0],
-			{ ...entries[1], archivedAt: '2026-05-01T00:00:00.000Z' },
-			{ ...entries[2], archivedAt: '2026-05-01T00:00:00.000Z' }
-		];
+	describe('tracker membership', () => {
+		const archivedAt = '2026-05-01T00:00:00.000Z';
+		const withArchived = [entries[0], { ...entries[1], archivedAt }, { ...entries[2], archivedAt }];
 
-		it('keeps a completed entry on the scheme and lists archived entries only on request', () => {
-			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), [
-				entries[2],
-				withArchived[1]
-			]);
+		it('keeps an open Evaluation on the tracker after its scheme is archived and lists the rest only on request', () => {
+			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), withArchived);
 
-			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30']);
 			ctx.ratingFilter = 'archived';
-			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['due-30']);
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
 			ctx.ratingFilter = 'all';
-			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed', 'due-30']);
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['overdue', 'due-30', 'completed']);
 		});
 
-		it('filters archived entries by workflow independently of membership', () => {
+		it('keeps a completed Evaluation on the tracker while its scheme is listed', () => {
+			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), [entries[2]]);
+
+			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
+		});
+
+		it('filters archived Evaluations by workflow independently of membership', () => {
 			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), withArchived);
 			ctx.ratingFilter = 'archived';
 			ctx.workflowFilter = 'completed';
@@ -205,14 +171,14 @@ describe('RatingSchemePageContext', () => {
 			expect(ctx.filteredRatingEntries.map((entry) => entry.id)).toEqual(['completed']);
 		});
 
-		it('leaves archived entries out of the active count and the due stats', () => {
+		it('counts an open Evaluation on an archived scheme and leaves a closed one out', () => {
 			vi.useFakeTimers();
 			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
 			const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), withArchived);
 
-			expect(ctx.activeEntryCount).toBe(1);
+			expect(ctx.activeEntryCount).toBe(2);
 			expect(ctx.totalEntryCount).toBe(3);
-			expect(ctx.ratingStats).toEqual({ overdue: 1, 'due-30': 0, 'due-60': 0 });
+			expect(ctx.ratingStats).toEqual({ overdue: 1, 'due-30': 1, 'due-60': 0 });
 		});
 	});
 

@@ -225,7 +225,7 @@ describe('createDeletionRequest', () => {
 				}
 			}
 		});
-		ctx.store.seed('rating_scheme_entries', [
+		ctx.store.seed('evaluations', [
 			{
 				id: 'rs-1',
 				organization_id: 'test-org',
@@ -239,7 +239,7 @@ describe('createDeletionRequest', () => {
 			createDeletionRequest(
 				{ ...ctx, store: ctx.requests },
 				{
-					resourceType: 'rating_scheme_entry',
+					resourceType: 'evaluation',
 					resourceId: 'rs-1',
 					resourceDescription: 'SGT Smith OER',
 					resourceUrl: '/org/test-org/evals',
@@ -247,7 +247,7 @@ describe('createDeletionRequest', () => {
 				}
 			)
 		).resolves.toMatchObject({
-			resource_type: 'rating_scheme_entry',
+			resource_type: 'evaluation',
 			resource_id: 'rs-1',
 			status: 'pending'
 		});

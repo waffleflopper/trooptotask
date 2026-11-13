@@ -164,6 +164,16 @@ describe('audit kind catalog', () => {
 		).toBe('Changed onboarding template Standard Arrival: default template no → yes');
 	});
 
+	it('keeps the period of a rating scheme entry saved before Evaluations had their own records', () => {
+		const period = { periodStart: '2026-01-01', periodEnd: '2026-12-31' };
+		expect(read('rating_scheme.archived', { details: period })).toBe(
+			'Archived rating scheme NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
+		);
+		expect(read('rating_scheme.created', { details: { periodStart: '2026-01-01' } })).toBe(
+			'Added rating scheme NCOER for SPC Doe, Jane'
+		);
+	});
+
 	it('reads nothing for an update that saved no change', () => {
 		expect(
 			read('availability.updated', { details: { startDate: '2026-11-10', endDate: '2026-11-20', change: {} } })

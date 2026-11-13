@@ -7,6 +7,7 @@
 		onClose
 	}: {
 		entry: { id: string };
+		/** Saves the shown entry with new notes, as the real modal sends its whole draft. */
 		onSave: (data: { notes: string }, isCurrent: () => boolean) => Promise<void>;
 		onMove: (
 			id: string,
@@ -31,7 +32,7 @@
 
 <section aria-label="Entry {entry.id}">
 	{#if said}<p>Modal says: {said}</p>{/if}
-	<button type="button" onclick={() => report(onSave({ notes: 'Updated' }, () => true))}>Save notes</button>
+	<button type="button" onclick={() => report(onSave({ ...entry, notes: 'Updated' }, () => true))}>Save notes</button>
 	<button type="button" onclick={() => report(onMove(entry.id, { from: null, to: 'drafting' }, () => true))}
 		>Start tracking</button
 	>

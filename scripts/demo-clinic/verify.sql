@@ -14,12 +14,12 @@ BEGIN
     LEFT JOIN public.personnel p ON p.group_id=g.id AND p.id=ANY(demo_ids)
     GROUP BY expected.name,expected.n HAVING count(p.id) <> expected.n
   ) THEN RAISE EXCEPTION 'Expected demo Group distribution 10 Leadership / 20 Alpha / 20 Bravo'; END IF;
-  IF (SELECT count(*) FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids)) <> 12
-    OR (SELECT count(*) FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status='completed') <> 2 THEN
+  IF (SELECT count(*) FROM public.evaluations WHERE organization_id=target AND rated_person_id=ANY(demo_ids)) <> 12
+    OR (SELECT count(*) FROM public.evaluations WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status='completed') <> 2 THEN
     RAISE EXCEPTION 'Expected 12 evals including 2 completed'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status IS DISTINCT FROM 'completed' AND rating_period_end<CURRENT_DATE)
-    OR NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE AND CURRENT_DATE+30)
-    OR NOT EXISTS (SELECT 1 FROM public.rating_scheme_entries WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE+31 AND CURRENT_DATE+60) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.evaluations WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND workflow_status IS DISTINCT FROM 'completed' AND rating_period_end<CURRENT_DATE)
+    OR NOT EXISTS (SELECT 1 FROM public.evaluations WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE AND CURRENT_DATE+30)
+    OR NOT EXISTS (SELECT 1 FROM public.evaluations WHERE organization_id=target AND rated_person_id=ANY(demo_ids) AND rating_period_end BETWEEN CURRENT_DATE+31 AND CURRENT_DATE+60) THEN
     RAISE EXCEPTION 'Expected overdue, 30-day and 60-day evaluation examples'; END IF;
   IF (SELECT count(*) FROM public.personnel_onboardings WHERE organization_id=target AND personnel_id=ANY(demo_ids) AND status='in_progress') <> 6
     OR (SELECT count(*) FROM public.personnel_onboardings WHERE organization_id=target AND personnel_id=ANY(demo_ids) AND status='completed') <> 2 THEN
@@ -68,7 +68,7 @@ BEGIN
       OR (cardinality(t.mos)>0 AND NOT EXISTS (SELECT 1 FROM public.personnel p WHERE p.id=r.personnel_id AND p.mos=ANY(t.mos))))
   ) THEN RAISE EXCEPTION 'ICTL scope or MOS mismatch'; END IF;
   IF EXISTS (
-    SELECT 1 FROM public.rating_scheme_entries e
+    SELECT 1 FROM public.rating_schemes e
     CROSS JOIN LATERAL unnest(ARRAY[e.rated_person_id,e.rater_person_id,e.senior_rater_person_id]) linked(id)
     JOIN public.personnel p ON p.id=linked.id
     WHERE e.rated_person_id=ANY(demo_ids) AND (e.organization_id<>target OR p.organization_id<>target)

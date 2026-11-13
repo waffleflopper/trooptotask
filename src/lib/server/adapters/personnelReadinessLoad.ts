@@ -79,7 +79,7 @@ export function createPersonnelReadinessStreams(
 		? loadPersonnelActiveEvaluation({
 				ratingScheme: ctx.ratingScheme,
 				asOf,
-				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry'),
+				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'evaluation'),
 				findPersonNames: ctx.findPersonNames
 			})
 		: null;

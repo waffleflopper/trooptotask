@@ -133,7 +133,7 @@ describe('Personnel Rating Scheme roster port', () => {
 				ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }))
 			)
 		).resolves.toEqual(['archived-alpha', 'archived-bravo', 'archived-loose']);
-		expect(selections).toEqual(['id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)']);
+		expect(selections).toEqual(['id, rating_schemes!rating_schemes_rated_person_id_fkey!inner(id)']);
 	});
 
 	it('returns no archived IDs when no one is archived', async () => {

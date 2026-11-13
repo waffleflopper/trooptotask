@@ -195,6 +195,8 @@ POST_TREE_CONTRACTS = (
     "evaluation_jump_steps_after.sql",
     "rating_scheme_membership_after.sql",
 )
+# The post-tree contracts above read rating_scheme_entries, so the split applies once they pass.
+EVALUATION_SPLIT_MIGRATION = "20261113120000_rating_scheme_evaluation_split.sql"
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
@@ -905,7 +907,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             if pending:
                 raise SystemExit(128 + pending)
         if staged_upgrade:
-            for name in (*STAGED_UPGRADE_MIGRATIONS, *POST_TREE_UPGRADE_MIGRATIONS):
+            for name in (*STAGED_UPGRADE_MIGRATIONS, *POST_TREE_UPGRADE_MIGRATIONS, EVALUATION_SPLIT_MIGRATION):
                 (workdir / "supabase/migrations" / name).unlink()
         print(f"Disposable project: {project_id}; directory: {workdir}", flush=True)
         print("Ports: " + ", ".join(
@@ -978,7 +980,6 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             if retained != (before['groups'] or []) or after['memberships'] != before['memberships']:
                 raise ValueError('Nested Groups upgrade changed existing Group values or stored membership grants')
             print('Nested Groups upgrade retained every Group value and membership grant; all existing paths contain only their own id.', flush=True)
-            execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
             for name in POST_TREE_FIXTURES:
                 fixture = workdir / "supabase/migration-tests" / name
                 execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
@@ -988,6 +989,14 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
             for name in POST_TREE_CONTRACTS:
                 execute(["supabase", "test", "db", f"supabase/migration-tests/{name}"], workdir)
+            execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=(
+                workdir / "supabase/migration-tests/rating_scheme_evaluation_split_before.sql").read_text())
+            shutil.copy2(repository / "supabase/migrations" / EVALUATION_SPLIT_MIGRATION,
+                         workdir / "supabase/migrations" / EVALUATION_SPLIT_MIGRATION)
+            execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
+            execute(["supabase", "test", "db", "supabase/migration-tests/rating_scheme_evaluation_split_after.sql"], workdir)
+            # Group scope reads every person-scoped table, including the split ones.
+            execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
             for name in POST_TREE_SQL_TESTS:
                 execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],

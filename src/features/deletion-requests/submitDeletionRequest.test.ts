@@ -14,14 +14,7 @@ describe('owned request submission', () => {
 		vi.stubGlobal('fetch', request);
 
 		expect(
-			await submitDeletionRequest(
-				'org-a',
-				'rating_scheme_entry',
-				'entry',
-				'Saved evaluation',
-				'/org/org-a/evals',
-				() => false
-			)
+			await submitDeletionRequest('org-a', 'evaluation', 'entry', 'Saved evaluation', '/org/org-a/evals', () => false)
 		).toBe(false);
 		expect(request).not.toHaveBeenCalled();
 		expect(toastStore.info).not.toHaveBeenCalled();
@@ -42,7 +35,7 @@ describe('owned request submission', () => {
 			let current = true;
 			const result = submitDeletionRequest(
 				'org-a',
-				'rating_scheme_entry',
+				'evaluation',
 				'entry',
 				'Saved evaluation',
 				'/org/org-a/evals',
@@ -64,14 +57,14 @@ describe('owned request submission', () => {
 		async (status) => {
 			const request = vi.fn().mockResolvedValue(new Response(null, { status }));
 			vi.stubGlobal('fetch', request);
-			expect(
-				await submitDeletionRequest('org-a', 'rating_scheme_entry', 'entry', 'Saved evaluation', '/org/org-a/evals')
-			).toBe(true);
+			expect(await submitDeletionRequest('org-a', 'evaluation', 'entry', 'Saved evaluation', '/org/org-a/evals')).toBe(
+				true
+			);
 			expect(request).toHaveBeenCalledWith('/org/org-a/api/deletion-requests', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					resourceType: 'rating_scheme_entry',
+					resourceType: 'evaluation',
 					resourceId: 'entry',
 					resourceDescription: 'Saved evaluation',
 					resourceUrl: '/org/org-a/evals'
@@ -120,7 +113,7 @@ describe('owned request submission', () => {
 
 		const pending = submitDeletionRequest(
 			'org-a',
-			'rating_scheme_entry',
+			'evaluation',
 			'entry',
 			'Saved evaluation',
 			'/org/org-a/evals',

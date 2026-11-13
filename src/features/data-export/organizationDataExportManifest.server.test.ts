@@ -30,7 +30,14 @@ describe('Organization Data Export manifest', () => {
 					areaLabel: 'Settings'
 				}),
 				expect.objectContaining({
-					key: 'ratingSchemeEntries',
+					key: 'ratingSchemes',
+					table: 'rating_schemes',
+					areaKey: 'rating-scheme',
+					areaLabel: 'Evals'
+				}),
+				expect.objectContaining({
+					key: 'evaluations',
+					table: 'evaluations',
 					areaKey: 'rating-scheme',
 					areaLabel: 'Evals'
 				}),

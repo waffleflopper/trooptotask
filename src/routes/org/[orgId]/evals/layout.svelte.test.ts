@@ -66,7 +66,7 @@ it('ignores an older allowed response after an immediate restriction replaces it
 it('replaces the evaluation workspace with a load error and a working retry when the streamed source rejects', async () => {
 	const reload = vi.fn();
 	vi.stubGlobal('location', { ...window.location, reload });
-	const rejected = Promise.reject(new Error('rating_scheme_entries failed'));
+	const rejected = Promise.reject(new Error('evaluations failed'));
 	rejected.catch(() => {});
 
 	render(Layout, { props: { children, data: data(rejected as Promise<Workspace>) } });

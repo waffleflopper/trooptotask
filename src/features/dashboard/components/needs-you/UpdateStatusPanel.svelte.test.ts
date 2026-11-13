@@ -6,13 +6,31 @@ import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel
 import EntryModalTestDouble from './EntryModalTestDouble.svelte';
 import UpdateStatusPanel from './UpdateStatusPanel.svelte';
 
+const ratingScheme = {
+	id: 's1',
+	ratedPersonId: 'p-patel',
+	evalType: 'NCOER',
+	archivedAt: null
+} as RatingSchemeEntryEditorData['ratingScheme'];
+
 const entry = {
 	id: 'e1',
+	ratingSchemeId: 's1',
 	ratedPersonId: 'p-patel',
 	evalType: 'NCOER',
 	ratingPeriodEnd: '2026-09-30',
-	workflowStatus: null
-} as RatingSchemeEntryEditorData['entry'];
+	workflowStatus: null,
+	signedChain: null
+} as RatingSchemeEntryEditorData['evaluation'];
+
+/** The Needs You row a saved Evaluation becomes. */
+const dueRow = ({ id, ratedPersonId, evalType, ratingPeriodEnd, workflowStatus }: typeof entry) => ({
+	id,
+	ratedPersonId,
+	evalType,
+	ratingPeriodEnd,
+	workflowStatus
+});
 
 const respond = (body: unknown, status = 200) =>
 	fetchMock.mockReturnValueOnce(Promise.resolve(new Response(JSON.stringify(body), { status })));
@@ -44,7 +62,7 @@ function open({
 			failure: null,
 			close,
 			orgId: 'org-1',
-			editor: { entry, personnelLookup },
+			editor: { ratingScheme, evaluation: entry, personnelLookup },
 			Modal: EntryModalTestDouble as never
 		}
 	});
@@ -64,14 +82,14 @@ afterEach(() => {
 describe('UpdateStatusPanel', () => {
 	it('marks the evaluation completed and shows it on the page', async () => {
 		const { updates } = open();
-		respond({ entry: { ...entry, workflowStatus: 'completed', notes: 'kept out' }, moved: true });
+		respond({ evaluation: { ...entry, workflowStatus: 'completed', notes: 'kept out' }, moved: true });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
 		expect(await screen.findByText('Modal says: done completed')).toBeTruthy();
 		const [url, request] = fetchMock.mock.calls[0];
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
-			'/org/org-1/api/rating-scheme/e1/workflow',
+			'/org/org-1/api/evaluations/e1/workflow',
 			'POST',
 			{ from: null, to: 'completed' }
 		]);
@@ -80,13 +98,7 @@ describe('UpdateStatusPanel', () => {
 				'org-1',
 				{
 					list: 'ratingSchemeEntries',
-					record: {
-						id: 'e1',
-						ratedPersonId: 'p-patel',
-						evalType: 'NCOER',
-						ratingPeriodEnd: '2026-09-30',
-						workflowStatus: 'completed'
-					}
+					record: dueRow({ ...entry, workflowStatus: 'completed' })
 				}
 			]
 		]);
@@ -94,7 +106,7 @@ describe('UpdateStatusPanel', () => {
 
 	it('saves a completing move through the row, which then leaves the queue', async () => {
 		const { save } = open();
-		respond({ entry: { ...entry, workflowStatus: 'completed' }, moved: true });
+		respond({ evaluation: { ...entry, workflowStatus: 'completed' }, moved: true });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
@@ -104,7 +116,7 @@ describe('UpdateStatusPanel', () => {
 
 	it('keeps the panel open on a step that leaves the entry past thru', async () => {
 		const { updates, save, close } = open();
-		respond({ entry: { ...entry, workflowStatus: 'drafting' }, moved: true });
+		respond({ evaluation: { ...entry, workflowStatus: 'drafting' }, moved: true });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Start tracking' }));
 
@@ -125,18 +137,12 @@ describe('UpdateStatusPanel', () => {
 		await waitFor(() => expect(updates.putRecord).toHaveBeenCalledTimes(1));
 		const [url, request] = fetchMock.mock.calls[0];
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
-			'/org/org-1/api/rating-scheme',
+			'/org/org-1/api/evaluations',
 			'PUT',
-			{ id: 'e1', notes: 'Updated' }
+			{ id: 'e1', evalType: 'NCOER', ratingPeriodEnd: '2026-09-30', notes: 'Updated' }
 		]);
-		expect(updates.putRecord.mock.calls[0][1].record).toEqual({
-			id: 'e1',
-			ratedPersonId: 'p-patel',
-			evalType: 'NCOER',
-			ratingPeriodEnd: '2026-09-30',
-			workflowStatus: null,
-			ratedPersonName: 'SPC Patel, Ravi'
-		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(updates.putRecord.mock.calls[0][1].record).toEqual({ ...dueRow(entry), ratedPersonName: 'SPC Patel, Ravi' });
 	});
 
 	it('names the rated person from the editor roster when it has them', async () => {
@@ -155,8 +161,9 @@ describe('UpdateStatusPanel', () => {
 	it('shows the closed evaluation and its successor after a change of rater', async () => {
 		const { updates } = open();
 		respond({
-			entry: { ...entry, ratingPeriodEnd: '2026-06-30', reportType: 'CR', workflowStatus: 'completed' },
-			successor: { ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30', reportType: 'AN', raterName: 'SSG New' }
+			evaluation: { ...entry, ratingPeriodEnd: '2026-06-30', reportType: 'CR', workflowStatus: 'completed' },
+			ratingScheme: { ...ratingScheme, raterName: 'SSG New' },
+			successor: { ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30', reportType: 'AN' }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Change rater' }));
@@ -164,19 +171,13 @@ describe('UpdateStatusPanel', () => {
 		expect(await screen.findByText('Modal says: done true')).toBeTruthy();
 		const [url, request] = fetchMock.mock.calls[0];
 		expect([url, request.method, JSON.parse(request.body)]).toEqual([
-			'/org/org-1/api/rating-scheme/e1/change-rater',
+			'/org/org-1/api/evaluations/e1/change-rater',
 			'POST',
 			{ changeDate: '2026-06-30', raterPersonId: null, raterName: 'SSG New' }
 		]);
 		expect(updates.putRecord.mock.calls.map(([, change]) => change.record)).toEqual([
-			{
-				id: 'e1',
-				ratedPersonId: 'p-patel',
-				evalType: 'NCOER',
-				ratingPeriodEnd: '2026-06-30',
-				workflowStatus: 'completed'
-			},
-			{ id: 'e2', ratedPersonId: 'p-patel', evalType: 'NCOER', ratingPeriodEnd: '2027-06-30', workflowStatus: null }
+			dueRow({ ...entry, ratingPeriodEnd: '2026-06-30', workflowStatus: 'completed' }),
+			dueRow({ ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30' })
 		]);
 	});
 

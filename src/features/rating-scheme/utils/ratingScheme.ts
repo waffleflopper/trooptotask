@@ -75,6 +75,19 @@ export function getEntryDueLabel(
 	return getRatingDueLabel(entry.ratingPeriodEnd, entry.workflowStatus, today);
 }
 
+/** Entries on the tracker that are past thru or due within 60 days, by how soon. */
+export function ratingDueCounts(
+	entries: readonly Pick<RatingSchemeEntry, 'ratingPeriodEnd' | 'workflowStatus' | 'archivedAt'>[]
+): { overdue: number; 'due-30': number; 'due-60': number } {
+	const counts = { overdue: 0, 'due-30': 0, 'due-60': 0 };
+	for (const entry of entries) {
+		if (!isOnTracker(entry)) continue;
+		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
+		if (status === 'overdue' || status === 'due-30' || status === 'due-60') counts[status]++;
+	}
+	return counts;
+}
+
 export function getDaysUntilDue(ratingPeriodEnd: string, today: Date = new Date()): number {
 	return calendarDayDiff(today, parseDate(ratingPeriodEnd));
 }

@@ -40,6 +40,17 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 		return (data ?? []).map(mapEvaluation);
 	}
 
+	/** A completed Evaluation keeps the type it was rated on; the rest follow the scheme. Saving the scheme again repeats this. */
+	async function followSchemeEvalType(ratingSchemeId: string, evalType: string) {
+		const { error } = await client
+			.from('evaluations')
+			.update({ eval_type: evalType })
+			.eq('organization_id', orgId)
+			.eq('rating_scheme_id', ratingSchemeId)
+			.or('workflow_status.is.null,workflow_status.neq.completed');
+		if (error) queryFailure(error);
+	}
+
 	return {
 		listRatingSchemes: () => listSchemes(),
 		listEvaluations: () => listEvaluations(),
@@ -99,7 +110,9 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 				.select(RATING_SCHEME_SELECT)
 				.maybeSingle();
 			if (error) return lifecycleFailure(error);
-			return data ? mapRatingScheme(data as RatingSchemeRow) : null;
+			if (!data) return null;
+			if (patch.evalType !== undefined) await followSchemeEvalType(id, patch.evalType);
+			return mapRatingScheme(data as RatingSchemeRow);
 		},
 		async setRatingSchemeArchived(id, archived) {
 			const { data, error } = await client.rpc('set_rating_scheme_archived', {

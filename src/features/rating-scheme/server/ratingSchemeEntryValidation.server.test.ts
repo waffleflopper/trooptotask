@@ -50,7 +50,6 @@ describe('Rating Scheme validation', () => {
 
 	it.each(['OER', 'NCOER', 'WOER'])('retains %s evaluation type', (evalType) => {
 		expect(ratingSchemeCreateSchema.safeParse({ ...scheme, evalType }).success).toBe(true);
-		expect(evaluationUpdateSchema.safeParse({ id: ID, evalType }).success).toBe(true);
 	});
 
 	it.each([{ evalType: 'unsupported' }, { notes: 123 }, { ratedPersonId: null }, { ratedPersonId: '' }])(
@@ -73,6 +72,7 @@ describe('Rating Scheme validation', () => {
 		{ workflowStatus: null },
 		{ status: 'completed' },
 		{ ratingSchemeId: ID },
+		{ evalType: 'OER' },
 		{ signedChain: { raterName: 'Forged' } }
 	])('refuses an Evaluation save that carries %j', (values) => {
 		expect(evaluationUpdateSchema.safeParse({ id: ID, notes: 'n', ...values }).success).toBe(false);

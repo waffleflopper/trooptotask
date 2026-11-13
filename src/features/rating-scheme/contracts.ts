@@ -89,9 +89,8 @@ export interface EvaluationStart {
 	notes: string | null;
 }
 
-/** The fields of an Evaluation a save may change; its step, scheme and chain move through their own actions. */
+/** The fields of an Evaluation a save may change. Its type follows its scheme; its step and chain move through their own actions. */
 export interface EvaluationPatchValues {
-	evalType?: EvalType;
 	reportType?: ReportType | null;
 	ratingPeriodStart?: string;
 	ratingPeriodEnd?: string;

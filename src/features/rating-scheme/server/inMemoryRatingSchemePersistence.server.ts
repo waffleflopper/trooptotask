@@ -164,7 +164,14 @@ export function createInMemoryRatingSchemePersistence(
 					await store.update(EVALUATIONS, orgId, evaluation.id, { rated_person_id: values.rated_person_id });
 				}
 			}
-			return mapRatingScheme(await store.update<RatingSchemeRow>(SCHEMES, orgId, id, values));
+			const updated = mapRatingScheme(await store.update<RatingSchemeRow>(SCHEMES, orgId, id, values));
+			if (values.eval_type !== undefined) {
+				for (const evaluation of await schemeEvaluations(id)) {
+					if (isEvaluationCompleted(evaluation.workflowStatus)) continue;
+					await store.update(EVALUATIONS, orgId, evaluation.id, { eval_type: values.eval_type });
+				}
+			}
+			return updated;
 		},
 		async setRatingSchemeArchived(id, archived) {
 			const scheme = await requireScheme(id);

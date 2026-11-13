@@ -40,13 +40,13 @@ export function isOnTracker(entry: Pick<RatingSchemeEntry, 'archivedAt' | 'workf
 	return entry.archivedAt === null || isEvaluationOpen(entry.workflowStatus);
 }
 
-/** The Evaluation as the Evals page lists it: the chain that signed it, else its scheme's current chain. */
+/** The Evaluation as the Evals page lists it: the chain and type it was signed on, else its scheme's current ones. */
 export function toRatingSchemeEntry(scheme: RatingScheme, evaluation: Evaluation): RatingSchemeEntry {
 	return {
 		id: evaluation.id,
 		ratingSchemeId: scheme.id,
 		ratedPersonId: evaluation.ratedPersonId,
-		evalType: evaluation.evalType,
+		evalType: evaluation.workflowStatus === 'completed' ? evaluation.evalType : scheme.evalType,
 		...evaluatorChain(evaluation.signedChain ?? scheme),
 		ratingPeriodStart: evaluation.ratingPeriodStart,
 		ratingPeriodEnd: evaluation.ratingPeriodEnd,

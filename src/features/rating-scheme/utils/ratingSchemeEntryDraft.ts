@@ -57,7 +57,7 @@ export interface RatingSchemeEntryDraftView {
 	canSave: boolean;
 }
 
-function evaluatorDraft(personId: string | null | undefined, name: string | null | undefined): EvaluatorDraft {
+export function evaluatorDraft(personId: string | null | undefined, name: string | null | undefined): EvaluatorDraft {
 	if (personId) return { kind: 'person', personId };
 	if (name) return { kind: 'external', name };
 	return { kind: 'empty' };
@@ -124,12 +124,14 @@ export function syncAnnualThruDateForRatingSchemeEntryDraft(
 	if (draft.reportType !== 'AN') draft.autoFilledEnd = false;
 }
 
-export function removeIntermediateRaterFromDraft(draft: RatingSchemeEntryDraft): void {
+export function removeIntermediateRaterFromDraft(
+	draft: Pick<RatingSchemeEntryDraft, 'showIntermediate' | 'intermediateRater'>
+): void {
 	draft.showIntermediate = false;
 	draft.intermediateRater = { kind: 'empty' };
 }
 
-export function removeReviewerFromDraft(draft: RatingSchemeEntryDraft): void {
+export function removeReviewerFromDraft(draft: Pick<RatingSchemeEntryDraft, 'showReviewer' | 'reviewer'>): void {
 	draft.showReviewer = false;
 	draft.reviewer = { kind: 'empty' };
 }

@@ -6,6 +6,7 @@
 import { defineStore } from '$lib/stores/core';
 import type { Evaluation, RatingScheme, RatingSchemeEntry } from '../rating-scheme.types';
 import { toRatingSchemeEntries } from '../utils/ratingSchemeEntries';
+import { toRatingSchemeLines } from '../utils/ratingSchemeLines';
 
 export const ratingSchemeStore = defineStore<RatingScheme>({
 	table: 'rating_schemes',
@@ -23,3 +24,10 @@ class RatingSchemeEntries {
 }
 
 export const ratingSchemeEntries = new RatingSchemeEntries();
+
+/** The Rating Scheme's lines, one per scheme with its open Evaluation; recomputed only when either store changes. */
+class RatingSchemeLines {
+	readonly items = $derived(toRatingSchemeLines(ratingSchemeStore.items, evaluationStore.items));
+}
+
+export const ratingSchemeLines = new RatingSchemeLines();

@@ -232,10 +232,7 @@ export async function updateEvaluation(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
 ): Promise<Evaluation> {
-	const { id, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(
-		evaluationUpdateSchema,
-		data
-	);
+	const { id, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(evaluationUpdateSchema, data);
 	await requireRatedPersonUpdatePolicy(ctx, (await findEvaluation(ctx, id)).ratedPersonId, id);
 	const evaluation = await ctx.ratingScheme.updateEvaluation(id, {
 		reportType: reportType as Evaluation['reportType'] | undefined,

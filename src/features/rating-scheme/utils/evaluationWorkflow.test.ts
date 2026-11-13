@@ -4,6 +4,7 @@ import { WORKFLOW_STEPS, type WorkflowStatus } from '../rating-scheme.types';
 import {
 	isWorkflowMoveAllowed,
 	parseWorkflowStatus,
+	waitingOn,
 	workflowJumpTargets,
 	workflowMoves,
 	workflowRoles,
@@ -162,5 +163,27 @@ describe('evaluation workflow moves', () => {
 		expect(parseWorkflowStatus('sr-signed')).toBe('sr-signed');
 		expect(() => parseWorkflowStatus('active')).toThrow();
 		expect(() => parseWorkflowStatus('submitted-to-s1')).toThrow();
+	});
+});
+
+describe('who an Evaluation waits on', () => {
+	it.each([
+		['drafting', 'none', 'rater'],
+		['command-review', 'none', 'command'],
+		['rater-signed', 'none', 'seniorRater'],
+		['rater-signed', 'both', 'intermediateRater'],
+		['ir-signed', 'both', 'seniorRater'],
+		['sr-signed', 'none', 'rated'],
+		['sr-signed', 'reviewer', 'reviewer'],
+		['reviewer-signed', 'reviewer', 'rated'],
+		['sm-signed', 'none', 'hrc'],
+		['submitted-to-hrc', 'none', 'hrc']
+	] as const)('%s with %s roles waits on the %s', (status, roles, role) => {
+		expect(waitingOn(status, ROLES[roles])).toBe(role);
+	});
+
+	it('waits on no one before tracking starts or once completed', () => {
+		expect(waitingOn(null, ROLES.none)).toBeNull();
+		expect(waitingOn('completed', ROLES.none)).toBeNull();
 	});
 });

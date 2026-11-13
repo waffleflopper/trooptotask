@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
-vi.mock('$features/rating-scheme/components/RatingSchemePageView.svelte', () => ({
+vi.mock('$features/rating-scheme/components/EvalTrackerView.svelte', () => ({
 	default: VisibleStub
 }));
 
-vi.mock('$features/rating-scheme/components/RatingSchemeModals.svelte', () => ({
+vi.mock('$features/rating-scheme/components/EvalTrackerModals.svelte', () => ({
 	default: VisibleStub
 }));
 

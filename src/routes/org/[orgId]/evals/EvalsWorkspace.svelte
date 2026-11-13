@@ -12,9 +12,10 @@
 		};
 		/** Rendered once the streamed workspace has loaded and the viewer may see it. */
 		children: Snippet<[RatingSchemeWorkspaceResult]>;
+		skeleton?: 'scheme' | 'tracker';
 	}
 
-	let { data, children }: Props = $props();
+	let { data, children, skeleton = 'scheme' }: Props = $props();
 
 	let bootstrap = $state<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted | null>(null);
 	let loadError = $state<Error | null>(null);
@@ -56,7 +57,7 @@
 {#if loadError}
 	<!-- The Evals layout observes this same source and shows WorkspaceLoadError. -->
 {:else if pending}
-	<EvalsSkeleton />
+	<EvalsSkeleton layout={skeleton} />
 {:else if resolved}
 	{#if !('access' in resolved)}
 		{@render children(resolved)}

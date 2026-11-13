@@ -108,3 +108,31 @@ export function isWorkflowMoveAllowed(
 	if (to === null) return from === 'drafting' || from === 'completed';
 	return isPresentStep(STEP_BY_VALUE.get(to)!, roles);
 }
+
+/** Who an Evaluation is with: an evaluator, the rated Soldier, the command, or HRC. */
+export type WaitingRole = 'rater' | 'intermediateRater' | 'seniorRater' | 'reviewer' | 'rated' | 'command' | 'hrc';
+
+/** The step's holder. A signed step has none of its own and waits on whoever the next step hands it to. */
+const STEP_HOLDER: Partial<Record<WorkflowStatus, WaitingRole>> = {
+	drafting: 'rater',
+	'command-review': 'command',
+	'with-rater': 'rater',
+	'with-intermediate-rater': 'intermediateRater',
+	'with-senior-rater': 'seniorRater',
+	'with-reviewer': 'reviewer',
+	'with-rated-soldier': 'rated',
+	'submitted-to-hrc': 'hrc'
+};
+
+export function waitingOn(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WaitingRole | null {
+	if (workflowStatus === null || workflowStatus === 'completed') return null;
+	const holder = STEP_HOLDER[workflowStatus];
+	if (holder) return holder;
+	const next = workflowMoves(workflowStatus, roles).find((move) => move.kind === 'next')?.to ?? null;
+	return waitingOn(next, roles);
+}
+
+/** The steps the chain an Evaluation shows makes possible, in chain order, for its step list. */
+export function workflowStepList(roles: WorkflowRoles): WorkflowStep[] {
+	return presentSteps(roles);
+}

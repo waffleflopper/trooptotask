@@ -36,6 +36,7 @@ function renderView(
 		{ orgId: 'org-1', orgName: 'Test Org', personnelLookup: linePersonnel },
 		modals,
 		makeOrg(options.ratingScheme ?? 'operate'),
+		undefined,
 		{ items: options.lines ?? lines },
 		{ items: [] }
 	);
@@ -91,7 +92,7 @@ describe('RatingSchemeLinesView', () => {
 
 	it('shows the same lines as a table that opens the sheet from a row', async () => {
 		const { ctx, modals } = renderView();
-		ctx.viewMode = 'table';
+		ctx.view.viewMode = 'table';
 
 		const row = await screen.findByRole('row', { name: /Edit rating scheme line for .*Park/ });
 		await fireEvent.click(row);
@@ -130,6 +131,7 @@ describe('RatingSchemeLinesView', () => {
 	it('lets a viewer read the scheme but not open a line to edit it', () => {
 		renderView({ ratingScheme: 'view' });
 
+		expect(screen.getAllByText(/Park/).length).toBeGreaterThan(0);
 		expect(editButton(/Park/)).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Add to scheme' })).toBeNull();
 	});

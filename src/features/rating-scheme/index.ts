@@ -24,7 +24,7 @@ export { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 export { RatingSchemePageContext } from './contexts/RatingSchemePageContext.svelte';
 export type { RatingSchemePageData } from './contexts/RatingSchemePageContext.svelte';
-export { RatingSchemeLinesContext } from './contexts/RatingSchemeLinesContext.svelte';
+export { RatingSchemeLinesContext, RatingSchemeLinesViewState } from './contexts/RatingSchemeLinesContext.svelte';
 export { default as RatingSchemeLinesView } from './components/RatingSchemeLinesView.svelte';
 export { default as EvalsTabs } from './components/EvalsTabs.svelte';
 export { ratingSchemeWorkspaceHydrator } from './ratingSchemeWorkspaceHydration.svelte';

@@ -28,14 +28,20 @@ interface PastThruAccessor {
 export const LINE_SHEET_MODAL = 'rating-scheme-line';
 export const CHANGE_RATER_MODAL = 'rating-scheme-change-rater';
 
-/** What the Rating Scheme page shows and controls: the chain lines, how they are filtered and grouped, and who may edit them. */
-export class RatingSchemeLinesContext {
+/** How the Rating Scheme page is viewed, sorted, searched and filtered. The page keeps one per Organization, so a reload of its data leaves these choices alone. */
+export class RatingSchemeLinesViewState {
 	viewMode = $state<'grouped' | 'table'>('grouped');
 	sort = $state<SchemeSort>('seniorRaterAZ');
 	searchQuery = $state('');
 	listing = $state<RatingSchemeListingFilter>('on-scheme');
 	evalTypeFilter = $state<'all' | EvalType>('all');
 
+	constructor(readonly orgId: string) {}
+}
+
+/** What the Rating Scheme page shows and controls: the chain lines, how they are filtered and grouped, and who may edit them. */
+export class RatingSchemeLinesContext {
+	readonly view: RatingSchemeLinesViewState;
 	readonly #data: RatingSchemeLinesData;
 	readonly #modals: ModalRegistry;
 	readonly #org: RatingSchemePageAccess;
@@ -46,9 +52,11 @@ export class RatingSchemeLinesContext {
 		data: RatingSchemeLinesData,
 		modals: ModalRegistry,
 		org: RatingSchemePageAccess,
+		view: RatingSchemeLinesViewState = new RatingSchemeLinesViewState(data.orgId),
 		lines: LinesAccessor = ratingSchemeLines,
 		tracker: PastThruAccessor = ratingSchemeEntries
 	) {
+		this.view = view;
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
@@ -83,23 +91,24 @@ export class RatingSchemeLinesContext {
 
 	get filteredLines(): RatingSchemeLine[] {
 		let lines = [...this.#lines.items];
-		if (this.listing !== 'all') {
-			const onScheme = this.listing === 'on-scheme';
+		if (this.view.listing !== 'all') {
+			const onScheme = this.view.listing === 'on-scheme';
 			lines = lines.filter((line) => (line.archivedAt === null) === onScheme);
 		}
-		if (this.evalTypeFilter !== 'all') lines = lines.filter((line) => line.evalType === this.evalTypeFilter);
-		if (this.searchQuery.trim()) lines = lines.filter(createChainSearch(this.searchQuery, this.#data.personnelLookup));
+		if (this.view.evalTypeFilter !== 'all') lines = lines.filter((line) => line.evalType === this.view.evalTypeFilter);
+		if (this.view.searchQuery.trim())
+			lines = lines.filter(createChainSearch(this.view.searchQuery, this.#data.personnelLookup));
 		return lines;
 	}
 
 	get hasActiveSearchOrFilters(): boolean {
-		return !!this.searchQuery.trim() || this.listing !== 'on-scheme' || this.evalTypeFilter !== 'all';
+		return !!this.view.searchQuery.trim() || this.view.listing !== 'on-scheme' || this.view.evalTypeFilter !== 'all';
 	}
 
 	clearSearchAndFilters(): void {
-		this.searchQuery = '';
-		this.listing = 'on-scheme';
-		this.evalTypeFilter = 'all';
+		this.view.searchQuery = '';
+		this.view.listing = 'on-scheme';
+		this.view.evalTypeFilter = 'all';
 	}
 
 	/** The header facts: lines on the scheme, their distinct senior raters and raters, and how many have an eval open. */

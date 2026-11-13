@@ -101,8 +101,8 @@
 				id: 'view-mode',
 				label: 'Rating scheme view mode',
 				options: viewOptions,
-				value: ctx.viewMode,
-				onValueChange: (value) => (ctx.viewMode = value as 'grouped' | 'table')
+				value: ctx.view.viewMode,
+				onValueChange: (value) => (ctx.view.viewMode = value as 'grouped' | 'table')
 			},
 			{
 				kind: 'select',
@@ -110,9 +110,9 @@
 				label: 'Evaluation type',
 				ariaLabel: 'Eval type filter',
 				options: evalTypeOptions,
-				value: ctx.evalTypeFilter,
+				value: ctx.view.evalTypeFilter,
 				defaultValue: 'all',
-				onValueChange: (value) => (ctx.evalTypeFilter = value as typeof ctx.evalTypeFilter)
+				onValueChange: (value) => (ctx.view.evalTypeFilter = value as typeof ctx.view.evalTypeFilter)
 			},
 			{
 				kind: 'select',
@@ -120,21 +120,21 @@
 				label: 'Rating scheme listing',
 				ariaLabel: 'Listing filter',
 				options: listingOptions,
-				value: ctx.listing,
+				value: ctx.view.listing,
 				defaultValue: 'on-scheme',
-				onValueChange: (value) => (ctx.listing = value as RatingSchemeListingFilter)
+				onValueChange: (value) => (ctx.view.listing = value as RatingSchemeListingFilter)
 			}
 		];
-		if (ctx.viewMode === 'grouped') {
+		if (ctx.view.viewMode === 'grouped') {
 			items.push({
 				kind: 'select',
 				id: 'sort',
 				label: 'Group order',
 				ariaLabel: 'Group order',
 				options: sortOptions,
-				value: ctx.sort,
+				value: ctx.view.sort,
 				defaultValue: 'seniorRaterAZ',
-				onValueChange: (value) => (ctx.sort = value as SchemeSort)
+				onValueChange: (value) => (ctx.view.sort = value as SchemeSort)
 			});
 		}
 		items.push({
@@ -151,8 +151,8 @@
 	const toolbarSearch = $derived({
 		label: 'Search by Soldier or rater',
 		placeholder: 'Search Soldier or rater...',
-		value: ctx.searchQuery,
-		onValueChange: (value) => (ctx.searchQuery = value)
+		value: ctx.view.searchQuery,
+		onValueChange: (value) => (ctx.view.searchQuery = value)
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
@@ -253,12 +253,12 @@
 							</Empty.Content>
 						{/if}
 					</Empty.Root>
-				{:else if ctx.viewMode === 'grouped'}
+				{:else if ctx.view.viewMode === 'grouped'}
 					<RatingSchemeLinesGroupedView
 						orgId={ctx.orgId}
 						lines={filtered}
 						personnel={ctx.personnelLookup}
-						sort={ctx.sort}
+						sort={ctx.view.sort}
 						onEdit={canEdit ? (line) => ctx.openLine(line) : undefined}
 					/>
 				{:else}

@@ -15,9 +15,10 @@ Scheme access is independently grantable without Personnel access.
   intermediate rater or reviewer and the optional Command Review, which Drafting offers as its own button), jumps it to
   any present step with Jump to step, and Change rater closes it as a Change of Rater (`CR`) report and opens the next
   evaluation.
-- Rating scheme membership, separate from the workflow step. An entry stays listed until it is archived from its
-  sheet, whatever its step, and Restore returns it. An archived entry reads Archived instead of a due text, and counts in
-  no due bucket, the `active` count or the Dashboard.
+- Rating scheme membership, separate from the workflow step. Each rated Person has at most one listed rating scheme,
+  which holds their chain; every entry is one Evaluation on it. Archiving from an entry's sheet archives its scheme and
+  Restore returns it. Its completed and Not tracked Evaluations then read Archived instead of a due text and count in
+  no due bucket, the `active` count or the Dashboard; an open one stays on the tracker until it is completed.
 - Overdue, 30-day, 60-day and current due calculations, completed exclusion and the Organization Dashboard due
   projection.
 - Actual filtered Rating Scheme workbook, including evaluator names, dates, due/status/workflow labels and notes.
@@ -42,13 +43,16 @@ Rating Scheme actors are `ratingConfigure`, `ratingOperate`, `ratingView`, `rati
 `ratingForeign` and `ratingSwitch`, with every other feature lane absent. Scoped operates only Alpha, Empty has no
 Groups, and Switch operates A but only views B. `actor ROLE evals|home` enters Evals or the Organization Dashboard
 through a provider-created authenticated session; `actor --form ROLE evals|home` uses the visible sign-in form.
-`seed rating-scheme` creates four temporary Alpha People (Officer, Warrant, NCO and archived) and ten dated evaluation
-records across A/B; it returns exact IDs and examples, records every ID before insertion, and uses `clean-seeds`.
-`rows rating_scheme_entries orgA|orgB id ID` reads their
-evaluator/workflow/date/notes fields; `rated_person_id` is also supported. `network` accepts the exact A
-`rating-scheme` endpoint, which carries saves, and one entry's own POST families
-`rating-scheme/<entry id>/workflow` and `rating-scheme/<entry id>/change-rater`; each matches that entry's exact path
-only. A stale second tab still supplies a real refused move.
+`seed rating-scheme` creates four temporary Alpha People (Officer, Warrant, NCO and archived), one listed rating scheme
+for each rated Person who has none, and ten dated Evaluations across A/B. The NCO and the Officer each have two
+Evaluations on one scheme, and each completed one keeps the chain that signed it. It returns exact IDs, the schemes and
+examples, records every ID before insertion, and uses `clean-seeds`. `rows evaluations orgA|orgB id ID` reads an
+Evaluation's workflow, dates, notes and signed chain; `rows rating_schemes orgA|orgB id SCHEME_ID` reads its chain,
+notes and `archived_at`. Both also filter by `rated_person_id`, and `evaluations` by `rating_scheme_id`. `network`
+accepts the exact A `rating-scheme` endpoint, which carries scheme saves and editor reads, the `evaluations` endpoint,
+which carries Evaluation saves and deletes, and the record-named POST families `evaluations/<id>/workflow`,
+`evaluations/<id>/change-rater`, `rating-scheme/<scheme id>/evaluations` and `rating-scheme/<scheme id>/archive`; each
+matches that record's exact path only. A stale second tab still supplies a real refused move.
 Use the existing `deletion-requests` control separately for approval submission. Inspect real
 downloads with `workbook FILE 'Rating Scheme'`. The [Evals recipe](evals-rating-scheme.md) owns expectations.
 
@@ -63,13 +67,15 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    affordance, and actual loaded examples rather than actor arrival alone. The seed stores nine A entries, one of them
    an archived Alpha Person's (−2 days). Evals hides that entry, so `ratingView` sees eight: one overdue (Able −5 days),
    three due within 30 days (Alpha NCO +20, Bravo +25, unassigned +15), one Officer +45, one Warrant +90 and two
-   completed: the NCO −90, which stays listed, and the Officer +10 closed as a Change of Rater (`CR`) report, which the
-   seed archives as Change rater does. Completed entries count in no due bucket. A Change of Rater is a completed entry
-   with report type `CR`, not a separate status. The default listing (On scheme) shows seven entries, the completed NCO
-   among them with `Completed` workflow and due text; Archived shows the `CR` entry; All shows eight. Check the three evaluation types
+   completed: the NCO −90 and the Officer +10 closed as a Change of Rater (`CR`) report. Both stay listed on their
+   Person's scheme, grouped under the chain that signed them (`External Rater completed`, `External Rater changed`)
+   while their scheme's open entry follows its current chain. Completed entries count in no due bucket. A Change of
+   Rater is a completed entry with report type `CR`, not a separate status. The default listing (On scheme) shows all
+   eight, both completed entries among them with `Completed` workflow and due text; Archived shows none; All shows
+   eight. Check the three evaluation types
    and the NCO's **With Rater** workflow independently, in Grouped and Table views. Evals never lists the archived Alpha
    entry in Grouped, Table, filters or the workbook, and none of its rows reads "Unknown" for the rated Person;
-   `$V rows rating_scheme_entries orgA id ARCHIVED_ENTRY_ID` still reads it, since archiving keeps the stored row.
+   `$V rows evaluations orgA id ARCHIVED_ENTRY_ID` still reads it, since archiving keeps the stored row.
    Export active, all-status and Alpha-filtered examples through the visible button. Arm `$V export arm PAGE`, save with
    `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/evals.xlsx`, inspect
    `$V workbook FILE 'Rating Scheme'`, then restore. Expect only filtered accessible entries and the 16 retained columns
@@ -82,23 +88,28 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    Editing an existing entry's start never autofills its thru date. Pick an internal Alpha rater, or type a synthetic
    name into the Rater combobox and choose `Use "<name>" as an external rater` (the saved row
    has `rater_name` set and `rater_person_id` null); populate senior rater and optional intermediate/reviewer. Add
-   notes, save, read the exact row with `$V rows rating_scheme_entries orgA id ID` (`workflow_status` null), reload and
-   reopen. A new entry shows no Workflow section. Removing an optional evaluator clears only its relationship; the
+   notes, save, read the exact rows with `$V rows evaluations orgA id ID` (`workflow_status` `drafting`) and
+   `$V rows rating_schemes orgA rated_person_id PERSON_ID`, reload and reopen. Every seeded Person already has a
+   listed scheme, so Add saves the chain to it (`PUT api/rating-scheme`) and then opens the Evaluation on it at
+   Drafting (`POST api/rating-scheme/<scheme id>/evaluations`); the Person's other Not tracked entry now shows the new
+   chain too. A Person with no scheme gets one first (`POST api/rating-scheme`). Saving an existing entry sends the
+   chain to its scheme only when the chain or type changed, then `PUT api/evaluations`; a completed entry's signed
+   chain never moves. A new entry shows no Workflow section. Removing an optional evaluator clears only its relationship; the
    stored step stays. Change a field: Escape and an outside click leave the dirty sheet open, and its close button is
    absent.
    Cancel discards the draft and leaves stored values unchanged. Reopen the entry and change a field, then arm
-   `$V network arm-fail PAGE rating-scheme` before a save; observe the failed request, unchanged provider row and
+   `$V network arm-fail PAGE evaluations` (or `rating-scheme` for a chain change) before a save; observe the failed request, unchanged provider row and
    preserved visible draft, then restore and retry. Delayed save should prevent duplicate submission/closing until
    completion.
 3. **Scope and security.** With `ratingScoped`, expect only Alpha entries, without the archived Person's record (six
-   rows; five when the default listing applies, which leaves out the archived `CR` entry);
+   rows, all in the default listing);
    its lookup includes active Alpha People and excludes Bravo, unassigned, archived and foreign People. With
    `ratingEmpty`, expect zero entries and zero lookup choices. Use authenticated HTTP from these signed-in synthetic
    pages to attempt POST/PUT/DELETE against known Bravo, unassigned and foreign IDs: expect 403/404 as appropriate, no
    stored changes, and no disclosure of hidden names/notes. Enter Evals directly as the Personnel-only `manager`: expect
    a settled Access Restricted message, no Evals editor/rows and no persistent busy shell; authenticated workspace data
-   remains restricted and Rating mutations return 403. The endpoint's `GET ?entry=<id>` reads one entry for its editor
-   under Rating view and the actor's scope: a missing or malformed `entry` returns 400 and an unknown or hidden ID 404.
+   remains restricted and Rating mutations return 403. The endpoint's `GET ?evaluation=<id>` reads one Evaluation and its
+   rating scheme for its editor under Rating view and the actor's scope: a missing or malformed `evaluation` returns 400 and an unknown or hidden ID 404.
    Probe it with known Bravo, unassigned and foreign IDs as `ratingScoped` and `ratingEmpty` (expect 404), and with any
    ID as `manager` (expect 403); no response may carry hidden names or notes. After an allowed workspace loses access,
    stale evaluation rows must clear, and late allowed hydration must not refill the restricted workspace. Restored
@@ -136,7 +147,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    including for an actor without Personnel access (`ratingOperate`). Evals also displays the 60-day bucket. Completed
    and archived entries are excluded; archiving the past-thru entry from its sheet empties Needs you and the `past thru`
    share after a reload, and Restore brings it back. A Past thru row's `Update status` opens this page's entry editor for that one entry. Its
-   Workflow moves post `api/rating-scheme/<id>/workflow`; a step keeps the panel open, and `Mark completed` saves
+   Workflow moves post `api/evaluations/<id>/workflow`; a step keeps the panel open, and `Mark completed` saves
    through the row, which leaves the queue. The entry must read Completed here after reload
    ([Dashboard actions](dashboard.md#actions)). The projection must not borrow Personnel capability or expose
    Bravo/unassigned to Alpha. Its Dashboard entry payload carries the entry ID, rated Person ID, evaluation type, rating
@@ -169,12 +180,14 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    entries alone do not prove missing-rater branches or which otherwise-identical entry is newest; separate owner rule
    tests cover those. The Personnel-only `manager` gets no Rating chain card and a `Couldn't check the evaluation` line
    under Needs attention. As owner, enter **Settings → Exports**, capture **Export JSON** and **Export Excel**
-   separately with the existing export hook, then restore each. Before other witnesses are created, A has nine Rating
-   rows, including the two completed entries (one a `CR` report), Bravo, unassigned and archived; B's foreign example
-   is absent. Compare raw rows by ID, all 21 saved fields including timestamps and null/external references, `sections.ratingSchemeEntries`,
-   its top-level duplicate and inventory count. Inspect **Export Inventory**, **Rating Scheme** and **Raw - Rating
-   Scheme Entries** sheets. The Organization readable Rating sheet has 12 retained columns, including `archived_at` and saved report/workflow
-   codes; Evals has 16 presentation columns, including `Rating Scheme` (Listed or Archived). Organization export keeps the archived Person's stored entry among the nine
+   separately with the existing export hook, then restore each. Before other witnesses are created, A has seven rating
+   schemes and nine Evaluations, including the two completed ones (one a `CR` report), Bravo, unassigned and archived; B's foreign example
+   is absent. Compare raw rows by ID, all 17 saved scheme fields and 21 saved Evaluation fields including timestamps,
+   snapshots and null/external references, `sections.ratingSchemes` and `sections.evaluations`, their top-level
+   duplicates and inventory counts. Inspect **Export Inventory**, **Rating Scheme**, **Evaluations**, **Raw - Rating
+   Schemes** and **Raw - Evaluations** sheets. The readable Rating Scheme sheet has 8 columns, one row per scheme,
+   including `archived_at`; the readable Evaluations sheet has 10, including saved report/workflow codes and the signed
+   rater, senior rater and `chain_signed_at` of a completed Evaluation; Evals has 16 presentation columns, including `Rating Scheme` (Listed or Archived). Organization export keeps the archived Person's stored entry among the nine
    rows, with its full authorized Personnel label, even though Evals and the Dashboard due projection omit it. Restoring
    that Person through Settings → **Archives** returns the unchanged entry to Evals and its due counts: overdue rises
    from one to two Organization-wide and in Alpha.
@@ -184,7 +197,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    stays FAIL until the same row passes on a later candidate.
    - ID: E1 - Screen and control: Page header, search and Grouped rows - How to reach it: `ratingOperate`, `Grouped`,
      1440, 1024 and 390 - Expected: The eyebrow reads `Rating scheme · <Organization>` above a large uppercase display
-     `Evals` heading (about 48 px at 1440, smaller at 390), with the live status `7 of 8 shown` and four 15 px counts,
+     `Evals` heading (about 48 px at 1440, smaller at 390), with the live status `8 of 8 shown` and four 15 px counts,
      the due ones semibold in their tones (`6 active`, `1 past thru`, `3 thru in 30 days`, `1 thru in 31 to 60 days` on
      the seed), separated by thin vertical rules at 1440. Each Senior rater section opens with a mono `SR` label, the
      name as a 28 px uppercase display heading, an `External` tag for a typed name and `Senior rates N`, all on one
@@ -203,7 +216,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      three Senior raters, one whose surname sorts last, whatever the rank, holding the most overdue entry comes first by
      urgency and last A
      to Z (add them through the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and
-     `0 of 8 shown`; `Clear search and filters` restores `7 of 8 shown`. Search also finds a Soldier by any label the
+     `0 of 8 shown`; `Clear search and filters` restores `8 of 8 shown`. Search also finds a Soldier by any label the
      page shows: `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
 
    - ID: E2
@@ -241,15 +254,15 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      filled badge. Under the chain a line reads
      `Search the unit, or type a name that isn't in it to add an external rater.`; `+ Intermediate rater` and
      `+ Reviewer` are underlined links, and each added slot has a remove button. After Save,
-     `$V rows rating_scheme_entries orgA id ID` reads `rater_name` `COL Visiting Guest` and `rater_person_id` null, and
-     the grouped row sits under that rater with its tag. Then `network arm-fail PAGE rating-scheme` and Save: the sheet
+     `$V rows rating_schemes orgA rated_person_id PERSON_ID` reads `rater_name` `COL Visiting Guest` and `rater_person_id` null, and
+     the grouped row sits under that rater with its tag. Then `network arm-fail PAGE rating-scheme` and save a chain change: the sheet
      stays open with every value; an `Alert` (`role="alert"`, `Rating entry was not saved`) inside the sheet states the
      failure; focus stays on `Save changes` (`Add entry` for a new one); the row is unchanged. A toast alone is a FAIL.
      Restore, retry once and read the row back
 
    - ID: E5
      - Screen and control: Workspace loading
-     - How to reach it: On Home, `server-source arm rating_scheme_entries hold 1 120000`, then choose Evals
+     - How to reach it: On Home, `server-source arm evaluations hold 1 120000`, then choose Evals
      - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region,
        named `Loading evaluations`) whose blocks match the loaded page: three header lines, one toolbar block and two
        Senior rater sections (a heading on a 2 px rule, a rater column at 1024 and up and a list), so nothing shifts
@@ -257,7 +270,7 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
 
    - ID: E6
      - Screen and control: Workspace error (`evals/+layout`, `+page`)
-     - How to reach it: On Home, `server-source arm rating_scheme_entries fail-hard 1`, then choose Evals; repeat with a
+     - How to reach it: On Home, `server-source arm evaluations fail-hard 1`, then choose Evals; repeat with a
        full load of `/evals`
      - Expected: `WorkspaceLoadError`: `role="alert"` `Unable to load Evals` (or the evaluations subject) with a Retry
        button; the header and sidebar stay usable; Retry recovers after `restore`. A skeleton or blank page with no
@@ -309,8 +322,8 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        `With Intermediate Rater`, `IR Signed`, `With Reviewer` or `Reviewer Signed` when the entry lacks that evaluator:
        from `SM Signed`, choose `Drafting` (a listbox option, so read it with a verbose snapshot) and the section reads
        `Drafting · step 1 of 5` at once; reload and the step persists. Each press or choice sends one
-       `POST api/rating-scheme/<id>/workflow` and `rows` reads the new `workflow_status`; completing or reopening
-       changes the `active` count at once (`6 active`, then `5`) and never the `7 of 8 shown`, since a completed entry stays listed. With no intermediate rater or reviewer,
+       `POST api/evaluations/<id>/workflow` and `rows` reads the new `workflow_status`; completing or reopening
+       changes the `active` count at once (`6 active`, then `5`) and never the `8 of 8 shown`, since a completed entry stays listed. With no intermediate rater or reviewer,
        `SR Signed` moves to `With Rated Soldier` and back. Add an external reviewer and save: the step stays, and
        `SR Signed` now moves to `With Reviewer`. An entry with an intermediate rater (the seeded `current` Warrant entry)
        signs before the senior rater: `Rater Signed` moves to `With Intermediate Rater`, `IR Signed` to
@@ -321,40 +334,44 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        page's step. A move whose target neighbours the newer step is refused the same way: with the first page still
        showing Not tracked, move the entry to `Drafting` and then `With Rater` in the second page, then press
        `Start tracking` in the first; the POST returns 409 and `rows` still reads `with-rater`. Asking for the step the row already holds returns 200
-       and shows it. With `$V network arm-fail PAGE rating-scheme/<id>/workflow` armed, a move returns 503, the section
+       and shows it. With `$V network arm-fail PAGE evaluations/<id>/workflow` armed, a move returns 503, the section
        shows `The workflow did not move` with `The workflow did not move. Try again.`, the step stays and `rows` still
        reads the old `workflow_status`; after `network restore` the same press moves it. `Change rater` opens a dialog
        with `New rater` and `Last day with current rater` (today, kept within the rating period). Confirming with no
        rater shows `The rater was not changed` with `Choose the new rater and the last day with the current rater.`,
-       which clears once a rater is chosen. Confirming sends one `POST api/rating-scheme/<id>/change-rater` and closes
-       the sheet: the entry reads `CR`, `completed` and ends on the chosen day, and a new `AN` entry for the new rater
-       starts the next day, ends a year later and is Not tracked with no notes. The closed entry is archived with `archived_by` stamped by the database and leaves the default view, so the default shows `7 of 9 shown` and Archived lists it. With
-       `$V network arm-fail PAGE rating-scheme/<id>/change-rater` armed, confirming returns 503, the sheet stays open
+       which clears once a rater is chosen. Confirming sends one `POST api/evaluations/<id>/change-rater` and closes
+       the sheet: the entry reads `CR`, `completed` and ends on the chosen day, keeps the old rater as its signed chain
+       (`snapshot_rater_*`) and stays listed under that rater. The scheme's `rater_*` reads the new rater, and a new
+       `AN` entry on the same scheme starts the next day, ends a year later and is Drafting with no notes, so the
+       default shows `9 of 9 shown`. With
+       `$V network arm-fail PAGE evaluations/<id>/change-rater` armed, confirming returns 503, the sheet stays open
        with `The rater was not changed` and `The rater was not changed. Try again.`, and `rows` still reads the entry
        unchanged with no new entry; after `network restore` confirming again changes the rater
 
-8. **Archive, restore and listing.** With `ratingOperate`, record `$V rows rating_scheme_entries orgA id ID` for the
-   overdue Able entry and the completed NCO entry. At 1440 the default view lists the completed NCO entry (`Completed`
-   workflow and due text) and omits the archived `CR` entry (`7 of 8 shown`). Open Able: the sheet's `Rating scheme`
-   section reads `On the rating scheme` with an `Archive` button. Press it: the section reads `Archived` with
-   `Restore to rating scheme`, `rows` reads `archived_at` set and
-   `archived_by` as the actor's user ID, `workflow_status` unchanged. Close the
-   sheet: `6 of 8 shown`, `5 active` and `0 past thru`. Archive the completed NCO entry the same way: its `workflow_status`
-   stays `completed`. Choose `Archived` in the listing filter (`Evaluation listing filter`; a keyboard ArrowDown and
-   Enter picks it): three rows, each reading `Archived` instead of a due text and rail tone, in Grouped, with
-   `0 past thru` in the header and no urgent tone on the overdue one. Open Able and press `Restore to rating scheme`:
-   `archived_at` and `archived_by` read null and the row returns to the default view. Change rater on the With Rater
-   entry leaves only its successor on the scheme (see the Workflow expectations above). Open the Bravo entry (+25) and
-   press `Mark completed`: the row stays in the default view with `Completed` workflow and due text, and `rows` reads
-   `archived_at` null. Check 1024 and 390 px with the Archived listing: rows keep
-   two lines with `Archived` on the first and nothing clips. Archive Able again: its sheet header reads `Archived` in the
-   muted tone instead of its past-thru line, and the Workflow section offers no `Change rater` while the evaluation is
-   open. Reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
-   `0 past thru, 1 thru in 30 days, 1 thru in 31 to 60 days, 2 current`. The open entries left on the scheme are
-   unassigned (+15), the Officer (+45), the Warrant (+90) and the Change rater successor (a year out).
+8. **Archive, restore and listing.** On a fresh seed with `ratingOperate`, record `$V rows evaluations orgA id ID`
+   and `$V rows rating_schemes orgA rated_person_id PERSON_ID` for the overdue Able entry and the NCO's two entries.
+   At 1440 the default view lists all eight (`8 of 8 shown`). Open Able: the sheet's `Rating scheme` section reads
+   `On the rating scheme` with an `Archive` button. Press it: one `POST api/rating-scheme/<scheme id>/archive`, the
+   section reads `Archived` with `Restore to rating scheme`, the scheme's `archived_at` is set and `archived_by` is the
+   actor's user ID, and the Evaluation's `workflow_status` is unchanged. Close the sheet: `7 of 8 shown`, `5 active` and
+   `0 past thru`. Open the completed NCO entry and archive the same way. That archives the NCO's scheme: the completed
+   entry leaves the default view (`6 of 8 shown`), and the NCO's With Rater entry on the same scheme stays listed with
+   its due text, its sheet reading `Archived · Off the rating scheme. An open evaluation stays on the tracker until it
+is completed.` Choose `Archived` in the listing filter (`Evaluation listing filter`; a keyboard ArrowDown and Enter
+   picks it): two rows, Able and the completed NCO, each reading `Archived` instead of a due text and rail tone, with
+   `0 past thru` in the header and no urgent tone on the overdue one. Reload the Dashboard as `ratingOperate`: Needs you
+   reads `0`. Open Able and press `Restore to rating scheme`: the scheme's `archived_at` and `archived_by` read null,
+   the row returns to the default view, and a Dashboard reload shows Able's Past thru row again. Open the Bravo entry
+   (+25) and press `Mark completed`: the row stays in the default view with `Completed` workflow and due text, and its
+   scheme's `archived_at` reads null. Check 1024 and 390 px with the Archived listing: rows keep two lines with
+   `Archived` on the first and nothing clips. Archive Able again: its sheet header reads `Archived` in the muted tone
+   instead of its past-thru line. The NCO's With Rater sheet offers no `Change rater` while its scheme is archived; the
+   server refuses it too. Reload the Dashboard as `ratingOperate`: Needs you reads `0` and the Evaluations bar reads
+   `0 past thru, 2 thru in 30 days, 1 thru in 31 to 60 days, 1 current`, from unassigned (+15), the NCO's With Rater
+   entry on its archived scheme (+20), the Officer (+45) and the Warrant (+90).
 
-Remove UI-created entries through the owner UI. Compare every original A/B row across all 21 fields, including
-timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any
+Remove UI-created entries through the owner UI. Compare every original A/B scheme and Evaluation row across all saved fields,
+including timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any
 journaled cohort before cleanup; `clean-seeds` removes all of the run's journaled cohorts. For approval-lifetime checks,
 use journaled `deletion-sources` targets so documented cleanup owns their request history. Cancel an already-dispatched
 pending request as its ordinary requester before owner removal; cancellation preserves terminal history until cohort

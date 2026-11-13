@@ -15,9 +15,15 @@ export async function seedDeletionSources({ client, fixture, tag, ownedState, sa
 		const organizationId = fixture.ids[organization];
 		const groupId = fixture.ids[organization === 'orgA' ? 'groupA' : 'groupForeign'];
 		const ids = Object.fromEntries(
-			['personnel', 'parent', 'training_type', 'personnel_training', 'counseling_record', 'rating_scheme_entry'].map(
-				(key) => [key, randomUUID()]
-			)
+			[
+				'personnel',
+				'parent',
+				'training_type',
+				'personnel_training',
+				'counseling_record',
+				'rating_scheme',
+				'evaluation'
+			].map((key) => [key, randomUUID()])
 		);
 		const label = `Deletion ${organization} ${tag}`;
 		sources[organization] = { ...ids, label };
@@ -54,16 +60,29 @@ export async function seedDeletionSources({ client, fixture, tag, ownedState, sa
 			]
 		]);
 		batches.push([
-			'rating_scheme_entries',
+			'rating_schemes',
 			organization,
 			[
 				{
-					id: ids.rating_scheme_entry,
+					id: ids.rating_scheme,
 					organization_id: organizationId,
 					rated_person_id: ids.parent,
 					eval_type: 'NCOER',
 					rater_name: 'Synthetic Rater',
-					senior_rater_name: 'Synthetic Senior Rater',
+					senior_rater_name: 'Synthetic Senior Rater'
+				}
+			]
+		]);
+		batches.push([
+			'evaluations',
+			organization,
+			[
+				{
+					id: ids.evaluation,
+					organization_id: organizationId,
+					rating_scheme_id: ids.rating_scheme,
+					rated_person_id: ids.parent,
+					eval_type: 'NCOER',
 					rating_period_start: '2026-01-01',
 					rating_period_end: '2026-12-31',
 					notes: label

@@ -33,10 +33,10 @@ describe('approved Rating Scheme deletion', () => {
 		const { port, rpc } = provider();
 
 		await expect(
-			port.approveRatingSchemeEntryDeletion(
+			port.approveEvaluationDeletion(
 				reviewer('admin', ['evaluations']),
 				'request-1',
-				'entry-1',
+				'evaluation-1',
 				'2030-02-01T00:00:00.000Z'
 			)
 		).rejects.toMatchObject({
@@ -47,10 +47,10 @@ describe('approved Rating Scheme deletion', () => {
 		expect(rpc).not.toHaveBeenCalled();
 	});
 
-	it('lets an Organization reviewer without a Rating lane delete the bound entry and approve in one command', async () => {
+	it('lets an Organization reviewer without a Rating lane delete the bound Evaluation and approve in one command', async () => {
 		const { port, rpc } = provider();
 
-		await port.approveRatingSchemeEntryDeletion(reviewer(), 'request-1', 'entry-1', '2030-02-01T00:00:00.000Z');
+		await port.approveEvaluationDeletion(reviewer(), 'request-1', 'evaluation-1', '2030-02-01T00:00:00.000Z');
 
 		expect(rpc.mock.calls).toEqual([
 			[
@@ -58,8 +58,8 @@ describe('approved Rating Scheme deletion', () => {
 				{
 					p_organization_id: 'org-1',
 					p_request_id: 'request-1',
-					p_resource_type: 'rating_scheme_entry',
-					p_resource_id: 'entry-1',
+					p_resource_type: 'evaluation',
+					p_resource_id: 'evaluation-1',
 					p_reviewer_id: 'reviewer-1',
 					p_reviewed_at: '2030-02-01T00:00:00.000Z'
 				}
@@ -67,20 +67,20 @@ describe('approved Rating Scheme deletion', () => {
 		]);
 	});
 
-	it('reports a foreign or missing entry as not found and propagates other failures', async () => {
+	it('reports a foreign or missing Evaluation as not found and propagates other failures', async () => {
 		await expect(
-			provider({ code: 'P0002', message: 'Deletion target not found' }).port.approveRatingSchemeEntryDeletion(
+			provider({ code: 'P0002', message: 'Deletion target not found' }).port.approveEvaluationDeletion(
 				reviewer(),
 				'request-1',
-				'foreign-entry',
+				'foreign-evaluation',
 				'2030-02-01T00:00:00.000Z'
 			)
 		).rejects.toMatchObject({ status: 404, message: 'Deletion target not found' });
 		await expect(
-			provider({ message: 'delete unavailable' }).port.approveRatingSchemeEntryDeletion(
+			provider({ message: 'delete unavailable' }).port.approveEvaluationDeletion(
 				reviewer(),
 				'request-1',
-				'entry-1',
+				'evaluation-1',
 				'2030-02-01T00:00:00.000Z'
 			)
 		).rejects.toThrow('delete unavailable');
@@ -89,7 +89,7 @@ describe('approved Rating Scheme deletion', () => {
 	it('denies an ordinary member before service access despite Rating configure', async () => {
 		const { port, getAdminClient } = provider();
 		await expect(
-			port.approveRatingSchemeEntryDeletion(reviewer('member'), 'request-1', 'entry-1', '2030-02-01T00:00:00.000Z')
+			port.approveEvaluationDeletion(reviewer('member'), 'request-1', 'evaluation-1', '2030-02-01T00:00:00.000Z')
 		).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient.mock.calls).toEqual([]);
 	});

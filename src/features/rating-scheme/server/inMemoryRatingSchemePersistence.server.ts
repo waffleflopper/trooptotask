@@ -1,13 +1,22 @@
 import { fail } from '$lib/errors';
-import type { RatingSchemePersistence } from '../contracts';
+import type { Evaluation, EvaluatorChain, RatingScheme, RatingSchemePersistence } from '../contracts';
 import { isEvaluationCompleted, isWorkflowMoveAllowed, workflowRoles } from '../utils/evaluationWorkflow';
+import { isEvaluationOpen } from '../utils/ratingSchemeEntries';
 import { calculateThruDate } from '../utils/ratingScheme';
 import { formatDate, parseDate } from '$lib/utils/dates';
-import { EVALUATION_GONE, EVALUATION_MOVED } from './ratingSchemeLifecycleFailure.server';
 import {
-	mapRatingSchemeEntry,
+	EVALUATION_GONE,
+	EVALUATION_MOVED,
+	RATING_SCHEME_GONE,
+	RATING_SCHEME_TAKEN
+} from './ratingSchemeLifecycleFailure.server';
+import {
+	evaluationPatchValues,
+	mapEvaluation,
+	mapRatingScheme,
 	ratingSchemeCreateValues,
 	ratingSchemePatchValues,
+	type EvaluationRow,
 	type RatingSchemeRow
 } from './ratingSchemeEntryMapping.server';
 
@@ -30,144 +39,243 @@ interface RatingSchemeMemoryStore {
 	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;
 }
 
+const SCHEMES = 'rating_schemes';
+const EVALUATIONS = 'evaluations';
+const OPEN_ELSEWHERE = 'Another evaluation is already open on this rating scheme';
+
+function snapshotValues(chain: EvaluatorChain | null) {
+	return {
+		chain_snapshot_at: chain ? new Date().toISOString() : null,
+		snapshot_rater_person_id: chain?.raterPersonId ?? null,
+		snapshot_rater_name: chain?.raterName ?? null,
+		snapshot_senior_rater_person_id: chain?.seniorRaterPersonId ?? null,
+		snapshot_senior_rater_name: chain?.seniorRaterName ?? null,
+		snapshot_intermediate_rater_person_id: chain?.intermediateRaterPersonId ?? null,
+		snapshot_intermediate_rater_name: chain?.intermediateRaterName ?? null,
+		snapshot_reviewer_person_id: chain?.reviewerPersonId ?? null,
+		snapshot_reviewer_name: chain?.reviewerName ?? null
+	};
+}
+
+function sameRater(scheme: RatingScheme, raterPersonId: string | null, raterName: string | null): boolean {
+	if (raterPersonId !== null) return raterPersonId === scheme.raterPersonId;
+	return scheme.raterPersonId === null && raterName?.trim().toLowerCase() === scheme.raterName?.trim().toLowerCase();
+}
+
+/** Holds the database's rules: one listed scheme per person, one open Evaluation per scheme, a signed chain on completion. */
 export function createInMemoryRatingSchemePersistence(
 	store: RatingSchemeMemoryStore,
 	orgId: string
 ): RatingSchemePersistence {
-	async function findEntry(id: string) {
-		const row = await store.findOne<RatingSchemeRow>('rating_scheme_entries', orgId, { id });
-		if (!row) return fail(404, EVALUATION_GONE);
-		return mapRatingSchemeEntry(row);
+	async function findScheme(id: string): Promise<RatingScheme | null> {
+		const row = await store.findOne<RatingSchemeRow>(SCHEMES, orgId, { id });
+		return row ? mapRatingScheme(row) : null;
+	}
+
+	async function requireScheme(id: string): Promise<RatingScheme> {
+		return (await findScheme(id)) ?? fail(404, RATING_SCHEME_GONE);
+	}
+
+	async function requireEvaluation(id: string): Promise<Evaluation> {
+		const row = await store.findOne<EvaluationRow>(EVALUATIONS, orgId, { id });
+		return row ? mapEvaluation(row) : fail(404, EVALUATION_GONE);
+	}
+
+	async function schemeEvaluations(ratingSchemeId: string): Promise<Evaluation[]> {
+		return (await store.findMany<EvaluationRow>(EVALUATIONS, orgId, { rating_scheme_id: ratingSchemeId })).map(
+			mapEvaluation
+		);
+	}
+
+	async function requireNoOtherListed(ratedPersonId: string, exceptId?: string): Promise<void> {
+		const listed = (await store.findMany<RatingSchemeRow>(SCHEMES, orgId, { rated_person_id: ratedPersonId })).some(
+			(row) => row.archived_at === null && row.id !== exceptId
+		);
+		if (listed) fail(409, RATING_SCHEME_TAKEN);
+	}
+
+	async function listSchemes(filters?: Record<string, unknown>) {
+		return (
+			await store.findMany<RatingSchemeRow>(SCHEMES, orgId, filters, {
+				orderBy: [{ column: 'id', ascending: true }]
+			})
+		).map(mapRatingScheme);
+	}
+
+	async function listEvaluations(filters?: Record<string, unknown>, ascending = true) {
+		return (
+			await store.findMany<EvaluationRow>(EVALUATIONS, orgId, filters, {
+				orderBy: [
+					{ column: 'rating_period_end', ascending },
+					{ column: 'id', ascending }
+				]
+			})
+		).map(mapEvaluation);
 	}
 
 	return {
-		async listWorkspace() {
-			return (
-				await store.findMany<RatingSchemeRow>('rating_scheme_entries', orgId, undefined, {
-					orderBy: [
-						{ column: 'rating_period_end', ascending: true },
-						{ column: 'id', ascending: true }
-					]
-				})
-			).map(mapRatingSchemeEntry);
-		},
-		async findWriteReference(id) {
-			const row = await store.findOne<RatingSchemeRow>('rating_scheme_entries', orgId, { id });
-			return row
-				? {
-						ratedPersonId: row.rated_person_id,
-						raterPersonId: row.rater_person_id,
-						seniorRaterPersonId: row.senior_rater_person_id,
-						intermediateRaterPersonId: row.intermediate_rater_person_id,
-						reviewerPersonId: row.reviewer_person_id
-					}
-				: null;
+		listRatingSchemes: () => listSchemes(),
+		listEvaluations: () => listEvaluations(),
+		findRatingScheme: findScheme,
+		async findEvaluationReference(id) {
+			const row = await store.findOne<EvaluationRow>(EVALUATIONS, orgId, { id });
+			if (!row) return null;
+			const scheme = await findScheme(row.rating_scheme_id);
+			return {
+				ratingSchemeId: row.rating_scheme_id,
+				ratedPersonId: row.rated_person_id,
+				raterPersonId: scheme?.raterPersonId ?? null
+			};
 		},
 		async listPersonReadiness(personnelId) {
-			return (
-				await store.findMany<RatingSchemeRow>(
-					'rating_scheme_entries',
-					orgId,
-					{ rated_person_id: personnelId },
-					{
-						orderBy: [
-							{ column: 'rating_period_end', ascending: false },
-							{ column: 'id', ascending: false }
-						]
-					}
-				)
-			).map(mapRatingSchemeEntry);
+			const [ratingSchemes, evaluations] = await Promise.all([
+				listSchemes({ rated_person_id: personnelId }),
+				listEvaluations({ rated_person_id: personnelId }, false)
+			]);
+			return { ratingSchemes, evaluations };
 		},
-		async countEntries() {
-			const result = await store.findManyWithCount('rating_scheme_entries', orgId, undefined, {
+		async countRatingSchemes() {
+			const result = await store.findManyWithCount(SCHEMES, orgId, undefined, {
 				select: 'id',
 				limit: 0,
 				count: 'exact'
 			});
 			return result.count ?? 0;
 		},
-		async create(input) {
-			return mapRatingSchemeEntry(
-				await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, ratingSchemeCreateValues(input))
+		async createRatingScheme(input) {
+			await requireNoOtherListed(input.ratedPersonId);
+			return mapRatingScheme(
+				await store.insert<RatingSchemeRow>(SCHEMES, orgId, { ...ratingSchemeCreateValues(input), archived_at: null })
 			);
 		},
-		async update(id, patch) {
-			if (!(await store.findOne('rating_scheme_entries', orgId, { id }))) return null;
-			return mapRatingSchemeEntry(
-				await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, ratingSchemePatchValues(patch))
-			);
+		async updateRatingScheme(id, patch) {
+			const scheme = await findScheme(id);
+			if (!scheme) return null;
+			const values = ratingSchemePatchValues(patch);
+			const raterChanges =
+				(values.rater_person_id !== undefined && values.rater_person_id !== scheme.raterPersonId) ||
+				(values.rater_name !== undefined && values.rater_name !== scheme.raterName);
+			if (raterChanges && (await schemeEvaluations(id)).some((row) => isEvaluationOpen(row.workflowStatus))) {
+				fail(409, 'Change the rater of an open evaluation with Change rater');
+			}
+			if (values.rated_person_id !== undefined && values.rated_person_id !== scheme.ratedPersonId) {
+				if (scheme.archivedAt === null) await requireNoOtherListed(values.rated_person_id, id);
+				for (const evaluation of await schemeEvaluations(id)) {
+					await store.update(EVALUATIONS, orgId, evaluation.id, { rated_person_id: values.rated_person_id });
+				}
+			}
+			return mapRatingScheme(await store.update<RatingSchemeRow>(SCHEMES, orgId, id, values));
 		},
-		delete(id) {
-			return store.deleteWhere('rating_scheme_entries', orgId, { id });
-		},
-		async transition(id, { from, to }) {
-			const entry = await findEntry(id);
-			if (entry.workflowStatus === to) return { entry, moved: false };
-			if (entry.workflowStatus !== from || !isWorkflowMoveAllowed(entry.workflowStatus, to, workflowRoles(entry)))
-				return fail(409, EVALUATION_MOVED);
-			const moved = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, { workflow_status: to });
-			return { entry: mapRatingSchemeEntry(moved), moved: true };
-		},
-		async setArchived(id, archived) {
-			const entry = await findEntry(id);
-			if ((entry.archivedAt !== null) === archived) return { entry, changed: false };
-			const row = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, {
+		async setRatingSchemeArchived(id, archived) {
+			const scheme = await requireScheme(id);
+			if ((scheme.archivedAt !== null) === archived) return { ratingScheme: scheme, changed: false };
+			if (!archived) await requireNoOtherListed(scheme.ratedPersonId, id);
+			const row = await store.update<RatingSchemeRow>(SCHEMES, orgId, id, {
 				archived_at: archived ? new Date().toISOString() : null
 			});
-			return { entry: mapRatingSchemeEntry(row), changed: true };
+			return { ratingScheme: mapRatingScheme(row), changed: true };
 		},
-		async changeRater(id, change) {
-			const entry = await findEntry(id);
+		async startEvaluation(ratingSchemeId, start) {
+			if (start.ratingPeriodEnd < start.ratingPeriodStart) {
+				fail(400, 'Choose a rating period that ends on or after it starts');
+			}
+			const scheme = await requireScheme(ratingSchemeId);
+			if (scheme.archivedAt !== null) fail(409, 'The rating scheme is archived');
+			if (!start.completed) {
+				const open = (await schemeEvaluations(ratingSchemeId)).find((row) => isEvaluationOpen(row.workflowStatus));
+				if (open) {
+					const replay =
+						open.reportType === start.reportType &&
+						open.ratingPeriodStart === start.ratingPeriodStart &&
+						open.ratingPeriodEnd === start.ratingPeriodEnd;
+					return replay ? { evaluation: open, created: false } : fail(409, OPEN_ELSEWHERE);
+				}
+			}
+			const row = await store.insert<EvaluationRow>(EVALUATIONS, orgId, {
+				rating_scheme_id: scheme.id,
+				rated_person_id: scheme.ratedPersonId,
+				eval_type: scheme.evalType,
+				report_type: start.reportType,
+				rating_period_start: start.ratingPeriodStart,
+				rating_period_end: start.ratingPeriodEnd,
+				workflow_status: start.completed ? 'completed' : 'drafting',
+				notes: start.notes,
+				...snapshotValues(start.completed ? scheme : null)
+			});
+			return { evaluation: mapEvaluation(row), created: true };
+		},
+		async updateEvaluation(id, patch) {
+			if (!(await store.findOne(EVALUATIONS, orgId, { id }))) return null;
+			return mapEvaluation(await store.update<EvaluationRow>(EVALUATIONS, orgId, id, evaluationPatchValues(patch)));
+		},
+		deleteEvaluation(id) {
+			return store.deleteWhere(EVALUATIONS, orgId, { id });
+		},
+		async transitionEvaluation(id, { from, to }) {
+			const evaluation = await requireEvaluation(id);
+			if (evaluation.workflowStatus === to) return { evaluation, moved: false };
+			const scheme = await requireScheme(evaluation.ratingSchemeId);
+			const chain = evaluation.signedChain ?? scheme;
+			if (evaluation.workflowStatus !== from || !isWorkflowMoveAllowed(from, to, workflowRoles(chain))) {
+				return fail(409, EVALUATION_MOVED);
+			}
+			if (!isEvaluationOpen(from) && isEvaluationOpen(to)) {
+				const others = await schemeEvaluations(scheme.id);
+				if (others.some((row) => row.id !== id && isEvaluationOpen(row.workflowStatus))) fail(409, OPEN_ELSEWHERE);
+			}
+			const signed = isEvaluationCompleted(to)
+				? snapshotValues(evaluation.signedChain ?? scheme)
+				: isEvaluationCompleted(from)
+					? snapshotValues(null)
+					: {};
+			const row = await store.update<EvaluationRow>(EVALUATIONS, orgId, id, { workflow_status: to, ...signed });
+			return { evaluation: mapEvaluation(row), moved: true };
+		},
+		async changeEvaluationRater(id, change) {
+			const evaluation = await requireEvaluation(id);
+			const scheme = await requireScheme(evaluation.ratingSchemeId);
 			const next = parseDate(change.changeDate);
 			next.setDate(next.getDate() + 1);
 			const start = formatDate(next);
-			if (isEvaluationCompleted(entry.workflowStatus)) {
-				const replay = entry.reportType === 'CR' && entry.ratingPeriodEnd === change.changeDate;
-				const candidates = replay
-					? await store.findMany<RatingSchemeRow>('rating_scheme_entries', orgId, {
-							rated_person_id: entry.ratedPersonId,
-							eval_type: entry.evalType,
-							rating_period_start: start
-						})
-					: [];
-				const successor = candidates.find((row) =>
-					change.raterPersonId !== null
-						? row.rater_person_id === change.raterPersonId
-						: row.rater_person_id === null &&
-							row.rater_name?.trim().toLowerCase() === change.raterName?.trim().toLowerCase()
-				);
-				return { entry, successor: successor ? mapRatingSchemeEntry(successor) : null };
+			const same = sameRater(scheme, change.raterPersonId, change.raterName);
+			if (isEvaluationCompleted(evaluation.workflowStatus)) {
+				const replay = evaluation.reportType === 'CR' && evaluation.ratingPeriodEnd === change.changeDate && same;
+				const successor = replay
+					? (await schemeEvaluations(scheme.id)).find((row) => row.ratingPeriodStart === start)
+					: undefined;
+				return { evaluation, ratingScheme: scheme, successor: successor ?? null };
 			}
-			if (entry.archivedAt !== null) return fail(409, EVALUATION_MOVED);
-			const sameExternalRater =
-				change.raterPersonId === null &&
-				entry.raterPersonId === null &&
-				change.raterName?.trim().toLowerCase() === entry.raterName?.trim().toLowerCase();
-			if ((change.raterPersonId !== null && change.raterPersonId === entry.raterPersonId) || sameExternalRater) {
-				return fail(400, "The new rater is already this evaluation's rater");
-			}
-			if (change.changeDate < entry.ratingPeriodStart || change.changeDate > entry.ratingPeriodEnd) {
+			if (scheme.archivedAt !== null) return fail(409, 'The rating scheme is archived');
+			if (same) return fail(400, "The new rater is already this evaluation's rater");
+			if (change.changeDate < evaluation.ratingPeriodStart || change.changeDate > evaluation.ratingPeriodEnd) {
 				return fail(400, 'The last day with the current rater must fall within the rating period');
 			}
-			const closed = await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, {
+			const closed = await store.update<EvaluationRow>(EVALUATIONS, orgId, id, {
 				rating_period_end: change.changeDate,
 				report_type: 'CR',
 				workflow_status: 'completed',
-				archived_at: new Date().toISOString()
+				...snapshotValues(evaluation.signedChain ?? scheme)
 			});
-			const successor = await store.insert<RatingSchemeRow>('rating_scheme_entries', orgId, {
-				...ratingSchemeCreateValues({
-					...entry,
-					notes: null,
-					reportType: 'AN',
-					ratingPeriodStart: start,
-					ratingPeriodEnd: start
-				}),
+			const renamed = await store.update<RatingSchemeRow>(SCHEMES, orgId, scheme.id, {
 				rater_person_id: change.raterPersonId,
-				rater_name: change.raterName,
-				rating_period_end: calculateThruDate('AN', start)
+				rater_name: change.raterName?.trim() || null
 			});
-			return { entry: mapRatingSchemeEntry(closed), successor: mapRatingSchemeEntry(successor) };
+			const successor = await store.insert<EvaluationRow>(EVALUATIONS, orgId, {
+				rating_scheme_id: scheme.id,
+				rated_person_id: scheme.ratedPersonId,
+				eval_type: scheme.evalType,
+				report_type: 'AN',
+				rating_period_start: start,
+				rating_period_end: calculateThruDate('AN', start),
+				workflow_status: 'drafting',
+				notes: null,
+				...snapshotValues(null)
+			});
+			return {
+				evaluation: mapEvaluation(closed),
+				ratingScheme: mapRatingScheme(renamed),
+				successor: mapEvaluation(successor)
+			};
 		}
 	};
 }

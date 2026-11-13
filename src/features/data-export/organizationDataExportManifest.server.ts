@@ -197,7 +197,8 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	),
 	section('personnelOnboardings', 'Personnel Onboardings', 'personnel_onboardings', 'onboarding', 'Onboarding'),
 	section('onboardingStepProgress', 'Onboarding Step Progress', 'onboarding_step_progress', 'onboarding', 'Onboarding'),
-	section('ratingSchemeEntries', 'Rating Scheme Entries', 'rating_scheme_entries', 'rating-scheme', 'Evals')
+	section('ratingSchemes', 'Rating Schemes', 'rating_schemes', 'rating-scheme', 'Evals'),
+	section('evaluations', 'Evaluations', 'evaluations', 'rating-scheme', 'Evals')
 ] as const;
 
 export type OrganizationDataExportSectionKey = (typeof ORGANIZATION_DATA_EXPORT_SECTIONS)[number]['key'];
@@ -466,21 +467,40 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 		name: 'Rating Scheme',
 		areaKey: 'rating-scheme',
 		rows: (sections, labels) =>
-			(sections.ratingSchemeEntries ?? []).map((entry) => ({
-				person: lookup(labels.personnel, entry.rated_person_id),
-				eval_type: entry.eval_type,
-				report_type: entry.report_type,
-				rater: lookup(labels.personnel, entry.rater_person_id) || entry.rater_name,
-				senior_rater: lookup(labels.personnel, entry.senior_rater_person_id) || entry.senior_rater_name,
-				intermediate_rater:
-					lookup(labels.personnel, entry.intermediate_rater_person_id) || entry.intermediate_rater_name,
-				reviewer: lookup(labels.personnel, entry.reviewer_person_id) || entry.reviewer_name,
-				rating_period_start: entry.rating_period_start,
-				rating_period_end: entry.rating_period_end,
-				workflow_status: entry.workflow_status,
-				archived_at: entry.archived_at,
-				notes: entry.notes
+			(sections.ratingSchemes ?? []).map((scheme) => ({
+				person: lookup(labels.personnel, scheme.rated_person_id),
+				eval_type: scheme.eval_type,
+				rater: evaluator(labels, scheme.rater_person_id, scheme.rater_name),
+				senior_rater: evaluator(labels, scheme.senior_rater_person_id, scheme.senior_rater_name),
+				intermediate_rater: evaluator(labels, scheme.intermediate_rater_person_id, scheme.intermediate_rater_name),
+				reviewer: evaluator(labels, scheme.reviewer_person_id, scheme.reviewer_name),
+				archived_at: scheme.archived_at,
+				notes: scheme.notes
 			}))
+	},
+	{
+		name: 'Evaluations',
+		areaKey: 'rating-scheme',
+		rows: (sections, labels) => {
+			const schemes = new Map((sections.ratingSchemes ?? []).map((scheme) => [scheme.id, scheme]));
+			return (sections.evaluations ?? []).map((evaluation) => {
+				const chain = evaluation.chain_snapshot_at ? signedChain(evaluation) : schemes.get(evaluation.rating_scheme_id);
+				return {
+					person: lookup(labels.personnel, evaluation.rated_person_id),
+					eval_type: evaluation.eval_type,
+					report_type: evaluation.report_type,
+					rating_period_start: evaluation.rating_period_start,
+					rating_period_end: evaluation.rating_period_end,
+					workflow_status: evaluation.workflow_status,
+					rater: evaluator(labels, chain?.rater_person_id, chain?.rater_name),
+					senior_rater: evaluator(labels, chain?.senior_rater_person_id, chain?.senior_rater_name),
+					intermediate_rater: evaluator(labels, chain?.intermediate_rater_person_id, chain?.intermediate_rater_name),
+					reviewer: evaluator(labels, chain?.reviewer_person_id, chain?.reviewer_name),
+					chain_signed_at: evaluation.chain_snapshot_at,
+					notes: evaluation.notes
+				};
+			});
+		}
 	},
 	{ name: 'Critical Tasks', areaKey: 'critical-tasks', rows: (sections) => sections.ictTasks ?? [] },
 	{
@@ -521,6 +541,21 @@ function memberEmails(sections: OrganizationDataExportSections): Map<string, str
 
 function taskingTitles(sections: OrganizationDataExportSections): Map<string, string> {
 	return new Map((sections.calendarTaskings ?? []).map((tasking) => [String(tasking.id), String(tasking.title)]));
+}
+
+/** A completed Evaluation's signed chain, keyed like a scheme's live chain. */
+function signedChain(evaluation: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(
+		['rater', 'senior_rater', 'intermediate_rater', 'reviewer'].flatMap((role) => [
+			[`${role}_person_id`, evaluation[`snapshot_${role}_person_id`]],
+			[`${role}_name`, evaluation[`snapshot_${role}_name`]]
+		])
+	);
+}
+
+/** An evaluator's personnel label, else the name kept beside the link, else the id as a last resort. */
+function evaluator(labels: OrganizationDataExportLabels, personId: unknown, name: unknown): unknown {
+	return (typeof personId === 'string' && labels.personnel.get(personId)) || name || personId;
 }
 
 function lookup(labels: Map<string, string>, value: unknown): string {

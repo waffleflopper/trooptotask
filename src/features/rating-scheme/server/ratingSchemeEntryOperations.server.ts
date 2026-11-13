@@ -9,34 +9,54 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { PersonnelRatingSchemeRosterPort, PersonnelWriteSubject } from '$features/personnel/contracts';
 import type {
+	Evaluation,
+	EvaluatorChain,
+	EvaluationStartResult,
+	EvaluationTransition,
+	EvaluationWriteReference,
+	RatingScheme,
 	RatingSchemeArchiveResult,
 	RatingSchemePersistence,
 	RatingSchemePatchValues,
-	RatingSchemeRaterChangeResult,
-	RatingSchemeTransition,
-	RatingSchemeWriteReference,
-	SavedRatingSchemeEntry
+	RatingSchemeRaterChangeResult
 } from '../contracts';
 import {
+	evaluationStartSchema,
+	evaluationUpdateSchema,
 	ratingSchemeArchiveSchema,
-	ratingSchemeEntryCreateSchema,
-	ratingSchemeEntryUpdateSchema,
+	ratingSchemeCreateSchema,
 	ratingSchemeRaterChangeSchema,
-	ratingSchemeTransitionSchema
+	ratingSchemeTransitionSchema,
+	ratingSchemeUpdateSchema
 } from './ratingSchemeEntryMapping.server';
+import { EVALUATION_GONE, RATING_SCHEME_GONE } from './ratingSchemeLifecycleFailure.server';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
 import { RequestFailure } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
-export { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
+export {
+	evaluationStartSchema,
+	evaluationUpdateSchema,
+	ratingSchemeCreateSchema,
+	ratingSchemeUpdateSchema
+} from './ratingSchemeEntryMapping.server';
 
 export interface RatingSchemeEntryWriteContext {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;
 	readonly ratingScheme: Pick<
 		RatingSchemePersistence,
-		'findWriteReference' | 'create' | 'update' | 'delete' | 'transition' | 'changeRater' | 'setArchived'
+		| 'findRatingScheme'
+		| 'findEvaluationReference'
+		| 'createRatingScheme'
+		| 'updateRatingScheme'
+		| 'setRatingSchemeArchived'
+		| 'startEvaluation'
+		| 'updateEvaluation'
+		| 'deleteEvaluation'
+		| 'transitionEvaluation'
+		| 'changeEvaluationRater'
 	>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
@@ -45,7 +65,7 @@ export interface RatingSchemeEntryWriteContext {
 }
 
 export interface RatingSchemeEntryDeleteContext extends RatingSchemeEntryWriteContext {
-	readonly notifyRatingSchemeEntryDeleted: () => Promise<void>;
+	readonly notifyEvaluationDeleted: () => Promise<void>;
 }
 
 const AUDIT_RESOURCE = 'rating_scheme';
@@ -86,19 +106,24 @@ async function policyResourceForRatedPerson(
 	return policyResourceForGroup((await ratedPersonForWrite(ctx, personnelId, denialAction)).groupId);
 }
 
-async function findRatingSchemeEntry(
-	ctx: RatingSchemeEntryWriteContext,
-	id: string
-): Promise<RatingSchemeWriteReference> {
-	const entry = await ctx.ratingScheme.findWriteReference(id);
-	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
-	return entry;
+async function findRatingScheme(ctx: RatingSchemeEntryWriteContext, id: string): Promise<RatingScheme> {
+	if (!validateUUID(id)) throw new RequestFailure(404, RATING_SCHEME_GONE);
+	const scheme = await ctx.ratingScheme.findRatingScheme(id);
+	if (!scheme) throw new RequestFailure(404, RATING_SCHEME_GONE);
+	return scheme;
+}
+
+async function findEvaluation(ctx: RatingSchemeEntryWriteContext, id: string): Promise<EvaluationWriteReference> {
+	if (!validateUUID(id)) throw new RequestFailure(404, EVALUATION_GONE);
+	const evaluation = await ctx.ratingScheme.findEvaluationReference(id);
+	if (!evaluation) throw new RequestFailure(404, EVALUATION_GONE);
+	return evaluation;
 }
 
 async function requireEvaluatorReferences(
 	ctx: RatingSchemeEntryWriteContext,
 	patch: RatingSchemePatchValues,
-	current?: RatingSchemeWriteReference
+	current?: Partial<EvaluatorChain>
 ): Promise<void> {
 	const ids = evaluatorFields.flatMap((field) => {
 		const id = patch[field];
@@ -130,104 +155,136 @@ async function requireRatingSchemeUpdatePolicy(
 	);
 }
 
-async function requireRatingSchemeEntryDeletionRequestPolicy(
-	ctx: RatingSchemeEntryWriteContext,
-	id: string
-): Promise<void> {
+async function requireEvaluationDeletionRequestPolicy(ctx: RatingSchemeEntryWriteContext, id: string): Promise<void> {
+	const action = POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion;
+	const { ratedPersonId } = await findEvaluation(ctx, id);
 	await requireFeaturePolicy(
 		ctx,
-		POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
-		await policyResourceForRatedPerson(
-			ctx,
-			(await findRatingSchemeEntry(ctx, id)).ratedPersonId,
-			POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion
-		),
+		action,
+		await policyResourceForRatedPerson(ctx, ratedPersonId, action),
 		AUDIT_RESOURCE,
 		id
 	);
 }
 
-export async function createRatingSchemeEntry(
+async function requireRatedPersonUpdatePolicy(
+	ctx: RatingSchemeEntryWriteContext,
+	ratedPersonId: string,
+	resourceId: string
+): Promise<void> {
+	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, ratedPersonId), resourceId);
+}
+
+/** Lists a Rated Individual's rating chain; the person may have no other listed scheme. */
+export async function createRatingScheme(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
-): Promise<SavedRatingSchemeEntry> {
-	const validated = parseEntryInput(ratingSchemeEntryCreateSchema, data);
+): Promise<RatingScheme> {
+	const validated = parseEntryInput(ratingSchemeCreateSchema, data);
 	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, validated.ratedPersonId));
-
 	await requireEvaluatorReferences(ctx, validated);
-	const entry = await ctx.ratingScheme.create(validated);
-
-	return entry;
+	return ctx.ratingScheme.createRatingScheme(validated);
 }
 
-export async function updateRatingSchemeEntry(
+/** Changes the chain in one place. The rater of an open Evaluation changes only through Change rater. */
+export async function updateRatingScheme(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
-): Promise<SavedRatingSchemeEntry> {
-	const { id, ...validated } = parseEntryInput(ratingSchemeEntryUpdateSchema, data);
-
-	const current = await findRatingSchemeEntry(ctx, id);
-	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.ratedPersonId), id);
-	if (validated.ratedPersonId !== undefined) {
-		await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, validated.ratedPersonId), id);
-	}
-
+): Promise<RatingScheme> {
+	const { id, ...validated } = parseEntryInput(ratingSchemeUpdateSchema, data);
+	const current = await findRatingScheme(ctx, id);
+	await requireRatedPersonUpdatePolicy(ctx, current.ratedPersonId, id);
+	if (validated.ratedPersonId !== undefined) await requireRatedPersonUpdatePolicy(ctx, validated.ratedPersonId, id);
 	await requireEvaluatorReferences(ctx, validated, current);
-	const entry = await ctx.ratingScheme.update(id, validated);
-	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
-
-	return entry;
+	const scheme = await ctx.ratingScheme.updateRatingScheme(id, validated);
+	if (!scheme) throw new RequestFailure(404, RATING_SCHEME_GONE);
+	return scheme;
 }
 
-async function requireEntryUpdatePolicy(
-	ctx: RatingSchemeEntryWriteContext,
-	id: string
-): Promise<RatingSchemeWriteReference> {
-	if (!validateUUID(id)) throw new RequestFailure(404, 'Rating Scheme entry not found');
-	const current = await findRatingSchemeEntry(ctx, id);
-	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.ratedPersonId), id);
-	return current;
-}
-
-/** Moves an evaluation to another present step; the database refuses any other move. */
-export async function transitionRatingSchemeEntry(
-	ctx: RatingSchemeEntryWriteContext,
-	id: string,
-	data: Record<string, unknown>
-): Promise<RatingSchemeTransition> {
-	const move = parseEntryInput(ratingSchemeTransitionSchema, data);
-	await requireEntryUpdatePolicy(ctx, id);
-	return ctx.ratingScheme.transition(id, move);
-}
-
-/** Takes an evaluation off the rating scheme or puts it back, whatever step it has reached. */
-export async function setRatingSchemeEntryArchived(
+/** Takes a scheme off the rating scheme or puts it back; its open Evaluation stays on the tracker until it completes. */
+export async function setRatingSchemeArchived(
 	ctx: RatingSchemeEntryWriteContext,
 	id: string,
 	data: Record<string, unknown>
 ): Promise<RatingSchemeArchiveResult> {
 	const { archived } = parseEntryInput(ratingSchemeArchiveSchema, data);
-	await requireEntryUpdatePolicy(ctx, id);
-	return ctx.ratingScheme.setArchived(id, archived);
+	await requireRatedPersonUpdatePolicy(ctx, (await findRatingScheme(ctx, id)).ratedPersonId, id);
+	return ctx.ratingScheme.setRatingSchemeArchived(id, archived);
 }
 
-/** Completes the evaluation as a Change of Rater report and opens the next one for the new rater. */
-export async function changeRatingSchemeRater(
+/** Opens the next Evaluation at Drafting with the scheme's chain, or records one already completed. */
+export async function startEvaluation(
+	ctx: RatingSchemeEntryWriteContext,
+	ratingSchemeId: string,
+	data: Record<string, unknown>
+): Promise<EvaluationStartResult> {
+	const start = parseEntryInput(evaluationStartSchema, data);
+	await requireRatedPersonUpdatePolicy(
+		ctx,
+		(await findRatingScheme(ctx, ratingSchemeId)).ratedPersonId,
+		ratingSchemeId
+	);
+	return ctx.ratingScheme.startEvaluation(ratingSchemeId, start);
+}
+
+/** Saves an Evaluation's type, report, period and notes; its step and chain move through their own actions. */
+export async function updateEvaluation(
+	ctx: RatingSchemeEntryWriteContext,
+	data: Record<string, unknown>
+): Promise<Evaluation> {
+	const { id, evalType, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(
+		evaluationUpdateSchema,
+		data
+	);
+	await requireRatedPersonUpdatePolicy(ctx, (await findEvaluation(ctx, id)).ratedPersonId, id);
+	const evaluation = await ctx.ratingScheme.updateEvaluation(id, {
+		evalType,
+		reportType: reportType as Evaluation['reportType'] | undefined,
+		ratingPeriodStart,
+		ratingPeriodEnd,
+		notes
+	});
+	if (!evaluation) throw new RequestFailure(404, EVALUATION_GONE);
+	return evaluation;
+}
+
+async function requireEvaluationUpdatePolicy(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string
+): Promise<EvaluationWriteReference> {
+	const current = await findEvaluation(ctx, id);
+	await requireRatedPersonUpdatePolicy(ctx, current.ratedPersonId, id);
+	return current;
+}
+
+/** Moves an evaluation to another present step; the database refuses any other move. */
+export async function transitionEvaluation(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string,
+	data: Record<string, unknown>
+): Promise<EvaluationTransition> {
+	const move = parseEntryInput(ratingSchemeTransitionSchema, data);
+	await requireEvaluationUpdatePolicy(ctx, id);
+	return ctx.ratingScheme.transitionEvaluation(id, move);
+}
+
+/** Completes the evaluation as a Change of Rater report, gives the scheme the new rater and opens the next one. */
+export async function changeEvaluationRater(
 	ctx: RatingSchemeEntryWriteContext,
 	id: string,
 	data: Record<string, unknown>
 ): Promise<RatingSchemeRaterChangeResult> {
 	const change = parseEntryInput(ratingSchemeRaterChangeSchema, data);
-	const current = await requireEntryUpdatePolicy(ctx, id);
+	const current = await requireEvaluationUpdatePolicy(ctx, id);
 	await requireEvaluatorReferences(ctx, { raterPersonId: change.raterPersonId }, current);
-	return ctx.ratingScheme.changeRater(id, change);
+	return ctx.ratingScheme.changeEvaluationRater(id, change);
 }
 
-export async function removeRatingSchemeEntry(
+export async function removeEvaluation(
 	ctx: RatingSchemeEntryDeleteContext,
 	id: string
 ): Promise<{ requiresApproval: true } | void> {
-	await requireRatingSchemeEntryDeletionRequestPolicy(ctx, id);
+	await requireEvaluationDeletionRequestPolicy(ctx, id);
 
 	if (!ctx.auth.isPrivileged) {
 		return { requiresApproval: true };
@@ -235,22 +292,22 @@ export async function removeRatingSchemeEntry(
 
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry);
 
-	await ctx.ratingScheme.delete(id);
+	await ctx.ratingScheme.deleteEvaluation(id);
 
-	await ctx.notifyRatingSchemeEntryDeleted();
+	await ctx.notifyEvaluationDeleted();
 }
 
-/** Describes a deletion request from the entry the requester may ask to remove. */
-export async function describeRatingSchemeEntryDeletionRequest(
+/** Describes a deletion request from the Evaluation the requester may ask to remove. */
+export async function describeEvaluationDeletionRequest(
 	ctx: RatingSchemeEntryWriteContext,
 	id: string
 ): Promise<{ description: string; url: string }> {
 	const action = POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion;
-	const { ratedPersonId } = await findRatingSchemeEntry(ctx, id);
+	const { ratedPersonId } = await findEvaluation(ctx, id);
 	const person = await ratedPersonForWrite(ctx, ratedPersonId, action);
 	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), AUDIT_RESOURCE, id);
 	return {
-		description: `Rating scheme entry for ${person.rank} ${person.lastName}`,
+		description: `Evaluation for ${person.rank} ${person.lastName}`,
 		url: `/org/${ctx.auth.orgId}/evals`
 	};
 }

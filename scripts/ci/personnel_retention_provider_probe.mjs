@@ -171,7 +171,7 @@ checked(
 	})
 );
 checked(
-	await service.from('rating_scheme_entries').insert({
+	await service.from('rating_schemes').insert({
 		id: id(501),
 		organization_id: id(101),
 		rated_person_id: id(301),
@@ -184,9 +184,26 @@ checked(
 		senior_rater_name: 'Retained Senior',
 		intermediate_rater_name: 'Retained Intermediate',
 		reviewer_name: 'Retained Reviewer',
-		rating_period_start: '2026-01-01',
-		rating_period_end: '2026-12-31',
-		notes: 'Retained evaluation facts'
+		notes: 'Retained rating scheme facts'
+	})
+);
+checked(
+	await service.from('evaluations').insert({
+		id: id(502),
+		organization_id: id(101),
+		rating_scheme_id: id(501),
+		rated_person_id: id(301),
+		eval_type: 'NCOER',
+		rating_period_start: '2025-01-01',
+		rating_period_end: '2025-12-31',
+		workflow_status: 'completed',
+		notes: 'Retained evaluation facts',
+		chain_snapshot_at: '2025-12-31Z',
+		snapshot_rater_person_id: people[0].id,
+		snapshot_senior_rater_person_id: people[0].id,
+		snapshot_intermediate_rater_person_id: people[0].id,
+		snapshot_reviewer_person_id: people[0].id,
+		snapshot_rater_name: 'Signed Rater'
 	})
 );
 const before = {
@@ -194,7 +211,8 @@ const before = {
 	foreign: await allRows('personnel', id(102)),
 	documents: await allRows('personnel_documents', id(101)),
 	counselings: await allRows('counseling_records', id(101)),
-	evaluation: await allRows('rating_scheme_entries', id(101))
+	ratingScheme: await allRows('rating_schemes', id(101)),
+	evaluation: await allRows('evaluations', id(101))
 };
 assert.equal(before.personnel.length, 1004);
 const candidates = [
@@ -210,7 +228,8 @@ const after = {
 	foreign: await allRows('personnel', id(102)),
 	documents: await allRows('personnel_documents', id(101)),
 	counselings: await allRows('counseling_records', id(101)),
-	evaluation: await allRows('rating_scheme_entries', id(101))
+	ratingScheme: await allRows('rating_schemes', id(101)),
+	evaluation: await allRows('evaluations', id(101))
 };
 assert.deepEqual(
 	after.personnel,
@@ -225,23 +244,31 @@ const evaluatorFields = [
 	'intermediate_rater_person_id',
 	'reviewer_person_id'
 ];
-for (const field of evaluatorFields) assert.equal(after.evaluation[0][field], null);
-const withoutEffects = (row) =>
-	Object.fromEntries(Object.entries(row).filter(([key]) => !evaluatorFields.includes(key) && key !== 'updated_at'));
-assert.deepEqual(withoutEffects(after.evaluation[0]), withoutEffects(before.evaluation[0]));
-assert.ok(Date.parse(after.evaluation[0].updated_at) >= Date.parse(before.evaluation[0].updated_at));
+// The scheme's chain and the chain an Evaluation was signed with both clear the deleted in-Organization evaluator.
+for (const [key, fields] of [
+	['ratingScheme', evaluatorFields],
+	['evaluation', evaluatorFields.map((field) => `snapshot_${field}`)]
+]) {
+	const [saved] = after[key];
+	for (const field of fields) assert.equal(saved[field], null, `${key}.${field}`);
+	const withoutEffects = (row) =>
+		Object.fromEntries(Object.entries(row).filter(([column]) => !fields.includes(column) && column !== 'updated_at'));
+	assert.deepEqual(withoutEffects(saved), withoutEffects(before[key][0]));
+	assert.ok(Date.parse(saved.updated_at) >= Date.parse(before[key][0].updated_at));
+}
 assert.equal(checked(await service.rpc('delete_expired_personnel', { ...args, p_candidate_ids: candidates })), 0);
 observations.bulk = {
 	candidateIds: people.map((person) => person.id),
 	independentlyPaginatedBeforeCount: before.personnel.length,
 	rpcDeletedCount: deleted,
 	after,
+	ratingSchemeBefore: before.ratingScheme,
 	evaluationBefore: before.evaluation
 };
 
 if (process.argv.includes('--staged-upgrade')) {
 	const legacyId = (suffix) => `d1602000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
-	const legacyTables = ['personnel', 'rating_scheme_entries', 'personnel_documents', 'counseling_records'];
+	const legacyTables = ['personnel', 'rating_schemes', 'evaluations', 'personnel_documents', 'counseling_records'];
 	const snapshot = async () => {
 		const rows = {};
 		for (const table of legacyTables)
@@ -251,7 +278,11 @@ if (process.argv.includes('--staged-upgrade')) {
 		return rows;
 	};
 	const upgradeBefore = await snapshot();
-	assert.equal(upgradeBefore.personnel.length + upgradeBefore.rating_scheme_entries.length, 13);
+	// Six People's seven legacy entries split into one scheme per rated Person and an Evaluation per entry.
+	assert.deepEqual(
+		[upgradeBefore.personnel.length, upgradeBefore.rating_schemes.length, upgradeBefore.evaluations.length],
+		[6, 4, 7]
+	);
 	for (const suffix of [302, 305])
 		checked(await service.from('personnel').update({ archived_at: '2000-01-01Z' }).eq('id', legacyId(suffix)));
 	const free = [

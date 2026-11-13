@@ -17,6 +17,6 @@ export function isSupportedResourceType(resourceType: string): resourceType is D
 		resourceType === 'counseling_record' ||
 		resourceType === 'training_type' ||
 		resourceType === 'personnel_training' ||
-		resourceType === 'rating_scheme_entry'
+		resourceType === 'evaluation'
 	);
 }

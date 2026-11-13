@@ -1,4 +1,6 @@
 export type {
+	Evaluation,
+	RatingScheme,
 	RatingSchemeEntryEditorData,
 	WorkflowStatus,
 	WorkflowStep,
@@ -18,6 +20,7 @@ export {
 
 export { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './utils/ratingScheme';
 export { exportRatingScheme } from './utils/ratingSchemeExport';
+export { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 export { RatingSchemePageContext } from './contexts/RatingSchemePageContext.svelte';
 export type { RatingSchemePageData } from './contexts/RatingSchemePageContext.svelte';
@@ -31,9 +34,9 @@ export function loadRatingSchemeModals() {
 }
 
 export {
-	changeRatingSchemeRater,
+	changeEvaluationRater,
 	loadRatingSchemeEntryEditor,
-	moveRatingSchemeEntry,
+	moveEvaluation,
 	saveRatingSchemeEntry
 } from './ratingSchemeRequests';
 export function loadRatingSchemeEntryModal() {

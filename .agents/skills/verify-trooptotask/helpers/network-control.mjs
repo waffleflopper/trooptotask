@@ -1,7 +1,11 @@
-const ratingEntryMove =
-	/^rating-scheme\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:workflow|change-rater)$/i;
+const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const ratingEntryMove = new RegExp(
+	`^(?:evaluations/${uuid}/(?:workflow|change-rater)|rating-scheme/${uuid}/(?:evaluations|archive))$`,
+	'i'
+);
 
-// An Evaluation's workflow move and Change rater are POSTs to that entry's own path, so the family names the entry.
+// An Evaluation's workflow move and Change rater, and a scheme's new Evaluation and archive, are POSTs to that
+// record's own path, so the family names the record.
 export function ratingEntryNetworkTarget(family) {
 	return ratingEntryMove.test(family) ? { requestMethod: 'POST' } : null;
 }

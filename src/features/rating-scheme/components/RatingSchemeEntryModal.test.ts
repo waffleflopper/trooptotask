@@ -9,6 +9,7 @@ import type { RatingSchemeEntry } from '../rating-scheme.types';
 
 const entry: RatingSchemeEntry = {
 	id: 'entry-1',
+	ratingSchemeId: 'scheme-1',
 	ratedPersonId: 'rated-1',
 	evalType: 'NCOER',
 	raterPersonId: 'rater-1',
@@ -24,7 +25,8 @@ const entry: RatingSchemeEntry = {
 	notes: null,
 	reportType: 'AN',
 	workflowStatus: null,
-	archivedAt: null
+	archivedAt: null,
+	chainSigned: false
 };
 
 const personnel = [
@@ -173,7 +175,7 @@ describe('RatingSchemeEntryModal', () => {
 	});
 
 	it('starts tracking a not-tracked evaluation and offers the moves from the step it reached', async () => {
-		const onMove = vi.fn().mockResolvedValue('drafting');
+		const onMove = vi.fn().mockResolvedValue({ ...entry, workflowStatus: 'drafting' });
 		renderWorkflow(entry, { onMove });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Start tracking' }));
@@ -189,7 +191,7 @@ describe('RatingSchemeEntryModal', () => {
 		['rater-signed', {}, 'with-senior-rater'],
 		['rater-signed', { intermediateRaterName: 'LTC Intermediate' }, 'with-intermediate-rater']
 	] as const)('moves forward from %s to the next present role %j', async (from, roles, expected) => {
-		const onMove = vi.fn().mockResolvedValue(expected);
+		const onMove = vi.fn().mockResolvedValue({ ...entry, ...roles, workflowStatus: expected });
 		renderWorkflow({ ...entry, ...roles, workflowStatus: from }, { onMove });
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Move to/ }));
@@ -198,7 +200,7 @@ describe('RatingSchemeEntryModal', () => {
 	});
 
 	it('steps back to the previous step', async () => {
-		const onMove = vi.fn().mockResolvedValue('with-rater');
+		const onMove = vi.fn().mockResolvedValue({ ...entry, workflowStatus: 'with-rater' });
 		renderWorkflow({ ...entry, workflowStatus: 'rater-signed' }, { onMove });
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Back to/ }));
@@ -207,7 +209,7 @@ describe('RatingSchemeEntryModal', () => {
 	});
 
 	it('offers Command Review beside the next step from drafting', async () => {
-		const onMove = vi.fn().mockResolvedValue('command-review');
+		const onMove = vi.fn().mockResolvedValue({ ...entry, workflowStatus: 'command-review' });
 		renderWorkflow({ ...entry, workflowStatus: 'drafting' }, { onMove });
 		expect(screen.getByRole('button', { name: 'Move to With Rater' })).toBeTruthy();
 
@@ -224,7 +226,7 @@ describe('RatingSchemeEntryModal', () => {
 	}
 
 	it('jumps from SM Signed back to Drafting in one move', async () => {
-		const onMove = vi.fn().mockResolvedValue('drafting');
+		const onMove = vi.fn().mockResolvedValue({ ...entry, workflowStatus: 'drafting' });
 		renderWorkflow({ ...entry, workflowStatus: 'sm-signed' }, { onMove });
 
 		const targets = await openJumpTargets();
@@ -269,7 +271,7 @@ describe('RatingSchemeEntryModal', () => {
 	});
 
 	it('reopens a completed evaluation as not tracked and offers no change of rater', async () => {
-		const onMove = vi.fn().mockResolvedValue(null);
+		const onMove = vi.fn().mockResolvedValue({ ...entry, workflowStatus: null });
 		renderWorkflow({ ...entry, workflowStatus: 'completed' }, { onMove, onChangeRater: vi.fn() });
 		expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
 
@@ -326,7 +328,7 @@ describe('RatingSchemeEntryModal', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
-			expect(onArchive).toHaveBeenCalledWith('entry-1', true, expect.any(Function));
+			expect(onArchive).toHaveBeenCalledWith('scheme-1', true, expect.any(Function));
 			expect(await screen.findByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
 		});
@@ -337,7 +339,7 @@ describe('RatingSchemeEntryModal', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Restore to rating scheme' }));
 
-			expect(onArchive).toHaveBeenCalledWith('entry-1', false, expect.any(Function));
+			expect(onArchive).toHaveBeenCalledWith('scheme-1', false, expect.any(Function));
 			expect(await screen.findByRole('button', { name: 'Archive' })).toBeTruthy();
 		});
 
@@ -364,7 +366,7 @@ describe('RatingSchemeEntryModal', () => {
 			);
 		});
 
-		it('reads an archived open evaluation past its thru date as archived and offers no change of rater', () => {
+		it('keeps an archived open evaluation due past its thru date and offers no change of rater', () => {
 			vi.useFakeTimers({ toFake: ['Date'] });
 			vi.setSystemTime(new Date('2027-03-01T12:00:00'));
 			try {
@@ -382,7 +384,7 @@ describe('RatingSchemeEntryModal', () => {
 				});
 
 				const dialog = screen.getByRole('dialog');
-				expect(dialog).toHaveAccessibleDescription('Archived');
+				expect(dialog).not.toHaveAccessibleDescription('Archived');
 				expect(screen.getByRole('button', { name: 'Restore to rating scheme' })).toBeTruthy();
 				expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
 			} finally {

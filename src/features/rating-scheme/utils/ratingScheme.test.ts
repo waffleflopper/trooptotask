@@ -121,10 +121,14 @@ describe('getEntryDueLabel', () => {
 
 	it.each([
 		[null, 'drafting', { status: 'overdue', text: '18d past thru' }],
-		['2026-03-20T00:00:00Z', 'drafting', { status: 'completed', text: 'Archived' }],
+		['2026-03-20T00:00:00Z', 'drafting', { status: 'overdue', text: '18d past thru' }],
+		['2026-03-20T00:00:00Z', null, { status: 'completed', text: 'Archived' }],
 		['2026-03-20T00:00:00Z', 'completed', { status: 'completed', text: 'Archived' }],
 		[null, 'completed', { status: 'completed', text: 'Completed' }]
-	] as const)('labels an entry archived at %s in workflow %s', (archivedAt, workflowStatus, expected) => {
-		expect(getEntryDueLabel({ ratingPeriodEnd: '2026-03-01', workflowStatus, archivedAt }, today)).toEqual(expected);
-	});
+	] as const)(
+		'labels an Evaluation whose scheme was archived at %s in workflow %s',
+		(archivedAt, workflowStatus, expected) => {
+			expect(getEntryDueLabel({ ratingPeriodEnd: '2026-03-01', workflowStatus, archivedAt }, today)).toEqual(expected);
+		}
+	);
 });

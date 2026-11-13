@@ -1,6 +1,13 @@
 import type { CapabilityMap, MembershipRole, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PersonnelLookup } from '$features/personnel/contracts';
-import type { RatingSchemeEntry, WorkflowStatus } from './rating-scheme.types';
+import type {
+	EvalType,
+	Evaluation,
+	EvaluatorChain,
+	RatingScheme,
+	ReportType,
+	WorkflowStatus
+} from './rating-scheme.types';
 import type {
 	FeatureLanePolicyAction,
 	OrganizationGovernancePolicyAction,
@@ -26,7 +33,11 @@ export interface RatingSchemePageAccess {
 }
 
 export type {
+	EvalType,
+	Evaluation,
+	EvaluatorChain,
 	PersonnelActiveEvaluation,
+	RatingScheme,
 	RatingSchemeEntry,
 	RatingDueStatus,
 	WorkflowStatus,
@@ -47,46 +58,50 @@ export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;
 /** Authorized Evals facts; Personnel owns the active reference lookup. */
 export interface RatingSchemeWorkspaceData {
 	personnelLookup: PersonnelLookup[];
-	ratingSchemeEntries: RatingSchemeEntry[];
+	ratingSchemes: RatingScheme[];
+	evaluations: Evaluation[];
 }
 
-/** One entry with the roster references its editor offers. */
+/** One Evaluation and its scheme, with the roster references its editor offers. */
 export interface RatingSchemeEntryEditorData {
-	entry: RatingSchemeEntry;
+	ratingScheme: RatingScheme;
+	evaluation: Evaluation;
 	personnelLookup: PersonnelLookup[];
 }
 
-export interface SavedRatingSchemeEntry extends RatingSchemeEntry {
-	readonly organization_id: string;
-	readonly created_at: string;
-	readonly updated_at: string;
-}
+/** The chain a scheme starts with or changes to; an omitted role keeps its value. */
+export type EvaluatorChainValues = { [K in keyof EvaluatorChain]?: EvaluatorChain[K] };
 
-export interface RatingSchemeCreateValues {
+export interface RatingSchemeCreateValues extends EvaluatorChainValues {
 	ratedPersonId: string;
-	evalType: RatingSchemeEntry['evalType'];
-	ratingPeriodStart: string;
-	ratingPeriodEnd: string;
-	raterPersonId?: string | null;
-	raterName?: string | null;
-	seniorRaterPersonId?: string | null;
-	seniorRaterName?: string | null;
-	intermediateRaterPersonId?: string | null;
-	intermediateRaterName?: string | null;
-	reviewerPersonId?: string | null;
-	reviewerName?: string | null;
+	evalType: EvalType;
 	notes?: string | null;
-	reportType?: string | null;
 }
 
 export type RatingSchemePatchValues = Partial<RatingSchemeCreateValues>;
 
-export interface RatingSchemeWriteReference {
+/** Opens an Evaluation at Drafting, or records one already completed, on a listed scheme with its current chain. */
+export interface EvaluationStart {
+	reportType: ReportType | null;
+	ratingPeriodStart: string;
+	ratingPeriodEnd: string;
+	completed: boolean;
+	notes: string | null;
+}
+
+/** The fields of an Evaluation a save may change; its step, scheme and chain move through their own actions. */
+export interface EvaluationPatchValues {
+	evalType?: EvalType;
+	reportType?: ReportType | null;
+	ratingPeriodStart?: string;
+	ratingPeriodEnd?: string;
+	notes?: string | null;
+}
+
+export interface EvaluationWriteReference {
+	ratingSchemeId: string;
 	ratedPersonId: string;
 	raterPersonId: string | null;
-	seniorRaterPersonId: string | null;
-	intermediateRaterPersonId: string | null;
-	reviewerPersonId: string | null;
 }
 
 /** The current rater's last day closes this evaluation as a Change of Rater; the new rater starts the next one. */
@@ -102,36 +117,49 @@ export interface RatingSchemeMove {
 	to: WorkflowStatus | null;
 }
 
-export interface RatingSchemeTransition {
-	entry: SavedRatingSchemeEntry;
+export interface EvaluationTransition {
+	evaluation: Evaluation;
 	/** False when the evaluation was already at the requested step. */
 	moved: boolean;
 }
 
+export interface EvaluationStartResult {
+	evaluation: Evaluation;
+	/** False when the same Evaluation was already open, so nothing changed. */
+	created: boolean;
+}
+
 export interface RatingSchemeRaterChangeResult {
-	entry: SavedRatingSchemeEntry;
-	/** Null when the evaluation was already completed, so nothing changed. */
-	successor: SavedRatingSchemeEntry | null;
+	/** The completed Change of Rater evaluation, with the chain that signed it. */
+	evaluation: Evaluation;
+	/** The scheme with its new rater. */
+	ratingScheme: RatingScheme;
+	/** Null when the evaluation was already completed and no successor matches. */
+	successor: Evaluation | null;
 }
 
 export interface RatingSchemeArchiveResult {
-	entry: SavedRatingSchemeEntry;
-	/** False when the entry was already archived or already listed, as asked. */
+	ratingScheme: RatingScheme;
+	/** False when the scheme was already archived or already listed, as asked. */
 	changed: boolean;
 }
 
 export interface RatingSchemePersistence {
-	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
-	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
-	/** The rated Person's entries, newest rating period end first. */
-	listPersonReadiness(personnelId: string): Promise<SavedRatingSchemeEntry[]>;
-	countEntries(): Promise<number>;
-	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
-	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;
-	delete(id: string): Promise<void>;
-	transition(id: string, move: RatingSchemeMove): Promise<RatingSchemeTransition>;
-	setArchived(id: string, archived: boolean): Promise<RatingSchemeArchiveResult>;
-	changeRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
+	listRatingSchemes(): Promise<RatingScheme[]>;
+	listEvaluations(): Promise<Evaluation[]>;
+	findRatingScheme(id: string): Promise<RatingScheme | null>;
+	findEvaluationReference(id: string): Promise<EvaluationWriteReference | null>;
+	/** The rated Person's scheme and Evaluations, newest rating period end first. */
+	listPersonReadiness(personnelId: string): Promise<{ ratingSchemes: RatingScheme[]; evaluations: Evaluation[] }>;
+	countRatingSchemes(): Promise<number>;
+	createRatingScheme(input: RatingSchemeCreateValues): Promise<RatingScheme>;
+	updateRatingScheme(id: string, patch: RatingSchemePatchValues): Promise<RatingScheme | null>;
+	setRatingSchemeArchived(id: string, archived: boolean): Promise<RatingSchemeArchiveResult>;
+	startEvaluation(ratingSchemeId: string, start: EvaluationStart): Promise<EvaluationStartResult>;
+	updateEvaluation(id: string, patch: EvaluationPatchValues): Promise<Evaluation | null>;
+	deleteEvaluation(id: string): Promise<void>;
+	transitionEvaluation(id: string, move: RatingSchemeMove): Promise<EvaluationTransition>;
+	changeEvaluationRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
 }
 
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';
@@ -143,7 +171,8 @@ export interface RatingSchemeWorkspaceHydrationTarget<T> {
 }
 export interface RatingSchemeWorkspaceHydration {
 	orgId: string;
-	ratingSchemeEntries: RatingSchemeWorkspaceHydrationTarget<RatingSchemeEntry>;
+	ratingSchemes: RatingSchemeWorkspaceHydrationTarget<RatingScheme>;
+	evaluations: RatingSchemeWorkspaceHydrationTarget<Evaluation>;
 }
 export interface RatingSchemeWorkspaceResult {
 	laneKey: typeof RATING_SCHEME_WORKSPACE_LANE_KEY;
@@ -158,12 +187,12 @@ export interface RatingSchemeWorkspaceRouteData {
 	ratingScheme: { data: Promise<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted> };
 }
 
-/** Evaluation facts the Dashboard needs to bucket due dates and name an overdue entry; evaluators and notes stay out. */
+/** Evaluation facts the Dashboard needs to bucket due dates and name an overdue Evaluation; evaluators and notes stay out. */
 export interface RatingSchemeDueEntry {
 	id: string;
 	ratedPersonId: string;
 	ratedPersonName?: string;
-	evalType: 'OER' | 'NCOER' | 'WOER';
+	evalType: EvalType;
 	ratingPeriodEnd: string;
 	workflowStatus: WorkflowStatus | null;
 }
@@ -186,6 +215,7 @@ export interface RatingSchemeDuePort {
 export { getRatingDueStatus } from './utils/ratingScheme';
 export { isEvaluationCompleted, parseWorkflowStatus } from './utils/evaluationWorkflow';
 export { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
+export { isEvaluationOpen, isOnTracker } from './utils/ratingSchemeEntries';
 export type { ArchivedPersonIds } from './archivedPeople';
 
 export type { RatingSchemeSupportReader } from './supportReadTypes';

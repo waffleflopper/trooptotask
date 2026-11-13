@@ -53,10 +53,10 @@ import type {
 } from '$features/critical-tasks/index.server';
 import type { CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 import type {
-	createRatingSchemeEntry,
-	describeRatingSchemeEntryDeletionRequest,
+	createRatingScheme,
+	describeEvaluationDeletionRequest,
 	loadRatingSchemeWorkspace,
-	removeRatingSchemeEntry
+	removeEvaluation
 } from '$features/rating-scheme/index.server';
 import type {
 	describeCounselingDeletionRequest,
@@ -224,7 +224,7 @@ export function createRequestCriticalTasksSettingsContext(request: AdmittedOrgan
 
 export function createRequestRatingSchemeWriteContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof createRatingSchemeEntry>[0] {
+): Parameters<typeof createRatingScheme>[0] {
 	return {
 		auth: request.auth,
 		audit: request.audit,
@@ -235,15 +235,15 @@ export function createRequestRatingSchemeWriteContext(
 
 export function createRequestRatingSchemeDeletionContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof removeRatingSchemeEntry>[0] {
+): Parameters<typeof removeEvaluation>[0] {
 	const notifications = createRequestNotificationDelivery();
 	return {
 		...createRequestRatingSchemeWriteContext(request),
-		notifyRatingSchemeEntryDeleted: () =>
+		notifyEvaluationDeleted: () =>
 			notifications.notifyAdmins(request.auth.orgId, request.auth.userId, {
 				type: 'config_type_deleted',
-				title: 'Rating Scheme Entry Deleted',
-				message: 'A rating scheme entry was deleted.'
+				title: 'Evaluation Deleted',
+				message: 'An evaluation was deleted.'
 			})
 	};
 }
@@ -262,7 +262,7 @@ export function createRequestDeletionRequestSubmissionContext(request: AdmittedO
 		personnelRatingSchemeRoster: createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
 	} satisfies Parameters<typeof describePersonnelArchiveRequest>[0] &
 		Parameters<typeof describeTrainingRecordDeletionRequest>[0] &
-		Parameters<typeof describeRatingSchemeEntryDeletionRequest>[0] &
+		Parameters<typeof describeEvaluationDeletionRequest>[0] &
 		Parameters<typeof describeTrainingTypeDeletionRequest>[0] &
 		Parameters<typeof describeCounselingDeletionRequest>[0];
 	return { ...owners, notifications: createRequestNotificationDelivery() };

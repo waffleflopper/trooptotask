@@ -30,6 +30,7 @@
 		type WorkflowMove
 	} from '../utils/evaluationWorkflow';
 	import { ratingDueTone } from '../utils/ratingDueTone';
+	import { isEvaluationOpen } from '../utils/ratingSchemeEntries';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -51,21 +52,30 @@
 		isCurrentWorkspace: () => boolean;
 		onSave: (data: RatingSchemeEntrySaveData, isCurrent: () => boolean) => Promise<void>;
 		onDelete?: (id: string, isCurrent: () => boolean) => Promise<boolean>;
-		/** Resolves to the saved step, or undefined when the workspace changed first. */
-		onMove?: (
-			id: string,
-			move: RatingSchemeMove,
+		/** Resolves to the Evaluation as it now stands, with the chain it shows, or undefined when the workspace changed first. */
+		onMove?: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<RatingSchemeEntry | undefined>;
+		/** Archives or restores the entry's rating scheme; resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
+		onArchive?: (
+			ratingSchemeId: string,
+			archived: boolean,
 			isCurrent: () => boolean
-		) => Promise<WorkflowStatus | null | undefined>;
-		/** Resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
-		onArchive?: (id: string, archived: boolean, isCurrent: () => boolean) => Promise<string | null | undefined>;
+		) => Promise<string | null | undefined>;
 		/** Resolves true when a successor was opened, false when the evaluation was already completed. */
 		onChangeRater?: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onMove, onArchive, onChangeRater, onClose }: Props =
-		$props();
+	let {
+		entry: openedEntry,
+		personnel,
+		isCurrentWorkspace,
+		onSave,
+		onDelete,
+		onMove,
+		onArchive,
+		onChangeRater,
+		onClose
+	}: Props = $props();
 	let disposed = false;
 	onDestroy(() => {
 		disposed = true;
@@ -77,27 +87,24 @@
 	);
 	const personnelOptions = $derived(sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) })));
 
-	function createInitialDraft() {
-		return createRatingSchemeEntryDraft(entry);
-	}
-
-	function initialWorkflowStatus() {
-		return entry?.workflowStatus ?? null;
+	function initialEntry() {
+		return openedEntry;
 	}
 
 	function initialArchivedAt() {
-		return entry?.archivedAt ?? null;
+		return openedEntry?.archivedAt ?? null;
 	}
 
-	let draft = $state(createInitialDraft());
-	const pristineDraft = JSON.stringify(createInitialDraft());
+	/** The Evaluation as it stands now; a move that completes or reopens it changes the chain it shows. */
+	let entry = $state(initialEntry());
+	let draft = $state(createRatingSchemeEntryDraft(initialEntry()));
+	let pristineDraft = $state(JSON.stringify(createRatingSchemeEntryDraft(initialEntry())));
 	let showDeleteConfirm = $state(false);
 	let saveAttempted = $state(false);
 	let isSaving = $state(false);
 	let isDeleting = $state(false);
 	let saveError = $state('');
 	let saveButton = $state<HTMLButtonElement | null>(null);
-	let workflowStatus = $state(initialWorkflowStatus());
 	let isMoving = $state(false);
 	let moveError = $state('');
 	let archivedAt = $state(initialArchivedAt());
@@ -202,10 +209,15 @@
 		}
 	}
 
+	const workflowStatus = $derived(entry?.workflowStatus ?? null);
 	const phase = $derived(evaluationPhase(workflowStatus));
 	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
 	const jumpTargets = $derived(entry && onMove ? workflowJumpTargets(workflowStatus, workflowRoles(entry)) : []);
 	const canChangeRater = $derived(!!entry && !!onChangeRater && !archivedAt && !isEvaluationCompleted(workflowStatus));
+	/** The chain that signed a completed Evaluation is kept as it was; scheme edits no longer reach it. */
+	const chainLocked = $derived(!!entry?.chainSigned);
+	/** An open Evaluation is rated by its rater until Change rater closes it as a Change of Rater report. */
+	const raterLocked = $derived(!!entry && !chainLocked && isEvaluationOpen(workflowStatus));
 
 	function moveLabel(move: WorkflowMove): string {
 		switch (move.kind) {
@@ -233,7 +245,11 @@
 		isMoving = true;
 		try {
 			const saved = await moveHandler(entry.id, { from: workflowStatus, to }, isCurrent);
-			if (isCurrent() && saved !== undefined) workflowStatus = saved;
+			if (isCurrent() && saved !== undefined) {
+				entry = saved;
+				draft = createRatingSchemeEntryDraft(saved);
+				pristineDraft = JSON.stringify(draft);
+			}
 		} catch (error) {
 			if (isCurrent()) moveError = getSaveErrorMessage(error, 'The workflow did not move. Try again.');
 		} finally {
@@ -247,13 +263,13 @@
 		archiveError = '';
 		isArchiving = true;
 		try {
-			const saved = await archiveHandler(entry.id, archived, isCurrent);
+			const saved = await archiveHandler(entry.ratingSchemeId, archived, isCurrent);
 			if (isCurrent() && saved !== undefined) archivedAt = saved;
 		} catch (error) {
 			if (isCurrent()) {
 				archiveError = getSaveErrorMessage(
 					error,
-					archived ? 'The evaluation was not archived. Try again.' : 'The evaluation was not restored. Try again.'
+					archived ? 'The rating scheme was not archived. Try again.' : 'The rating scheme was not restored. Try again.'
 				);
 			}
 		} finally {
@@ -311,7 +327,7 @@
 		return name ?? 'not set';
 	}
 
-	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
+	const ratedPerson = $derived(personnel.find((p) => p.id === entry?.ratedPersonId));
 	const headerDue = $derived(
 		entry ? getEntryDueLabel({ ratingPeriodEnd: entry.ratingPeriodEnd, workflowStatus, archivedAt }) : null
 	);
@@ -500,12 +516,22 @@
 					{/if}
 				</section>
 
-				<section class="grid gap-3 border-b px-7 py-5.5">
-					{@render sectionTitle('Rating chain')}
-					{@render chainRow('Rater', 'rater', draft.rater, (next) => (draft.rater = next), {
-						field: 'rater',
-						message: 'Rater is required.'
-					})}
+				<fieldset class="grid gap-3 border-b px-7 py-5.5" disabled={chainLocked}>
+					<legend class="contents">{@render sectionTitle('Rating chain')}</legend>
+					{#if chainLocked}
+						<p class="text-[13px] text-muted-foreground">The chain that signed this evaluation. It stays as signed.</p>
+					{/if}
+					<fieldset class="contents" disabled={raterLocked}>
+						{@render chainRow('Rater', 'rater', draft.rater, (next) => (draft.rater = next), {
+							field: 'rater',
+							message: 'Rater is required.'
+						})}
+					</fieldset>
+					{#if raterLocked}
+						<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
+							Use Change rater to close this evaluation and open the next one for a new rater.
+						</p>
+					{/if}
 					{#if draft.showIntermediate}
 						{@render chainRow(
 							'Intermediate rater',
@@ -530,10 +556,12 @@
 							() => removeReviewerFromDraft(draft)
 						)}
 					{/if}
-					<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
-						Search the unit, or type a name that isn't in it to add an external rater.
-					</p>
-					{#if !draft.showIntermediate || !draft.showReviewer}
+					{#if !chainLocked}
+						<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
+							Search the unit, or type a name that isn't in it to add an external rater.
+						</p>
+					{/if}
+					{#if !chainLocked && (!draft.showIntermediate || !draft.showReviewer)}
 						<div class="flex flex-wrap gap-x-4 gap-y-1 sm:pl-[122px]">
 							{#if !draft.showIntermediate}
 								<Button
@@ -557,7 +585,7 @@
 							{/if}
 						</div>
 					{/if}
-				</section>
+				</fieldset>
 
 				{#if entry && (moves.length || jumpTargets.length || canChangeRater)}
 					<section class="grid gap-3 border-b px-7 py-5.5" aria-labelledby="workflow-step">
@@ -616,7 +644,7 @@
 							<span class="font-semibold">{archivedAt ? 'Archived' : 'On the rating scheme'}</span>
 							<span class="text-muted-foreground">
 								· {archivedAt
-									? 'Hidden from the default view and not counted as due.'
+									? 'Off the rating scheme. An open evaluation stays on the tracker until it is completed.'
 									: 'Listed until you archive it, whatever its workflow step.'}</span
 							>
 						</p>

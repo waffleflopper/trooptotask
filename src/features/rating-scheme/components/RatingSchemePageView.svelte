@@ -2,7 +2,7 @@
 	import { tick, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import { WORKFLOW_STEPS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
-	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
+	import { ratingSchemeEntries } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { ratingDueTone } from '$features/rating-scheme/utils/ratingDueTone';
 	import type { GroupedSort } from '$features/rating-scheme/utils/ratingSchemeGroups';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -88,7 +88,7 @@
 	$effect(() => {
 		const id = visibleUrl().searchParams.get('entry');
 		if (!id) return;
-		const entry = ratingSchemeStore.items.find((item) => item.id === id);
+		const entry = ratingSchemeEntries.items.find((item) => item.id === id);
 		if (!entry) return;
 		untrack(() => {
 			void writeAddress({ url: (url) => url.searchParams.delete('entry') });

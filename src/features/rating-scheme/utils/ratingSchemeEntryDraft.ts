@@ -1,5 +1,7 @@
 import type { PersonnelLookup } from '$features/personnel/contracts';
-import type { RatingSchemeEntry, ReportType, ReportTypeOption } from '../rating-scheme.types';
+import type { EvaluationPatchValues, EvaluatorChainValues } from '../contracts';
+import type { EvaluatorChain, RatingSchemeEntry, ReportType, ReportTypeOption } from '../rating-scheme.types';
+import { EVALUATOR_CHAIN_KEYS, evaluatorChain } from './ratingSchemeEntries';
 import {
 	calculateThruDate,
 	getEvalTypeForRank,
@@ -19,7 +21,17 @@ export type RatingSchemeRequiredField =
 	| 'seniorRater';
 export type RatingSchemeEntryEvalType = RatingSchemeEntry['evalType'];
 /** The workflow step and the scheme listing move on their own, so a save never carries them. */
-export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id' | 'workflowStatus' | 'archivedAt'>;
+export type RatingSchemeEntrySaveData = Omit<
+	RatingSchemeEntry,
+	'id' | 'ratingSchemeId' | 'workflowStatus' | 'archivedAt' | 'chainSigned'
+>;
+
+/** One save split by owner: the chain and type go to the scheme, the period, report and notes to the Evaluation. */
+export interface RatingSchemeEntrySavePlan {
+	/** Null when the scheme keeps its values, or when the chain shown is the one that signed the Evaluation. */
+	scheme: (EvaluatorChainValues & { evalType?: RatingSchemeEntry['evalType'] }) | null;
+	evaluation: EvaluationPatchValues;
+}
 
 export interface RatingSchemeEntryDraft {
 	ratedPersonId: string;
@@ -180,4 +192,25 @@ function getMissingRequired(draft: RatingSchemeEntryDraft): RatingSchemeRequired
 	if (!hasEvaluator(draft.rater)) missing.push('rater');
 	if (!hasEvaluator(draft.seniorRater)) missing.push('seniorRater');
 	return missing;
+}
+
+export function planRatingSchemeEntrySave(
+	entry: Pick<RatingSchemeEntry, 'chainSigned' | 'evalType' | keyof EvaluatorChain> | null,
+	data: RatingSchemeEntrySaveData
+): RatingSchemeEntrySavePlan {
+	const chain = evaluatorChain(data);
+	const schemeChanged =
+		!entry ||
+		entry.evalType !== data.evalType ||
+		EVALUATOR_CHAIN_KEYS.some((key) => (entry[key] ?? null) !== chain[key]);
+	return {
+		scheme: entry?.chainSigned || !schemeChanged ? null : { ...chain, evalType: data.evalType },
+		evaluation: {
+			evalType: data.evalType,
+			reportType: data.reportType,
+			ratingPeriodStart: data.ratingPeriodStart,
+			ratingPeriodEnd: data.ratingPeriodEnd,
+			notes: data.notes
+		}
+	};
 }

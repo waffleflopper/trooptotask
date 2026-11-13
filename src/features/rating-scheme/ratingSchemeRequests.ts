@@ -1,66 +1,89 @@
 import { buildRequestError } from '$lib/stores/core';
 import type {
+	Evaluation,
+	EvaluationPatchValues,
+	EvaluationStart,
+	EvaluationStartResult,
+	EvaluationTransition,
+	RatingScheme,
 	RatingSchemeArchiveResult,
-	RatingSchemeEntry,
+	RatingSchemeCreateValues,
 	RatingSchemeEntryEditorData,
 	RatingSchemeMove,
+	RatingSchemePatchValues,
 	RatingSchemeRaterChange,
-	RatingSchemeRaterChangeResult,
-	RatingSchemeTransition
+	RatingSchemeRaterChangeResult
 } from './contracts';
+import { planRatingSchemeEntrySave, type RatingSchemeEntrySaveData } from './utils/ratingSchemeEntryDraft';
+import { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
-export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Promise<RatingSchemeEntryEditorData> {
-	const response = await fetch(`/org/${orgId}/api/rating-scheme?${new URLSearchParams({ entry: id })}`, {
-		cache: 'no-store'
+async function send<T>(orgId: string, method: string, path: string, body?: unknown): Promise<T> {
+	const response = await fetch(`/org/${orgId}/api/${path}`, {
+		method,
+		...(body === undefined
+			? { cache: 'no-store' as const }
+			: { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 	});
-	if (!response.ok) throw await buildRequestError(response, 'GET', 'rating-scheme');
+	if (!response.ok) throw await buildRequestError(response, method, path.split(/[/?]/)[0]);
 	return response.json();
 }
 
-export async function saveRatingSchemeEntry(
-	orgId: string,
-	id: string,
-	data: Partial<Omit<RatingSchemeEntry, 'id' | 'workflowStatus' | 'archivedAt'>>
-): Promise<RatingSchemeEntry> {
-	const response = await fetch(`/org/${orgId}/api/rating-scheme`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ id, ...data })
-	});
-	if (!response.ok) throw await buildRequestError(response, 'PUT', 'rating-scheme');
-	return response.json();
+export function loadRatingSchemeEntryEditor(orgId: string, evaluationId: string): Promise<RatingSchemeEntryEditorData> {
+	return send(orgId, 'GET', `rating-scheme?${new URLSearchParams({ evaluation: evaluationId })}`);
 }
 
-async function postEntryAction<T>(orgId: string, id: string, action: string, body: unknown): Promise<T> {
-	const response = await fetch(`/org/${orgId}/api/rating-scheme/${id}/${action}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
-	if (!response.ok) throw await buildRequestError(response, 'POST', 'rating-scheme');
-	return response.json();
+export function createRatingScheme(orgId: string, values: RatingSchemeCreateValues): Promise<RatingScheme> {
+	return send(orgId, 'POST', 'rating-scheme', values);
 }
 
-export function moveRatingSchemeEntry(
-	orgId: string,
-	id: string,
-	move: RatingSchemeMove
-): Promise<RatingSchemeTransition> {
-	return postEntryAction(orgId, id, 'workflow', move);
+export function saveRatingScheme(orgId: string, id: string, patch: RatingSchemePatchValues): Promise<RatingScheme> {
+	return send(orgId, 'PUT', 'rating-scheme', { id, ...patch });
 }
 
-export function archiveRatingSchemeEntry(
+export function saveEvaluation(orgId: string, id: string, patch: EvaluationPatchValues): Promise<Evaluation> {
+	return send(orgId, 'PUT', 'evaluations', { id, ...patch });
+}
+
+export function startEvaluation(
 	orgId: string,
-	id: string,
+	ratingSchemeId: string,
+	start: EvaluationStart
+): Promise<EvaluationStartResult> {
+	return send(orgId, 'POST', `rating-scheme/${ratingSchemeId}/evaluations`, start);
+}
+
+export function archiveRatingScheme(
+	orgId: string,
+	ratingSchemeId: string,
 	archived: boolean
 ): Promise<RatingSchemeArchiveResult> {
-	return postEntryAction(orgId, id, 'archive', { archived });
+	return send(orgId, 'POST', `rating-scheme/${ratingSchemeId}/archive`, { archived });
 }
 
-export function changeRatingSchemeRater(
+export function moveEvaluation(orgId: string, id: string, move: RatingSchemeMove): Promise<EvaluationTransition> {
+	return send(orgId, 'POST', `evaluations/${id}/workflow`, move);
+}
+
+export function changeEvaluationRater(
 	orgId: string,
 	id: string,
 	change: RatingSchemeRaterChange
 ): Promise<RatingSchemeRaterChangeResult> {
-	return postEntryAction(orgId, id, 'change-rater', change);
+	return send(orgId, 'POST', `evaluations/${id}/change-rater`, change);
+}
+
+/** Saves an edited Evaluation row: the chain and type on its scheme unless a chain signed it, then its own fields. */
+export async function saveRatingSchemeEntry(
+	orgId: string,
+	current: Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'>,
+	data: RatingSchemeEntrySaveData,
+	isCurrent: () => boolean
+): Promise<Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'> | undefined> {
+	const plan = planRatingSchemeEntrySave(toRatingSchemeEntry(current.ratingScheme, current.evaluation), data);
+	const ratingScheme = plan.scheme
+		? await saveRatingScheme(orgId, current.ratingScheme.id, plan.scheme)
+		: current.ratingScheme;
+	if (!isCurrent()) return undefined;
+	const evaluation = await saveEvaluation(orgId, current.evaluation.id, plan.evaluation);
+	return { ratingScheme, evaluation };
 }

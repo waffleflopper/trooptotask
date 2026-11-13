@@ -33,13 +33,15 @@ INSERT INTO public.training_types (id, organization_id, name) VALUES
 INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id, completion_date) VALUES
   (pg_temp.id('421'), pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('401'), '2030-01-10'),
   (pg_temp.id('422'), pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('403'), '2030-01-11');
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
-VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type)
+VALUES (pg_temp.id('602'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER');
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
+VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('602'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
 INSERT INTO public.deletion_requests
   (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status) VALUES
   (pg_temp.id('701'), pg_temp.id('101'), pg_temp.id('3'), 'member@example.test', 'personnel_training', pg_temp.id('421'), 'Record', 'pending'),
   (pg_temp.id('702'), pg_temp.id('101'), pg_temp.id('3'), 'member@example.test', 'training_type', pg_temp.id('402'), 'Type', 'pending'),
-  (pg_temp.id('703'), pg_temp.id('101'), pg_temp.id('3'), 'member@example.test', 'rating_scheme_entry', pg_temp.id('601'), 'Entry', 'pending');
+  (pg_temp.id('703'), pg_temp.id('101'), pg_temp.id('3'), 'member@example.test', 'evaluation', pg_temp.id('601'), 'Evaluation', 'pending');
 DELETE FROM public.audit_logs WHERE org_id = pg_temp.id('101');
 
 SELECT pg_temp.act_as('2');
@@ -65,7 +67,7 @@ SELECT set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.cl
 SET LOCAL ROLE service_role;
 SELECT public.approve_record_deletion_request(pg_temp.id('101'), pg_temp.id('701'), 'personnel_training', pg_temp.id('421'), pg_temp.id('1'), now());
 SELECT public.approve_record_deletion_request(pg_temp.id('101'), pg_temp.id('702'), 'training_type', pg_temp.id('402'), pg_temp.id('1'), now());
-SELECT public.approve_record_deletion_request(pg_temp.id('101'), pg_temp.id('703'), 'rating_scheme_entry', pg_temp.id('601'), pg_temp.id('1'), now());
+SELECT public.approve_record_deletion_request(pg_temp.id('101'), pg_temp.id('703'), 'evaluation', pg_temp.id('601'), pg_temp.id('1'), now());
 SELECT is(coalesce(current_setting('request.jwt.claim.sub', true), ''), '',
   'the reviewer is the signed-in member only while the command deletes');
 DELETE FROM public.training_types WHERE id = pg_temp.id('401');
@@ -77,9 +79,9 @@ SELECT bag_eq(
   $$ VALUES
     ('training_record.deleted', pg_temp.id('1'), 'SSG Rivera, Sam', 'Annual Safety', 'SPC Doe, Jane'),
     ('training_type.deleted', pg_temp.id('1'), 'SSG Rivera, Sam', 'Retired Course', NULL),
-    ('rating_scheme.deleted', pg_temp.id('1'), 'SSG Rivera, Sam', 'NCOER', 'SPC Doe, Jane'),
+    ('evaluation.deleted', pg_temp.id('1'), 'SSG Rivera, Sam', 'NCOER', 'SPC Doe, Jane'),
     ('training_type.deleted', NULL, NULL, 'Annual Safety', NULL) $$,
-  'an approved deletion of a record, a type and a Rating Scheme entry names the reviewer and their saved label, and a service-role delete with no reviewer stays System');
+  'an approved deletion of a record, a type and an Evaluation names the reviewer and their saved label, and a service-role delete with no reviewer stays System');
 SELECT is(
   (SELECT count(*)::integer FROM public.deletion_requests WHERE id IN (pg_temp.id('701'), pg_temp.id('702'), pg_temp.id('703'))
     AND status = 'approved' AND reviewed_by = pg_temp.id('1')),

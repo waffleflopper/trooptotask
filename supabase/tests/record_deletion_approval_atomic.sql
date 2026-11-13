@@ -20,10 +20,13 @@ INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, train
   ('f4700000-0000-4000-8000-000000000311', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000201', 'f4700000-0000-4000-8000-000000000302', '2030-01-01'),
   ('f4700000-0000-4000-8000-000000000312', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000201', 'f4700000-0000-4000-8000-000000000304', '2031-01-01'),
   ('f4700000-0000-4000-8000-000000000313', 'f4700000-0000-4000-8000-000000000102', 'f4700000-0000-4000-8000-000000000202', 'f4700000-0000-4000-8000-000000000303', '2030-01-01');
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
-  ('f4700000-0000-4000-8000-000000000321', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000201', 'NCOER', 'f4700000-0000-4000-8000-000000000201', '2030-01-01', '2030-12-31'),
-  ('f4700000-0000-4000-8000-000000000322', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000201', 'NCOER', 'f4700000-0000-4000-8000-000000000201', '2031-01-01', '2031-12-31'),
-  ('f4700000-0000-4000-8000-000000000323', 'f4700000-0000-4000-8000-000000000102', 'f4700000-0000-4000-8000-000000000202', 'NCOER', 'f4700000-0000-4000-8000-000000000202', '2030-01-01', '2030-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, rater_person_id) VALUES
+  ('f4700000-0000-4000-8000-000000000331', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000201', 'NCOER', 'f4700000-0000-4000-8000-000000000201'),
+  ('f4700000-0000-4000-8000-000000000333', 'f4700000-0000-4000-8000-000000000102', 'f4700000-0000-4000-8000-000000000202', 'NCOER', 'f4700000-0000-4000-8000-000000000202');
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end) VALUES
+  ('f4700000-0000-4000-8000-000000000321', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000331', 'f4700000-0000-4000-8000-000000000201', 'NCOER', '2030-01-01', '2030-12-31'),
+  ('f4700000-0000-4000-8000-000000000322', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000331', 'f4700000-0000-4000-8000-000000000201', 'NCOER', '2031-01-01', '2031-12-31'),
+  ('f4700000-0000-4000-8000-000000000323', 'f4700000-0000-4000-8000-000000000102', 'f4700000-0000-4000-8000-000000000333', 'f4700000-0000-4000-8000-000000000202', 'NCOER', '2030-01-01', '2030-12-31');
 INSERT INTO public.deletion_requests
   (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status) VALUES
   ('f4700000-0000-4000-8000-000000000401', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'training_type', 'f4700000-0000-4000-8000-000000000301', 'Local type', 'pending'),
@@ -32,10 +35,10 @@ INSERT INTO public.deletion_requests
   ('f4700000-0000-4000-8000-000000000411', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'personnel_training', 'f4700000-0000-4000-8000-000000000311', 'Local record', 'pending'),
   ('f4700000-0000-4000-8000-000000000412', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'personnel_training', 'f4700000-0000-4000-8000-000000000313', 'Foreign record', 'pending'),
   ('f4700000-0000-4000-8000-000000000413', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'personnel_training', 'f4700000-0000-4000-8000-000000000399', 'Missing record', 'pending'),
-  ('f4700000-0000-4000-8000-000000000421', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'rating_scheme_entry', 'f4700000-0000-4000-8000-000000000321', 'Local entry', 'pending'),
-  ('f4700000-0000-4000-8000-000000000422', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'rating_scheme_entry', 'f4700000-0000-4000-8000-000000000323', 'Foreign entry', 'pending'),
-  ('f4700000-0000-4000-8000-000000000423', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'rating_scheme_entry', 'f4700000-0000-4000-8000-000000000399', 'Missing entry', 'pending'),
-  ('f4700000-0000-4000-8000-000000000424', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'rating_scheme_entry', 'f4700000-0000-4000-8000-000000000322', 'Cancelled entry', 'cancelled');
+  ('f4700000-0000-4000-8000-000000000421', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'evaluation', 'f4700000-0000-4000-8000-000000000321', 'Local evaluation', 'pending'),
+  ('f4700000-0000-4000-8000-000000000422', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'evaluation', 'f4700000-0000-4000-8000-000000000323', 'Foreign evaluation', 'pending'),
+  ('f4700000-0000-4000-8000-000000000423', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'evaluation', 'f4700000-0000-4000-8000-000000000399', 'Missing evaluation', 'pending'),
+  ('f4700000-0000-4000-8000-000000000424', 'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000002', 'record-approval-requester@example.test', 'evaluation', 'f4700000-0000-4000-8000-000000000322', 'Cancelled evaluation', 'cancelled');
 
 SELECT ok(NOT has_function_privilege('authenticated',
   'public.approve_record_deletion_request(uuid, uuid, text, uuid, uuid, timestamptz)', 'EXECUTE'),
@@ -81,9 +84,9 @@ SELECT lives_ok($$ SELECT public.approve_record_deletion_request(
   'f4700000-0000-4000-8000-000000000311', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
   'a Training record approval deletes its record');
 SELECT lives_ok($$ SELECT public.approve_record_deletion_request(
-  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000421', 'rating_scheme_entry',
+  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000421', 'evaluation',
   'f4700000-0000-4000-8000-000000000321', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
-  'a Rating Scheme entry approval deletes its entry');
+  'an Evaluation approval deletes its Evaluation');
 
 SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
   'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000402', 'training_type',
@@ -102,17 +105,17 @@ SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
   'f4700000-0000-4000-8000-000000000399', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
   'P0002', 'Deletion target not found', 'a missing Training record cannot be approved');
 SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
-  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000422', 'rating_scheme_entry',
+  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000422', 'evaluation',
   'f4700000-0000-4000-8000-000000000323', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
-  'P0002', 'Deletion target not found', 'another Organization''s Rating Scheme entry cannot be approved');
+  'P0002', 'Deletion target not found', 'another Organization''s Evaluation cannot be approved');
 SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
-  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000423', 'rating_scheme_entry',
+  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000423', 'evaluation',
   'f4700000-0000-4000-8000-000000000399', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
-  'P0002', 'Deletion target not found', 'a missing Rating Scheme entry cannot be approved');
+  'P0002', 'Deletion target not found', 'a missing Evaluation cannot be approved');
 SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
-  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000424', 'rating_scheme_entry',
+  'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000424', 'evaluation',
   'f4700000-0000-4000-8000-000000000322', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
-  'P0002', 'Pending deletion request not found', 'a cancelled request cannot delete its entry');
+  'P0002', 'Pending deletion request not found', 'a cancelled request cannot delete its Evaluation');
 SELECT throws_ok($$ SELECT public.approve_record_deletion_request(
   'f4700000-0000-4000-8000-000000000101', 'f4700000-0000-4000-8000-000000000412', 'personnel_training',
   'f4700000-0000-4000-8000-000000000312', 'f4700000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z') $$,
@@ -141,7 +144,7 @@ SELECT results_eq(
 SELECT results_eq(
   $$ SELECT id::text FROM public.training_types WHERE id::text LIKE 'f4700000-%'
      UNION ALL SELECT id::text FROM public.personnel_trainings WHERE id::text LIKE 'f4700000-%'
-     UNION ALL SELECT id::text FROM public.rating_scheme_entries WHERE id::text LIKE 'f4700000-%'
+     UNION ALL SELECT id::text FROM public.evaluations WHERE id::text LIKE 'f4700000-%'
      ORDER BY 1 $$,
   $$ VALUES
     ('f4700000-0000-4000-8000-000000000302'), ('f4700000-0000-4000-8000-000000000303'),

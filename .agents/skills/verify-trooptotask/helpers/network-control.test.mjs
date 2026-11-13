@@ -648,17 +648,17 @@ for (const move of ['workflow', 'change-rater']) {
 				return Response.json({ ok: true });
 			}
 		};
-		const suffix = `/org/a/api/rating-scheme/${entry}/${move}`;
+		const suffix = `/org/a/api/evaluations/${entry}/${move}`;
 		installNetworkControl(page, {
-			...ratingEntryNetworkTarget(`rating-scheme/${entry}/${move}`),
+			...ratingEntryNetworkTarget(`evaluations/${entry}/${move}`),
 			mode: 'fail',
 			ordinal: 1,
 			suffix,
 			sameOrigin: true
 		});
 		await page.fetch(suffix);
-		await page.fetch(`/org/a/api/rating-scheme/${otherEntry}/${move}`, { method: 'POST' });
-		await page.fetch(`/org/a/api/rating-scheme/${entry}/${move === 'workflow' ? 'change-rater' : 'workflow'}`, {
+		await page.fetch(`/org/a/api/evaluations/${otherEntry}/${move}`, { method: 'POST' });
+		await page.fetch(`/org/a/api/evaluations/${entry}/${move === 'workflow' ? 'change-rater' : 'workflow'}`, {
 			method: 'POST'
 		});
 		await page.fetch('/org/a/api/rating-scheme', { method: 'POST' });
@@ -673,16 +673,23 @@ for (const move of ['workflow', 'change-rater']) {
 	});
 }
 
-test('only a uuid-named workflow or change-rater path is an Evaluation move family', () => {
-	assert.deepEqual(ratingEntryNetworkTarget(`rating-scheme/${entry}/workflow`), { requestMethod: 'POST' });
-	assert.deepEqual(ratingEntryNetworkTarget(`rating-scheme/${entry}/change-rater`), { requestMethod: 'POST' });
+test('only a uuid-named Evaluation move or rating scheme action path is a POST family', () => {
+	for (const family of [
+		`evaluations/${entry}/workflow`,
+		`evaluations/${entry}/change-rater`,
+		`rating-scheme/${entry}/evaluations`,
+		`rating-scheme/${entry}/archive`
+	])
+		assert.deepEqual(ratingEntryNetworkTarget(family), { requestMethod: 'POST' }, family);
 	for (const family of [
 		'rating-scheme',
-		'rating-scheme/workflow',
-		`rating-scheme/${entry}`,
-		`rating-scheme/${entry}/workflow/extra`,
+		'evaluations',
+		'evaluations/workflow',
+		`evaluations/${entry}`,
+		`evaluations/${entry}/workflow/extra`,
+		`rating-scheme/${entry}/workflow`,
 		`rating-scheme/${entry}/delete`,
-		'rating-scheme/not-an-id/workflow',
+		'evaluations/not-an-id/workflow',
 		`personnel/${entry}/workflow`
 	])
 		assert.equal(ratingEntryNetworkTarget(family), null, family);

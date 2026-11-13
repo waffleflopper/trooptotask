@@ -588,7 +588,9 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		};
 		const findMany = ctx.store.findMany.bind(ctx.store);
 		vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
-			if (table === 'rating_scheme_entries') throw new Error('Generic Rating storage is unavailable');
+			if (table === 'evaluations' || table === 'rating_schemes') {
+				throw new Error('Generic Rating storage is unavailable');
+			}
 			return findMany(table, ...args);
 		});
 		const result = await load(ctx);
@@ -603,7 +605,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		['Organization', { kind: 'organization' as const }],
 		['Group', groupCoverageForTest({ kind: 'groups' as const, groupIds: ['g-1'] })]
 	])(
-		'leaves archived People and entries taken off the rating scheme out of the in-memory %s-scoped projection',
+		'leaves archived People and closed Evaluations taken off the rating scheme out of the in-memory %s-scoped projection',
 		async (_label, scopeSet) => {
 			const ctx = buildCtx({
 				auth: {
@@ -633,32 +635,31 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				},
 				{ id: 'p-archived', organization_id: ORG, group_id: 'g-1', archived_at: '2026-10-01T00:00:00Z' }
 			]);
-			store.seed('rating_scheme_entries', [
-				{
-					id: 'e-active',
-					organization_id: ORG,
-					rated_person_id: 'p-active',
-					eval_type: 'NCOER',
-					rating_period_end: '2026-09-25',
-					workflow_status: null
-				},
-				{
-					id: 'e-archived',
-					organization_id: ORG,
-					rated_person_id: 'p-archived',
-					eval_type: 'NCOER',
-					rating_period_end: '2026-09-20',
-					workflow_status: null
-				},
-				{
-					id: 'e-off-scheme',
-					organization_id: ORG,
-					rated_person_id: 'p-active',
-					eval_type: 'NCOER',
-					rating_period_end: '2026-09-22',
-					workflow_status: 'drafting',
-					archived_at: '2026-09-01T00:00:00Z'
-				}
+			store.seed('rating_schemes', [
+				{ id: 's-active', organization_id: ORG, rated_person_id: 'p-active', archived_at: null },
+				{ id: 's-archived-person', organization_id: ORG, rated_person_id: 'p-archived', archived_at: null },
+				{ id: 's-off', organization_id: ORG, rated_person_id: 'p-active', archived_at: '2026-09-01T00:00:00Z' }
+			]);
+			const evaluation = (
+				id: string,
+				ratingSchemeId: string,
+				ratedPersonId: string,
+				end: string,
+				status: string | null
+			) => ({
+				id,
+				organization_id: ORG,
+				rating_scheme_id: ratingSchemeId,
+				rated_person_id: ratedPersonId,
+				eval_type: 'NCOER',
+				rating_period_end: end,
+				workflow_status: status
+			});
+			store.seed('evaluations', [
+				evaluation('e-active', 's-active', 'p-active', '2026-09-25', null),
+				evaluation('e-archived', 's-archived-person', 'p-archived', '2026-09-20', null),
+				evaluation('e-off-scheme', 's-off', 'p-active', '2026-09-22', null),
+				evaluation('e-off-scheme-open', 's-off', 'p-active', '2026-09-24', 'drafting')
 			]);
 			const result = await load(ctx);
 			expect(result.ratingSchemeEntries).toEqual([
@@ -669,6 +670,14 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 					evalType: 'NCOER',
 					ratingPeriodEnd: '2026-09-25',
 					workflowStatus: null
+				},
+				{
+					id: 'e-off-scheme-open',
+					ratedPersonId: 'p-active',
+					ratedPersonName: 'SGT Able, Synthetic',
+					evalType: 'NCOER',
+					ratingPeriodEnd: '2026-09-24',
+					workflowStatus: 'drafting'
 				}
 			]);
 		}

@@ -7,12 +7,13 @@
 		onClose
 	}: {
 		entry: { id: string };
+		/** Saves the shown entry with new notes, as the real modal sends its whole draft. */
 		onSave: (data: { notes: string }, isCurrent: () => boolean) => Promise<void>;
 		onMove: (
 			id: string,
 			move: { from: string | null; to: string | null },
 			isCurrent: () => boolean
-		) => Promise<unknown>;
+		) => Promise<{ workflowStatus: string | null } | undefined>;
 		onChangeRater: (
 			id: string,
 			change: { changeDate: string; raterPersonId: string | null; raterName: string | null },
@@ -31,11 +32,17 @@
 
 <section aria-label="Entry {entry.id}">
 	{#if said}<p>Modal says: {said}</p>{/if}
-	<button type="button" onclick={() => report(onSave({ notes: 'Updated' }, () => true))}>Save notes</button>
-	<button type="button" onclick={() => report(onMove(entry.id, { from: null, to: 'drafting' }, () => true))}
+	<button type="button" onclick={() => report(onSave({ ...entry, notes: 'Updated' }, () => true))}>Save notes</button>
+	<button
+		type="button"
+		onclick={() =>
+			report(onMove(entry.id, { from: null, to: 'drafting' }, () => true).then((saved) => saved?.workflowStatus))}
 		>Start tracking</button
 	>
-	<button type="button" onclick={() => report(onMove(entry.id, { from: null, to: 'completed' }, () => true))}
+	<button
+		type="button"
+		onclick={() =>
+			report(onMove(entry.id, { from: null, to: 'completed' }, () => true).then((saved) => saved?.workflowStatus))}
 		>Mark completed</button
 	>
 	<button

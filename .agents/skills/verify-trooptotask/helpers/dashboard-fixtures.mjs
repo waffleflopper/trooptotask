@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { evaluationSeedRows } from './evaluation-seed.mjs';
 
 // Source facts for a combined Dashboard run. Expected results belong to its recipe.
 export async function seedDashboard({ client, fixture, tag, ownedState, save }) {
@@ -18,6 +19,37 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 	const packet = randomUUID();
 	// Every step shares one key set, so PostgREST does not send null for a missing column.
 	const stageChangedAt = `${date(-8)}T12:00:00Z`;
+	const rating = await evaluationSeedRows(client, [
+		...[
+			[ids.personA, -5, null],
+			[ids.personB, 20, null],
+			[ids.personUnassigned, 45, null],
+			[loss, 90, null],
+			[archived, -3, null],
+			[ids.personA, -10, 'completed']
+		].map(([person, offset, workflowStatus]) => ({
+			id: randomUUID(),
+			organization_id: ids.orgA,
+			rated_person_id: person,
+			eval_type: 'NCOER',
+			rater_name: 'Synthetic Rater',
+			senior_rater_name: 'Synthetic Senior Rater',
+			rating_period_start: date(-365),
+			rating_period_end: date(offset),
+			workflow_status: workflowStatus
+		})),
+		{
+			id: randomUUID(),
+			organization_id: ids.orgB,
+			rated_person_id: ids.personForeign,
+			eval_type: 'NCOER',
+			rater_name: 'Synthetic Foreign Rater',
+			senior_rater_name: 'Synthetic Foreign Senior Rater',
+			rating_period_start: date(-365),
+			rating_period_end: date(-1)
+		}
+	]);
+	const inOrg = (rows, organization) => rows.filter((row) => row.organization_id === ids[organization]);
 	const batches = [
 		[
 			'personnel',
@@ -172,46 +204,10 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 				}
 			]
 		],
-		[
-			'rating_scheme_entries',
-			'orgA',
-			[
-				...[
-					[ids.personA, -5, null],
-					[ids.personB, 20, null],
-					[ids.personUnassigned, 45, null],
-					[loss, 90, null],
-					[archived, -3, null],
-					[ids.personA, -10, 'completed']
-				].map(([person, offset, workflowStatus]) => ({
-					id: randomUUID(),
-					organization_id: ids.orgA,
-					rated_person_id: person,
-					eval_type: 'NCOER',
-					rater_name: 'Synthetic Rater',
-					senior_rater_name: 'Synthetic Senior Rater',
-					rating_period_start: date(-365),
-					rating_period_end: date(offset),
-					workflow_status: workflowStatus
-				}))
-			]
-		],
-		[
-			'rating_scheme_entries',
-			'orgB',
-			[
-				{
-					id: randomUUID(),
-					organization_id: ids.orgB,
-					rated_person_id: ids.personForeign,
-					eval_type: 'NCOER',
-					rater_name: 'Synthetic Foreign Rater',
-					senior_rater_name: 'Synthetic Foreign Senior Rater',
-					rating_period_start: date(-365),
-					rating_period_end: date(-1)
-				}
-			]
-		]
+		...['orgA', 'orgB'].flatMap((organization) => [
+			['rating_schemes', organization, inOrg(rating.schemes, organization)],
+			['evaluations', organization, inOrg(rating.evaluations, organization)]
+		])
 	];
 	for (const [table, organization, rows] of batches)
 		ownedState.seeded.push({ kind: 'dashboard', table, organization, tag, ids: rows.map(({ id }) => id) });

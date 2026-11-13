@@ -6,8 +6,7 @@
 		RatingSchemeDueEntry,
 		RatingSchemeEntry,
 		RatingSchemeMove,
-		RatingSchemeRaterChange,
-		WorkflowStatus
+		RatingSchemeRaterChange
 	} from '$features/rating-scheme/contracts';
 	import {
 		changeEvaluationRater,
@@ -27,11 +26,7 @@
 			data: Omit<RatingSchemeEntry, 'id' | 'ratingSchemeId' | 'workflowStatus' | 'archivedAt' | 'chainSigned'>,
 			isCurrent: () => boolean
 		) => Promise<void>;
-		onMove: (
-			id: string,
-			move: RatingSchemeMove,
-			isCurrent: () => boolean
-		) => Promise<WorkflowStatus | null | undefined>;
+		onMove: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<RatingSchemeEntry | undefined>;
 		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
 	}>;
@@ -89,10 +84,10 @@
 			});
 			if (!isCurrent()) return undefined;
 			putEntry(evaluation);
-			return evaluation.workflowStatus;
+			return toRatingSchemeEntry(editor.ratingScheme, evaluation);
 		};
 		if (!isEvaluationCompleted(workflowMove.to)) return move();
-		let reached: WorkflowStatus | null | undefined;
+		let reached: RatingSchemeEntry | undefined;
 		await save(async () => {
 			reached = await move();
 		});

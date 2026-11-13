@@ -27,9 +27,9 @@ const personnelLookup = [
 	{ id: 'senior-1', rank: 'SFC', lastName: 'Senior', firstName: 'Sam' }
 ];
 
-function renderModals() {
+function renderModals(opened = entry) {
 	const modals = new ModalRegistry();
-	modals.open('rating-modal', { entry });
+	modals.open('rating-modal', { entry: opened });
 	render(RatingSchemeModals, {
 		props: { orgId: 'org-1', modals, personnelLookup, onRequestDeletion: async () => false }
 	});
@@ -92,5 +92,48 @@ describe('RatingSchemeModals edit feedback', () => {
 
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Rating scheme not found'));
 		expect(ratingSchemeEntries.items).toEqual([entry]);
+	});
+
+	describe('a move that completes or reopens the Evaluation', () => {
+		const signedNote = 'The chain that signed this evaluation. It stays as signed.';
+		const chain = {
+			raterPersonId: 'rater-1',
+			raterName: null,
+			seniorRaterPersonId: 'senior-1',
+			seniorRaterName: null,
+			intermediateRaterPersonId: null,
+			intermediateRaterName: null,
+			reviewerPersonId: null,
+			reviewerName: null
+		};
+		const evaluation = {
+			id: 'entry-1',
+			ratingSchemeId: 'scheme-1',
+			ratedPersonId: 'rated-1',
+			evalType: 'NCOER',
+			reportType: 'AN',
+			ratingPeriodStart: '2026-01-01',
+			ratingPeriodEnd: '2026-12-31',
+			notes: null
+		};
+
+		it('locks the chain once completed and unlocks it once reopened', async () => {
+			const responses = [
+				{ moved: true, evaluation: { ...evaluation, workflowStatus: 'completed', signedChain: chain } },
+				{ moved: true, evaluation: { ...evaluation, workflowStatus: null, signedChain: null } }
+			];
+			vi.stubGlobal('fetch', async () => Response.json(responses.shift()));
+			renderModals();
+			expect(screen.queryByText(signedNote)).toBeNull();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
+
+			expect(await screen.findByText(signedNote)).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+
+			await waitFor(() => expect(screen.queryByText(signedNote)).toBeNull());
+			expect(screen.getByRole('button', { name: 'Start tracking' })).toBeTruthy();
+		});
 	});
 });

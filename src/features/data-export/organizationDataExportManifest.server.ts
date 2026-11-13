@@ -470,11 +470,10 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 			(sections.ratingSchemes ?? []).map((scheme) => ({
 				person: lookup(labels.personnel, scheme.rated_person_id),
 				eval_type: scheme.eval_type,
-				rater: lookup(labels.personnel, scheme.rater_person_id) || scheme.rater_name,
-				senior_rater: lookup(labels.personnel, scheme.senior_rater_person_id) || scheme.senior_rater_name,
-				intermediate_rater:
-					lookup(labels.personnel, scheme.intermediate_rater_person_id) || scheme.intermediate_rater_name,
-				reviewer: lookup(labels.personnel, scheme.reviewer_person_id) || scheme.reviewer_name,
+				rater: evaluator(labels, scheme.rater_person_id, scheme.rater_name),
+				senior_rater: evaluator(labels, scheme.senior_rater_person_id, scheme.senior_rater_name),
+				intermediate_rater: evaluator(labels, scheme.intermediate_rater_person_id, scheme.intermediate_rater_name),
+				reviewer: evaluator(labels, scheme.reviewer_person_id, scheme.reviewer_name),
 				archived_at: scheme.archived_at,
 				notes: scheme.notes
 			}))
@@ -490,9 +489,12 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				rating_period_start: evaluation.rating_period_start,
 				rating_period_end: evaluation.rating_period_end,
 				workflow_status: evaluation.workflow_status,
-				signed_rater: lookup(labels.personnel, evaluation.snapshot_rater_person_id) || evaluation.snapshot_rater_name,
-				signed_senior_rater:
-					lookup(labels.personnel, evaluation.snapshot_senior_rater_person_id) || evaluation.snapshot_senior_rater_name,
+				signed_rater: evaluator(labels, evaluation.snapshot_rater_person_id, evaluation.snapshot_rater_name),
+				signed_senior_rater: evaluator(
+					labels,
+					evaluation.snapshot_senior_rater_person_id,
+					evaluation.snapshot_senior_rater_name
+				),
 				chain_signed_at: evaluation.chain_snapshot_at,
 				notes: evaluation.notes
 			}))
@@ -536,6 +538,11 @@ function memberEmails(sections: OrganizationDataExportSections): Map<string, str
 
 function taskingTitles(sections: OrganizationDataExportSections): Map<string, string> {
 	return new Map((sections.calendarTaskings ?? []).map((tasking) => [String(tasking.id), String(tasking.title)]));
+}
+
+/** An evaluator's personnel label, else the name kept beside the link, else the id as a last resort. */
+function evaluator(labels: OrganizationDataExportLabels, personId: unknown, name: unknown): unknown {
+	return (typeof personId === 'string' && labels.personnel.get(personId)) || name || personId;
 }
 
 function lookup(labels: Map<string, string>, value: unknown): string {

@@ -52,12 +52,8 @@
 		isCurrentWorkspace: () => boolean;
 		onSave: (data: RatingSchemeEntrySaveData, isCurrent: () => boolean) => Promise<void>;
 		onDelete?: (id: string, isCurrent: () => boolean) => Promise<boolean>;
-		/** Resolves to the saved step, or undefined when the workspace changed first. */
-		onMove?: (
-			id: string,
-			move: RatingSchemeMove,
-			isCurrent: () => boolean
-		) => Promise<WorkflowStatus | null | undefined>;
+		/** Resolves to the Evaluation as it now stands, with the chain it shows, or undefined when the workspace changed first. */
+		onMove?: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<RatingSchemeEntry | undefined>;
 		/** Archives or restores the entry's rating scheme; resolves to the saved listing time (null when restored), or undefined when the workspace changed first. */
 		onArchive?: (
 			ratingSchemeId: string,
@@ -69,8 +65,17 @@
 		onClose: () => void;
 	}
 
-	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onMove, onArchive, onChangeRater, onClose }: Props =
-		$props();
+	let {
+		entry: openedEntry,
+		personnel,
+		isCurrentWorkspace,
+		onSave,
+		onDelete,
+		onMove,
+		onArchive,
+		onChangeRater,
+		onClose
+	}: Props = $props();
 	let disposed = false;
 	onDestroy(() => {
 		disposed = true;
@@ -82,27 +87,24 @@
 	);
 	const personnelOptions = $derived(sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) })));
 
-	function createInitialDraft() {
-		return createRatingSchemeEntryDraft(entry);
-	}
-
-	function initialWorkflowStatus() {
-		return entry?.workflowStatus ?? null;
+	function initialEntry() {
+		return openedEntry;
 	}
 
 	function initialArchivedAt() {
-		return entry?.archivedAt ?? null;
+		return openedEntry?.archivedAt ?? null;
 	}
 
-	let draft = $state(createInitialDraft());
-	const pristineDraft = JSON.stringify(createInitialDraft());
+	/** The Evaluation as it stands now; a move that completes or reopens it changes the chain it shows. */
+	let entry = $state(initialEntry());
+	let draft = $state(createRatingSchemeEntryDraft(initialEntry()));
+	let pristineDraft = $state(JSON.stringify(createRatingSchemeEntryDraft(initialEntry())));
 	let showDeleteConfirm = $state(false);
 	let saveAttempted = $state(false);
 	let isSaving = $state(false);
 	let isDeleting = $state(false);
 	let saveError = $state('');
 	let saveButton = $state<HTMLButtonElement | null>(null);
-	let workflowStatus = $state(initialWorkflowStatus());
 	let isMoving = $state(false);
 	let moveError = $state('');
 	let archivedAt = $state(initialArchivedAt());
@@ -207,6 +209,7 @@
 		}
 	}
 
+	const workflowStatus = $derived(entry?.workflowStatus ?? null);
 	const phase = $derived(evaluationPhase(workflowStatus));
 	const moves = $derived(entry && onMove ? workflowMoves(workflowStatus, workflowRoles(entry)) : []);
 	const jumpTargets = $derived(entry && onMove ? workflowJumpTargets(workflowStatus, workflowRoles(entry)) : []);
@@ -242,7 +245,11 @@
 		isMoving = true;
 		try {
 			const saved = await moveHandler(entry.id, { from: workflowStatus, to }, isCurrent);
-			if (isCurrent() && saved !== undefined) workflowStatus = saved;
+			if (isCurrent() && saved !== undefined) {
+				entry = saved;
+				draft = createRatingSchemeEntryDraft(saved);
+				pristineDraft = JSON.stringify(draft);
+			}
 		} catch (error) {
 			if (isCurrent()) moveError = getSaveErrorMessage(error, 'The workflow did not move. Try again.');
 		} finally {
@@ -320,7 +327,7 @@
 		return name ?? 'not set';
 	}
 
-	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
+	const ratedPerson = $derived(personnel.find((p) => p.id === entry?.ratedPersonId));
 	const headerDue = $derived(
 		entry ? getEntryDueLabel({ ratingPeriodEnd: entry.ratingPeriodEnd, workflowStatus, archivedAt }) : null
 	);

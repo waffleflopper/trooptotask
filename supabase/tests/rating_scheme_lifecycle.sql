@@ -114,7 +114,8 @@ INSERT INTO public.organization_memberships (
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug) VALUES
   (pg_temp.id('302'), pg_temp.id('101'), pg_temp.id('201'), 'SSG', 'First', 'Rater', 'lifecycle-rater'),
   (pg_temp.id('303'), pg_temp.id('101'), pg_temp.id('201'), 'SFC', 'Next', 'Rater', 'lifecycle-next'),
-  (pg_temp.id('305'), pg_temp.id('102'), NULL, 'SSG', 'Foreign', 'Rater', 'lifecycle-foreign');
+  (pg_temp.id('305'), pg_temp.id('102'), NULL, 'SSG', 'Foreign', 'Rater', 'lifecycle-foreign'),
+  (pg_temp.id('306'), pg_temp.id('101'), pg_temp.id('201'), 'SSG', 'Leaving', 'Rater', 'lifecycle-leaving');
 
 SELECT ok(NOT has_function_privilege('anon', 'public.transition_evaluation(uuid,uuid,text,text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.change_evaluation_rater(uuid,uuid,date,uuid,text)', 'EXECUTE')
@@ -149,6 +150,12 @@ INSERT INTO fixture VALUES
   ('probe', pg_temp.at_step('none', 'with-rater')),
   ('signed', pg_temp.at_step('both', 'with-rater')),
   ('fresh', pg_temp.new_entry('none'));
+INSERT INTO fixture VALUES
+  ('dropped', pg_temp.at_step('both', 'completed')),
+  ('added', pg_temp.at_step('none', 'completed')),
+  ('departing', pg_temp.new_entry('none'));
+UPDATE public.rating_schemes SET rater_person_id = pg_temp.id('306') WHERE id = pg_temp.scheme(pg_temp.f('departing'));
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('departing'), NULL, 'drafting');
 INSERT INTO changed (entry) SELECT pg_temp.at_step('both', 'with-rater');
 INSERT INTO leap (entry) SELECT pg_temp.new_entry('none', '2027-03-01', '2028-03-31');
 SET LOCAL ROLE authenticated;
@@ -271,6 +278,34 @@ SELECT is(public.start_evaluation(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('s
 SELECT throws_ok(format($$ SELECT public.start_evaluation(%L, %L, 'AN', '2030-12-31', '2030-01-01') $$,
     pg_temp.id('101'), pg_temp.scheme(pg_temp.f('signed'))),
   '22023', 'Choose a rating period that ends on or after it starts', 'an Evaluation needs a period in order');
+
+-- Reopening reads the scheme as it stands now, not the chain that signed the Evaluation.
+UPDATE public.rating_schemes SET reviewer_person_id = NULL, reviewer_name = NULL
+WHERE id = pg_temp.scheme(pg_temp.f('dropped'));
+SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, 'completed', 'with-reviewer') $$,
+    pg_temp.id('101'), pg_temp.f('dropped')),
+  '55000', 'An evaluation at completed cannot move to with-reviewer',
+  'a reopened Evaluation cannot go to a reviewer the scheme no longer has');
+UPDATE public.rating_schemes SET reviewer_name = 'MAJ New Reviewer' WHERE id = pg_temp.scheme(pg_temp.f('added'));
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('added'), 'completed', 'with-reviewer');
+SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('added')), 'with-reviewer',
+  'a reopened Evaluation can go to a reviewer the scheme gained after it was completed');
+
+-- The rater's link clears when their Personnel Record is deleted, but is not otherwise cleared by hand.
+SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_person_id = NULL WHERE id = %L $$,
+    pg_temp.scheme(pg_temp.f('departing'))),
+  '55000', 'Change the rater of an open evaluation with Change rater', 'an open Evaluation''s rater link is not cleared by hand');
+SELECT pg_temp.act_as('1');
+UPDATE public.personnel SET archived_at = now() WHERE id = pg_temp.id('306');
+SELECT lives_ok(format($$ DELETE FROM public.personnel WHERE id = %L $$, pg_temp.id('306')),
+  'deleting the Personnel Record of a rater whose Evaluation is open succeeds');
+SELECT results_eq(
+  $$ SELECT s.rater_person_id, s.rater_name, e.workflow_status,
+       EXISTS (SELECT 1 FROM public.personnel WHERE id = pg_temp.id('306'))
+     FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('departing') $$,
+  $$ VALUES (NULL::uuid, NULL::text, 'drafting'::text, false) $$,
+  'the deleted rater''s link is cleared and the Evaluation stays open');
+SELECT pg_temp.act_as('2');
 
 -- Out of scope and view-only members.
 SELECT pg_temp.act_as('3');

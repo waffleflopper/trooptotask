@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
+	import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
+	import { isEvaluationOpen, toRatingSchemeEntry } from '$features/rating-scheme/utils/ratingSchemeEntries';
 	import type { RatingSchemeMove, RatingSchemeRaterChange } from '$features/rating-scheme/contracts';
 	import { evaluationStore, ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import {
@@ -52,12 +53,25 @@
 		};
 	}
 
+	/** The Evaluation as the stores hold it now, which a move may have changed since the modal was opened. */
+	function currentEntry(opened: RatingSchemeEntry): RatingSchemeEntry {
+		const scheme = ratingSchemeStore.items.find((row) => row.id === opened.ratingSchemeId);
+		const evaluation = evaluationStore.items.find((row) => row.id === opened.id);
+		return scheme && evaluation ? toRatingSchemeEntry(scheme, evaluation) : opened;
+	}
+
 	/** Adds the Evaluation to the person's listed scheme, listing one first when they have none. */
 	async function addRatingEntry(entryData: RatingSchemeEntrySaveData, isCurrent: () => boolean) {
 		const fallback = 'Failed to add rating entry';
 		const listed = ratingSchemeStore.items.find(
 			(scheme) => scheme.ratedPersonId === entryData.ratedPersonId && scheme.archivedAt === null
 		);
+		if (
+			listed &&
+			evaluationStore.items.some((row) => row.ratingSchemeId === listed.id && isEvaluationOpen(row.workflowStatus))
+		) {
+			throw new Error('This Person already has an open Evaluation. Finish it before adding another.');
+		}
 		const plan = planRatingSchemeEntrySave(listed ? { ...listed, chainSigned: false } : null, entryData);
 		let scheme = listed;
 		if (!scheme) {
@@ -86,8 +100,8 @@
 
 	async function handleSaveRatingEntry(entryData: RatingSchemeEntrySaveData, isCurrent: () => boolean) {
 		if (!isCurrent()) return;
-		const editing = editingEntry;
-		if (!editing) return addRatingEntry(entryData, isCurrent);
+		if (!editingEntry) return addRatingEntry(entryData, isCurrent);
+		const editing = currentEntry(editingEntry);
 		const fallback = 'Failed to update rating entry';
 		const plan = planRatingSchemeEntrySave(editing, entryData);
 		if (plan.scheme) {
@@ -104,14 +118,14 @@
 		id: string,
 		move: RatingSchemeMove,
 		isCurrent: () => boolean
-	): Promise<WorkflowStatus | null | undefined> {
+	): Promise<RatingSchemeEntry | undefined> {
 		if (!isCurrent()) return undefined;
 		const { evaluation } = await moveEvaluation(initialOrgId, id, move).catch(
 			failed('The workflow did not move. Try again.')
 		);
 		if (!isCurrent()) return undefined;
 		evaluationStore.mergeBatchResults([], [evaluation]);
-		return evaluation.workflowStatus;
+		return editingEntry ? currentEntry(editingEntry) : undefined;
 	}
 
 	async function handleArchiveRatingEntry(

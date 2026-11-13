@@ -291,12 +291,17 @@ CREATE TRIGGER keep_evaluation_chain_snapshot BEFORE INSERT OR UPDATE OF workflo
   FOR EACH ROW EXECUTE FUNCTION organization_private.keep_evaluation_chain_snapshot();
 
 -- Intermediate rater, senior rater and reviewer edits apply live to the open Evaluation. The rater it is rated by
--- changes only through change_evaluation_rater, which completes it as a Change of Rater report first.
+-- changes only through change_evaluation_rater, which completes it as a Change of Rater report first. Deleting the
+-- rater's Personnel Record clears the link by itself, which is not a change of rater.
 CREATE FUNCTION organization_private.require_rater_change_report() RETURNS trigger
-  LANGUAGE plpgsql SET search_path = '' AS $$
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   IF (NEW.rater_person_id, NEW.rater_name) IS DISTINCT FROM (OLD.rater_person_id, OLD.rater_name)
     AND pg_catalog.current_setting('trooptotask.rater_change', true) IS DISTINCT FROM 'on'
+    AND NOT (
+      NEW.rater_person_id IS NULL AND OLD.rater_person_id IS NOT NULL AND NEW.rater_name IS NOT DISTINCT FROM OLD.rater_name
+      AND NOT EXISTS (SELECT 1 FROM public.personnel AS p WHERE p.id = OLD.rater_person_id)
+    )
     AND EXISTS (
       SELECT 1 FROM public.evaluations AS e
       WHERE e.rating_scheme_id = NEW.id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
@@ -419,8 +424,8 @@ CREATE TRIGGER audit_evaluation AFTER INSERT OR DELETE OR UPDATE ON public.evalu
   FOR EACH ROW EXECUTE FUNCTION audit_private.audit_evaluation();
 
 -- Moves an Evaluation one step, or jumps to any step its chain has, as 20261112120000 did for entries. Its chain is
--- its snapshot when it has one, else its scheme's. The triggers above keep one open Evaluation per scheme and the
--- snapshot of a completed one. A move works whether or not the scheme is archived.
+-- its scheme's, which a reopened Evaluation follows again. The triggers above keep one open Evaluation per scheme and
+-- the snapshot of a completed one. A move works whether or not the scheme is archived.
 CREATE FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text DEFAULT NULL,
   p_to text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -457,18 +462,11 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  IF v_row.chain_snapshot_at IS NOT NULL THEN
-    v_has_ir := v_row.snapshot_intermediate_rater_person_id IS NOT NULL
-      OR NULLIF(pg_catalog.btrim(v_row.snapshot_intermediate_rater_name), '') IS NOT NULL;
-    v_has_reviewer := v_row.snapshot_reviewer_person_id IS NOT NULL
-      OR NULLIF(pg_catalog.btrim(v_row.snapshot_reviewer_name), '') IS NOT NULL;
-  ELSE
-    SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
-    v_has_ir := v_scheme.intermediate_rater_person_id IS NOT NULL
-      OR NULLIF(pg_catalog.btrim(v_scheme.intermediate_rater_name), '') IS NOT NULL;
-    v_has_reviewer := v_scheme.reviewer_person_id IS NOT NULL
-      OR NULLIF(pg_catalog.btrim(v_scheme.reviewer_name), '') IS NOT NULL;
-  END IF;
+  SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+  v_has_ir := v_scheme.intermediate_rater_person_id IS NOT NULL
+    OR NULLIF(pg_catalog.btrim(v_scheme.intermediate_rater_name), '') IS NOT NULL;
+  v_has_reviewer := v_scheme.reviewer_person_id IS NOT NULL
+    OR NULLIF(pg_catalog.btrim(v_scheme.reviewer_name), '') IS NOT NULL;
   IF NOT v_has_ir THEN
     v_absent := v_absent || ARRAY['with-intermediate-rater', 'ir-signed'];
   END IF;

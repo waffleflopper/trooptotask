@@ -481,29 +481,26 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 	{
 		name: 'Evaluations',
 		areaKey: 'rating-scheme',
-		rows: (sections, labels) =>
-			(sections.evaluations ?? []).map((evaluation) => ({
-				person: lookup(labels.personnel, evaluation.rated_person_id),
-				eval_type: evaluation.eval_type,
-				report_type: evaluation.report_type,
-				rating_period_start: evaluation.rating_period_start,
-				rating_period_end: evaluation.rating_period_end,
-				workflow_status: evaluation.workflow_status,
-				signed_rater: evaluator(labels, evaluation.snapshot_rater_person_id, evaluation.snapshot_rater_name),
-				signed_senior_rater: evaluator(
-					labels,
-					evaluation.snapshot_senior_rater_person_id,
-					evaluation.snapshot_senior_rater_name
-				),
-				signed_intermediate_rater: evaluator(
-					labels,
-					evaluation.snapshot_intermediate_rater_person_id,
-					evaluation.snapshot_intermediate_rater_name
-				),
-				signed_reviewer: evaluator(labels, evaluation.snapshot_reviewer_person_id, evaluation.snapshot_reviewer_name),
-				chain_signed_at: evaluation.chain_snapshot_at,
-				notes: evaluation.notes
-			}))
+		rows: (sections, labels) => {
+			const schemes = new Map((sections.ratingSchemes ?? []).map((scheme) => [scheme.id, scheme]));
+			return (sections.evaluations ?? []).map((evaluation) => {
+				const chain = evaluation.chain_snapshot_at ? signedChain(evaluation) : schemes.get(evaluation.rating_scheme_id);
+				return {
+					person: lookup(labels.personnel, evaluation.rated_person_id),
+					eval_type: evaluation.eval_type,
+					report_type: evaluation.report_type,
+					rating_period_start: evaluation.rating_period_start,
+					rating_period_end: evaluation.rating_period_end,
+					workflow_status: evaluation.workflow_status,
+					rater: evaluator(labels, chain?.rater_person_id, chain?.rater_name),
+					senior_rater: evaluator(labels, chain?.senior_rater_person_id, chain?.senior_rater_name),
+					intermediate_rater: evaluator(labels, chain?.intermediate_rater_person_id, chain?.intermediate_rater_name),
+					reviewer: evaluator(labels, chain?.reviewer_person_id, chain?.reviewer_name),
+					chain_signed_at: evaluation.chain_snapshot_at,
+					notes: evaluation.notes
+				};
+			});
+		}
 	},
 	{ name: 'Critical Tasks', areaKey: 'critical-tasks', rows: (sections) => sections.ictTasks ?? [] },
 	{
@@ -544,6 +541,16 @@ function memberEmails(sections: OrganizationDataExportSections): Map<string, str
 
 function taskingTitles(sections: OrganizationDataExportSections): Map<string, string> {
 	return new Map((sections.calendarTaskings ?? []).map((tasking) => [String(tasking.id), String(tasking.title)]));
+}
+
+/** A completed Evaluation's signed chain, keyed like a scheme's live chain. */
+function signedChain(evaluation: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(
+		['rater', 'senior_rater', 'intermediate_rater', 'reviewer'].flatMap((role) => [
+			[`${role}_person_id`, evaluation[`snapshot_${role}_person_id`]],
+			[`${role}_name`, evaluation[`snapshot_${role}_name`]]
+		])
+	);
 }
 
 /** An evaluator's personnel label, else the name kept beside the link, else the id as a last resort. */

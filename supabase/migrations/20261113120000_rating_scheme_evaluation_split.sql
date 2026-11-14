@@ -1015,10 +1015,14 @@ BEGIN
   END IF;
 
   -- Training and rating approvals delete their record before approving its request, and archive approval
-  -- locks its request before the Person. The purge takes records, then requests, then People.
+  -- locks its request before the Person. The purge takes records, then requests, then People. A scheme locks
+  -- before its Evaluations, the order a scheme type change takes.
   PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
     WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT scheme.id FROM public.rating_schemes AS scheme
+    WHERE scheme.organization_id = p_org_id AND scheme.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY scheme.id FOR UPDATE) AS locked;
   PERFORM 1 FROM (SELECT record.id FROM public.evaluations AS record
     WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;

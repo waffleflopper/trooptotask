@@ -16,6 +16,10 @@
 		type CriticalTasksMatrixCell,
 		type CriticalTasksMatrixRow
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
+	import {
+		criticalTaskReadinessTier,
+		type CriticalTaskReadinessTier
+	} from '$features/critical-tasks/utils/ictReadinessSnapshot';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import CriticalTaskStatusBadge from './CriticalTaskStatusBadge.svelte';
@@ -191,12 +195,12 @@
 		return `${person.lastName}, ${person.firstName}`;
 	}
 
-	function readinessTone(percent: number, applicableCount: number): string {
-		if (applicableCount === 0) return 'bg-muted';
-		if (percent < 65) return 'bg-danger';
-		if (percent >= 80) return 'bg-success';
-		return 'bg-warning';
-	}
+	const readinessBarTone: Record<CriticalTaskReadinessTier, string> = {
+		below: 'bg-danger',
+		near: 'bg-warning',
+		goal: 'bg-success',
+		none: 'bg-muted'
+	};
 
 	function cellAriaLabel(person: Personnel, cell: CriticalTasksMatrixCell): string {
 		if (!cell.applicable) {
@@ -282,7 +286,7 @@
 					<span>RDY</span>
 					<span class="h-1 overflow-hidden rounded bg-muted" aria-hidden="true">
 						<span
-							class={`block h-full ${readinessTone(row.source.readinessPercent, row.source.applicableCount)}`}
+							class={`block h-full ${readinessBarTone[criticalTaskReadinessTier(row.source.readyCount, row.source.applicableCount)]}`}
 							style:width={`${row.source.readinessPercent}%`}
 						></span>
 					</span>

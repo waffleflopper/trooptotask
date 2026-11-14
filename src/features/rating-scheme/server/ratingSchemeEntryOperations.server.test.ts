@@ -415,6 +415,25 @@ describe('Evaluation — start and update', () => {
 		expect(result).toMatchObject({ ratingPeriodEnd: '2026-11-30', notes: 'Counseling' });
 	});
 
+	it('keeps a completed Evaluation’s report and period until it is reopened, and still saves its notes', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { workflow_status: 'completed', chain_snapshot_at: '2026-06-01T00:00:00Z' });
+		const before = await storedEvaluation(ctx);
+
+		await expect(updateEvaluation(ctx, { id: EVALUATION, ratingPeriodEnd: '2026-11-30' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Reopen this evaluation to change its report or period'
+		});
+		await expect(updateEvaluation(ctx, { id: EVALUATION, reportType: 'CR' })).rejects.toMatchObject({ status: 409 });
+		const saved = await updateEvaluation(ctx, {
+			id: EVALUATION,
+			reportType: before?.report_type ?? undefined,
+			ratingPeriodEnd: before?.rating_period_end,
+			notes: 'Filed'
+		});
+		expect(saved).toMatchObject({ ratingPeriodEnd: before?.rating_period_end, notes: 'Filed' });
+	});
+
 	it('gives an unfinished Evaluation its scheme’s new type and keeps a completed one as rated', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, { workflow_status: 'with-rater' });

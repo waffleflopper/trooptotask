@@ -296,6 +296,21 @@ REVOKE ALL ON FUNCTION organization_private.keep_evaluation_chain_snapshot() FRO
 CREATE TRIGGER keep_evaluation_chain_snapshot BEFORE INSERT OR UPDATE OF workflow_status ON public.evaluations
   FOR EACH ROW EXECUTE FUNCTION organization_private.keep_evaluation_chain_snapshot();
 
+-- A completed Evaluation's report and period are what was signed. Reopen it to change them; notes stay editable.
+CREATE FUNCTION organization_private.keep_completed_report() RETURNS trigger
+  LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  RAISE EXCEPTION 'Reopen this evaluation to change its report or period' USING ERRCODE = '55000';
+END;
+$$;
+REVOKE ALL ON FUNCTION organization_private.keep_completed_report() FROM PUBLIC;
+CREATE TRIGGER keep_completed_report BEFORE UPDATE OF report_type, rating_period_start, rating_period_end
+  ON public.evaluations FOR EACH ROW
+  WHEN (OLD.workflow_status = 'completed' AND NEW.workflow_status = 'completed'
+    AND (NEW.report_type, NEW.rating_period_start, NEW.rating_period_end)
+      IS DISTINCT FROM (OLD.report_type, OLD.rating_period_start, OLD.rating_period_end))
+  EXECUTE FUNCTION organization_private.keep_completed_report();
+
 -- An Evaluation that is not completed has its scheme's eval type, set in the same transaction as the scheme.
 CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$

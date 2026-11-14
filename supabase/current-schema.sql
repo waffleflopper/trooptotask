@@ -3588,6 +3588,22 @@ $$;
 ALTER FUNCTION organization_private.keep_artifact_identity() OWNER TO postgres;
 
 --
+-- Name: keep_completed_report(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.keep_completed_report() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'Reopen this evaluation to change its report or period' USING ERRCODE = '55000';
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.keep_completed_report() OWNER TO postgres;
+
+--
 -- Name: keep_evaluation_chain_snapshot(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -19312,6 +19328,13 @@ CREATE TRIGGER keep_artifact_identity BEFORE UPDATE OF id ON public.personnel_do
 
 
 --
+-- Name: evaluations keep_completed_report; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER keep_completed_report BEFORE UPDATE OF report_type, rating_period_start, rating_period_end ON public.evaluations FOR EACH ROW WHEN (((old.workflow_status = 'completed'::text) AND (new.workflow_status = 'completed'::text) AND (((new.report_type IS DISTINCT FROM old.report_type) OR (new.rating_period_start IS DISTINCT FROM old.rating_period_start)) OR (new.rating_period_end IS DISTINCT FROM old.rating_period_end)))) EXECUTE FUNCTION organization_private.keep_completed_report();
+
+
+--
 -- Name: evaluations keep_evaluation_chain_snapshot; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -23592,6 +23615,13 @@ REVOKE ALL ON FUNCTION organization_private.guard_sign_in_roster() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION organization_private.keep_artifact_identity() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION keep_completed_report(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.keep_completed_report() FROM PUBLIC;
 
 
 --

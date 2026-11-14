@@ -5,6 +5,7 @@ import { isEvaluationOpen } from '../utils/ratingSchemeEntries';
 import { calculateThruDate } from '../utils/ratingScheme';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import {
+	COMPLETED_REPORT_KEPT,
 	EVALUATION_GONE,
 	EVALUATION_MOVED,
 	RATING_SCHEME_GONE,
@@ -212,8 +213,17 @@ export function createInMemoryRatingSchemePersistence(
 			return { evaluation: mapEvaluation(row), created: true };
 		},
 		async updateEvaluation(id, patch) {
-			if (!(await store.findOne(EVALUATIONS, orgId, { id }))) return null;
-			return mapEvaluation(await store.update<EvaluationRow>(EVALUATIONS, orgId, id, evaluationPatchValues(patch)));
+			const row = await store.findOne<EvaluationRow>(EVALUATIONS, orgId, { id });
+			if (!row) return null;
+			const values = evaluationPatchValues(patch);
+			const reportKeys = ['report_type', 'rating_period_start', 'rating_period_end'] as const;
+			if (
+				isEvaluationCompleted(mapEvaluation(row).workflowStatus) &&
+				reportKeys.some((key) => key in values && values[key] !== row[key])
+			) {
+				fail(409, COMPLETED_REPORT_KEPT);
+			}
+			return mapEvaluation(await store.update<EvaluationRow>(EVALUATIONS, orgId, id, values));
 		},
 		deleteEvaluation(id) {
 			return store.deleteWhere(EVALUATIONS, orgId, { id });

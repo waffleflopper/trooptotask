@@ -1,6 +1,7 @@
 -- The split gives each person one rating scheme with the newest listed chain and keeps every entry as an Evaluation
 -- with its id, step, period, report, type and notes. A completed Evaluation, or one signed by another chain, keeps
--- that chain; the scheme is archived only when every entry was. Deletion requests name the Evaluation.
+-- that chain; the scheme is archived only when every entry was. Deletion requests name the Evaluation. The entries
+-- stay behind, frozen, for the rollback.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -59,6 +60,17 @@ SELECT is_empty(
   $$SELECT id FROM public.audit_logs WHERE org_id = 'e7c40000-0000-4000-8000-000000000101'
     EXCEPT SELECT id FROM upgrade_fixture.rating_scheme_evaluation_split_audit$$,
   'the split writes no audit rows');
-SELECT hasnt_table('public', 'rating_scheme_entries', 'the entries table is gone');
+SELECT results_eq(
+  $$SELECT id, to_jsonb(e) FROM public.rating_scheme_entries e
+    WHERE organization_id = 'e7c40000-0000-4000-8000-000000000101' ORDER BY id$$,
+  $$SELECT id, saved FROM upgrade_fixture.rating_scheme_evaluation_split_before ORDER BY id$$,
+  'the entries table stays, frozen with every row as the split found it');
+SELECT ok(NOT has_table_privilege(role, 'public.rating_scheme_entries', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE'),
+  role || ' can neither read nor write the frozen entries')
+FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) AS role;
+SELECT is_empty(
+  $$SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.rating_scheme_entries'::regclass AND NOT tgisinternal
+    AND tgfoid = 'audit_private.audit_rating_scheme()'::regprocedure$$,
+  'no audit trigger reads a frozen entry as a rating scheme');
 SELECT * FROM finish();
 ROLLBACK;

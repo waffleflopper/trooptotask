@@ -9,9 +9,6 @@ BEGIN
   END IF;
 END;
 $$;
--- The cancellation contract read entries through this view before the split; the split drops the entries table.
-DROP VIEW IF EXISTS upgrade_fixture.deletion_request_cancellation_current_rows;
-
 CREATE SCHEMA IF NOT EXISTS upgrade_fixture;
 INSERT INTO auth.users (id, email) VALUES
   ('e7c40000-0000-4000-8000-000000000001', 'rating-scheme-split@example.test');

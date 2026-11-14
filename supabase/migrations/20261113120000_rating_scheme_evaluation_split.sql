@@ -183,11 +183,15 @@ CREATE INDEX evaluations_org_idx ON public.evaluations (organization_id);
 CREATE INDEX evaluations_rated_idx ON public.evaluations (rated_person_id);
 CREATE INDEX evaluations_scheme_idx ON public.evaluations (rating_scheme_id, organization_id, rated_person_id);
 
--- The old row's lifecycle functions and the table go before the new functions take the names they read.
+-- rating_scheme_entries stays as the split left it, for supabase/rollback/20261113120000_rating_scheme_evaluation_split.down.sql.
+-- Nothing writes it again. The functions that wrote entries go, no client keeps a privilege on it, and its audit
+-- trigger goes because the audit function now reads rating_schemes. Its foreign keys still delete a frozen row with its
+-- rated Person or Organization and clear a deleted evaluator's link, and deleting an Evaluation deletes its row below.
 DROP FUNCTION public.transition_rating_scheme_entry(uuid, uuid, text, text);
 DROP FUNCTION public.change_rating_scheme_rater(uuid, uuid, date, uuid, text);
 DROP FUNCTION public.set_rating_scheme_entry_archived(uuid, uuid, boolean);
-DROP TABLE public.rating_scheme_entries;
+DROP TRIGGER audit_rating_scheme ON public.rating_scheme_entries;
+REVOKE ALL ON public.rating_scheme_entries FROM anon, authenticated, service_role;
 
 ALTER TABLE public.rating_schemes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.evaluations ENABLE ROW LEVEL SECURITY;
@@ -231,6 +235,19 @@ CREATE TRIGGER update_evaluations_updated_at BEFORE UPDATE ON public.evaluations
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.rating_schemes
   FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+
+-- A deleted Evaluation takes its frozen entry with it, however it was deleted: by an approved deletion request, by a
+-- client, or with its scheme, Person or Organization.
+CREATE FUNCTION organization_private.delete_frozen_rating_scheme_entry() RETURNS trigger
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  DELETE FROM public.rating_scheme_entries WHERE id = OLD.id;
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION organization_private.delete_frozen_rating_scheme_entry() FROM PUBLIC;
+CREATE TRIGGER delete_frozen_rating_scheme_entry AFTER DELETE ON public.evaluations
+  FOR EACH ROW EXECUTE FUNCTION organization_private.delete_frozen_rating_scheme_entry();
 
 -- A scheme holds at most one open Evaluation, one with a step other than completed. Opening one locks its scheme,
 -- so two concurrent opens on one scheme take turns and the second sees the first. Rows copied above may break the

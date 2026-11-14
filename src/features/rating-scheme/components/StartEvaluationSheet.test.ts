@@ -37,6 +37,15 @@ function renderSheet(overrides: Partial<Props> = {}) {
 afterEach(cleanup);
 
 describe('StartEvaluationSheet', () => {
+	it('holds Escape once the suggested period is edited', async () => {
+		const props = renderSheet({ ratingSchemeId: 'scheme-watanabe' });
+
+		await fireEvent.change(screen.getByLabelText('Report'), { target: { value: 'CR' } });
+		await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+		expect(props.onClose).not.toHaveBeenCalled();
+	});
+
 	it('starts the next Annual the day after the last one ends, at Drafting', async () => {
 		const props = renderSheet({ ratingSchemeId: 'scheme-watanabe' });
 

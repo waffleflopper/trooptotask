@@ -236,7 +236,7 @@
 
 	async function changeRater(id: string, change: RatingSchemeRaterChange, isDialogCurrent: () => boolean) {
 		await onChangeRater(id, change, isDialogCurrent);
-		if (!isDialogCurrent()) return;
+		if (!isCurrent()) return;
 		toastStore.success('Rater changed. A new Annual opened at Drafting.');
 		changingRater = false;
 		onClose();
@@ -484,7 +484,8 @@
 									{:else}
 										<button
 											type="button"
-											class="flex min-h-11 w-full items-center gap-3 px-3.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+											class="flex min-h-11 w-full items-center gap-3 px-3.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-60"
+											disabled={busy || dirty}
 											onclick={() => onOpenEvaluation(row.id)}
 										>
 											{@render historyRow(row, sr, viewing)}

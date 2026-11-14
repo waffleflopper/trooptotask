@@ -42,13 +42,13 @@
 		disposed = true;
 	});
 
+	/** A confirmed change still reaches the stores after the sheet closes or the tab changes, while the Organization holds. */
+	function isSameOrganization(): boolean {
+		return orgId === initialOrgId && ratingSchemeStore.orgId === initialOrgId && evaluationStore.orgId === initialOrgId;
+	}
+
 	function isCurrentWorkspace(): boolean {
-		return (
-			!disposed &&
-			orgId === initialOrgId &&
-			ratingSchemeStore.orgId === initialOrgId &&
-			evaluationStore.orgId === initialOrgId
-		);
+		return !disposed && isSameOrganization();
 	}
 
 	function failed(fallback: string) {
@@ -107,7 +107,7 @@
 		const { evaluation } = await moveEvaluation(initialOrgId, id, step).catch(
 			failed('The workflow did not move. Try again.')
 		);
-		if (!isCurrent()) return;
+		if (!isSameOrganization()) return;
 		evaluationStore.mergeBatchResults([], [evaluation]);
 	}
 
@@ -116,7 +116,7 @@
 		const { evaluation, ratingScheme, successor } = await changeEvaluationRater(initialOrgId, id, change).catch(
 			failed('The rater was not changed. Try again.')
 		);
-		if (!isCurrent()) return;
+		if (!isSameOrganization()) return;
 		ratingSchemeStore.mergeBatchResults([], [ratingScheme]);
 		evaluationStore.mergeBatchResults(successor ? [successor] : [], [evaluation]);
 	}
@@ -147,7 +147,7 @@
 		const { evaluation } = await startEvaluation(initialOrgId, ratingSchemeId, values).catch(
 			failed('The evaluation was not started. Try again.')
 		);
-		if (!isCurrent()) return;
+		if (!isSameOrganization()) return;
 		evaluationStore.mergeBatchResults([evaluation]);
 	}
 </script>

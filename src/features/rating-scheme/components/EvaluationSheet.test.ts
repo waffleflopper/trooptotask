@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { toastStore } from '$lib/stores/toast.svelte';
 import EvaluationSheet from './EvaluationSheet.svelte';
 import { evaluation, linePersonnel, scheme } from '../utils/ratingSchemeLineTestData';
 
@@ -27,7 +28,10 @@ function renderSheet(overrides: Partial<Props> = {}) {
 
 const steps = () => within(screen.getByRole('list', { name: 'Workflow steps' }));
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	toastStore.dismiss();
+});
 
 describe('EvaluationSheet workflow', () => {
 	it('jumps only to steps the chain it shows makes possible', async () => {
@@ -134,5 +138,19 @@ describe('EvaluationSheet on a completed Evaluation', () => {
 		await fireEvent.click(history.getByRole('button'));
 
 		expect(onOpenEvaluation).toHaveBeenCalledWith('eval-0');
+	});
+
+	it('holds history while an edit is unsaved', async () => {
+		const earlier = evaluation('eval-0', 'scheme-1', {
+			workflowStatus: 'completed',
+			ratingPeriodStart: '2025-01-01',
+			ratingPeriodEnd: '2025-12-31'
+		});
+		const current = evaluation('eval-1', 'scheme-1', { workflowStatus: 'with-rater' });
+		renderSheet({ evaluation: current, evaluations: [current, earlier], onOpenEvaluation: vi.fn() });
+
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Waiting on counseling' } });
+
+		expect(within(screen.getByRole('list', { name: /evaluations$/ })).getByRole('button')).toBeDisabled();
 	});
 });

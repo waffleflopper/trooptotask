@@ -71,9 +71,18 @@
 	let attempted = $state(false);
 	let saving = $state(false);
 	let error = $state('');
-	const dirty = $derived(!!notes.trim() || opensAs !== 'open' || (!openedOn && !!chosenId));
-
 	const chosen = $derived(ready.find((row) => row.scheme.id === chosenId));
+	const dirty = $derived.by(() => {
+		const suggested = periodFor(chosen);
+		return (
+			!!notes.trim() ||
+			opensAs !== 'open' ||
+			chosenId !== (openedOn ?? '') ||
+			period.reportType !== suggested.reportType ||
+			period.ratingPeriodStart !== suggested.ratingPeriodStart ||
+			period.ratingPeriodEnd !== suggested.ratingPeriodEnd
+		);
+	});
 	const problem = $derived(attempted ? reportPeriodProblem(period) : null);
 	const lastLine = $derived.by(() => {
 		const last = chosen?.last;

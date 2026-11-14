@@ -3,6 +3,7 @@ import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/c
 import type { Personnel } from '$features/personnel/contracts';
 import {
 	buildCriticalTasksReadinessSnapshot,
+	criticalTaskReadinessTier,
 	isCriticalTaskCompletionReady
 } from '$features/critical-tasks/utils/ictReadinessSnapshot';
 
@@ -45,6 +46,24 @@ function completion(overrides: Partial<PersonnelIctCompletion> = {}): PersonnelI
 		...overrides
 	};
 }
+
+describe('criticalTaskReadinessTier', () => {
+	it('tiers from the exact ratio, not the rounded percent the screens show', () => {
+		expect(criticalTaskReadinessTier(16, 23)).toBe('below');
+		expect(criticalTaskReadinessTier(35, 44)).toBe('near');
+	});
+
+	it('starts each tier exactly at its cut-off', () => {
+		expect(criticalTaskReadinessTier(7, 10)).toBe('near');
+		expect(criticalTaskReadinessTier(4, 5)).toBe('goal');
+		expect(criticalTaskReadinessTier(1, 1)).toBe('goal');
+		expect(criticalTaskReadinessTier(0, 3)).toBe('below');
+	});
+
+	it('has no tier when no task applies', () => {
+		expect(criticalTaskReadinessTier(0, 0)).toBe('none');
+	});
+});
 
 describe('Critical Task readiness snapshot', () => {
 	const originalTimezone = process.env.TZ;

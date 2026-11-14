@@ -457,9 +457,9 @@ export class CalendarPageContext {
 	}
 
 	closeEditor(): void {
-		if (!this.editor) return;
+		const visible = this.editor !== null;
 		this.#request = null;
-		historyBack();
+		if (visible) historyBack();
 	}
 
 	/** Everyone in the reader's scope the actor may mark out. The picker has its own search, so the Group filter does not apply. */

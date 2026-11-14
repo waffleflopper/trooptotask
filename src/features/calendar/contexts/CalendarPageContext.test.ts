@@ -541,6 +541,18 @@ describe('CalendarPageContext', () => {
 			expect(position()).toBe(1);
 		});
 
+		it('does not bring back a dialog closed while Back had hidden it', () => {
+			const operatorCtx = operator();
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+			go(-1);
+
+			operatorCtx.closeEditor();
+			go(1);
+
+			expect(operatorCtx.editor).toBeNull();
+			expect(position()).toBe(1);
+		});
+
 		it('adds no history entry when the reader may not edit that person', () => {
 			const noEditCtx = makeContext(mockData, makeMockOrg());
 

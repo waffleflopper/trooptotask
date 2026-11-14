@@ -10,7 +10,7 @@ Scheme access is independently grantable without Personnel access.
   past thru.
 - A Rating Scheme tab that lists one line per rating scheme, grouped by Senior rater then rater (or as a table), with
   a read-only badge for a line's open Evaluation, a right-side sheet to add or edit a line's chain, eval type, notes and
-  archive state, and a Change rater dialog. It never moves an Evaluation's workflow step.
+  archive state. It never moves an Evaluation's workflow step.
 - An Eval Tracker tab that lists every Evaluation in work by urgency (past thru first, then the nearest thru), with
   four header counts, Status (Open, Completed, Open and completed), Report and Step filters, a search over the rated
   Soldier and every signer, Export and `Start evaluation`. Each row shows the due text, the rated Soldier and rater,
@@ -19,13 +19,15 @@ Scheme access is independently grantable without Personnel access.
   `Show completed` link. At 390 the rows are cards.
 - An Evaluation sheet, opened from a row, a card, `?entry=<id>` or the Dashboard: workflow moves (Back, Move and a
   step list whose `Jump to <step>` buttons cover only the steps the chain makes possible), report type, period and
-  notes, the read-only rating chain with `Change rater`, the Person's other Evaluations, and Delete. A completed one
-  shows the chain that signed it and when, and locks report and period until Reopen.
+  notes, a `Next rater` field when the report is `CR`, the read-only rating chain, the Person's other Evaluations, and
+  Delete. A completed one shows the chain that signed it and when, and locks report, period and next rater until Reopen.
 - A Start evaluation sheet, opened from the toolbar, a Ready to start row or `?start=<scheme id>`: it picks a
   scheme ready to start, fills the next Annual period, shows the chain it copies, and opens at Drafting or records an
   Evaluation already completed.
 - One stored lifecycle per evaluation: `workflow_status` null is Not tracked and open, and only `completed` is
-  complete. Change rater closes an open Evaluation as a Change of Rater (`CR`) report and opens the next one.
+  complete. A Change of Rater is an Evaluation with report type `CR`. Completing an open one for the first time gives
+  its scheme the named next rater (or a blank rater) and opens an Annual the next day. A `CR` recorded as already
+  completed is history and moves nothing.
 - Rating scheme membership, separate from the workflow step. Each rated Person has at most one listed rating scheme,
   which holds their chain; every Evaluation is on one. Archiving a line on the Rating Scheme tab keeps its open
   Evaluation on the tracker until it completes.
@@ -58,10 +60,11 @@ for each rated Person who has none, and ten dated Evaluations across A/B. The NC
 Evaluations on one scheme, and each completed one keeps the chain that signed it. It returns exact IDs, the schemes and
 examples, records every ID before insertion, and uses `clean-seeds`. `rows evaluations orgA|orgB id ID` reads an
 Evaluation's workflow, dates, notes and signed chain; `rows rating_schemes orgA|orgB id SCHEME_ID` reads its chain,
-notes and `archived_at`. Both also filter by `rated_person_id`, and `evaluations` by `rating_scheme_id`. `network`
+notes and `archived_at`. `rows evaluations` also reads `next_rater_person_id`, `next_rater_name` and
+`rater_changed_at`. Both also filter by `rated_person_id`, and `evaluations` by `rating_scheme_id`. `network`
 accepts the exact A `rating-scheme` endpoint, which carries scheme saves and editor reads, the `evaluations` endpoint,
 which carries Evaluation saves and deletes, and the record-named POST families `evaluations/<id>/workflow`,
-`evaluations/<id>/change-rater`, `rating-scheme/<scheme id>/evaluations` and `rating-scheme/<scheme id>/archive`; each
+`rating-scheme/<scheme id>/evaluations` and `rating-scheme/<scheme id>/archive`; each
 matches that record's exact path only. A stale second tab still supplies a real refused move.
 Use the existing `deletion-requests` control separately for approval submission. Inspect real
 downloads with `workbook FILE 'Rating Scheme'`. The [Evals recipe](evals-rating-scheme.md) owns expectations.
@@ -222,7 +225,8 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      `Back to Drafting` and `Move to Rater Signed`, then the step list with `NOW` on the current step and a
      `Jump to <step>` button on every other step the chain allows. Report and period hold the Report select
      (`AN · Annual`), Start and Thru, and `NCOER, from the scheme line. Change the type on the Rating Scheme.`. Rating
-     chain is read-only with `Edit on Rating Scheme ›` (`/evals/rating-scheme?line=<scheme id>`) and `Change rater`.
+     chain is read-only with `Edit on Rating Scheme ›` (`/evals/rating-scheme?line=<scheme id>`). There is no
+     `Change rater` button and no `Next rater` field while the report is `AN`.
      `<Rank Last>'s evaluations` lists the Person's other Evaluations and opens one in place; Notes; then
      `Delete evaluation`. The footer reads `Workflow moves save on click.` with Cancel and `Save changes`
 
@@ -240,15 +244,22 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      page's step. With `$V network arm-fail PAGE evaluations/<id>/workflow` armed, a move returns 503, the sheet shows
      `The workflow did not move` and the step stays; after `network restore` the same press moves it
 
-   - ID: E4 - Screen and control: Change rater - How to reach it: An open Evaluation's `Change rater` - Expected: The
-     dialog asks for `New rater` and `Last day with <current rater>` and states the rated days, with
-     `A Change of Rater report needs at least 90.` when fewer, which does not block. One
-     `POST api/evaluations/<id>/change-rater` closes the dialog and the sheet with
-     `Rater changed. A new Annual opened at Drafting.`: the Evaluation reads `CR`, `completed`, ends on the chosen day
-     and keeps the old rater in `snapshot_rater_*`; the scheme reads the new rater, and a new `AN` Evaluation starts
-     the next day at Drafting. With `$V network arm-fail PAGE evaluations/<id>/change-rater` armed, confirming keeps
-     the dialog open with `The rater was not changed` and no new row. Two buttons carry the name `Change rater`, so
-     click the dialog's by UID
+   - ID: E4 - Screen and control: Change of Rater - How to reach it: The Alpha NCO's open Evaluation, Report set to
+     `CR · Change of Rater` - Expected: A `Next rater` picker (`Optional`) appears under the period with
+     `Completing this report makes them the scheme's rater and opens an Annual the next day. With none named, the
+scheme's rater is left blank.`; it offers the unit's People and `Use "<typed>" as an external rater`. Moves stay
+     disabled until `Save changes` sends one `PUT api/evaluations` with `reportType` and `nextRaterPersonId` (or
+     `nextRaterName`). Setting the report back to `AN` hides the field, and a save clears `next_rater_*`.
+     `Mark completed` (or the last step) sends one `POST api/evaluations/<id>/workflow` and toasts
+     `Rater changed. A new Annual opened at Drafting.`: the Evaluation reads `CR`, `completed`, `rater_changed_at`
+     set, and keeps the departing rater in `snapshot_rater_*`; the scheme's `rater_*` reads the next rater, and a new
+     `AN` `drafting` Evaluation runs from the day after the CR's thru. The sheet then shows `Signed by` with a note
+     that the scheme's rater is now the next rater. `Reopen` keeps the signed chain and shows `Next rater` read-only
+     with `This report already settled the rater. Completing it again changes nothing.`; completing again opens no
+     second Annual and leaves the scheme's rater as it is. The Start sheet shows `Next rater` only for `CR` with
+     `Open, at Drafting`; choosing `Already completed` hides it and the start stores no next rater. With
+     `$V network arm-fail PAGE evaluations/<id>/workflow` armed, completing keeps the sheet with
+     `The workflow did not move`, the scheme's rater unchanged and no new row
 
    - ID: E5 - Screen and control: Completed sheet - How to reach it: `Show completed`, then the completed NCO row (two
      rows share its name, so click by UID) - Expected: The eyebrow ends `· Completed` and the due line reads
@@ -306,7 +317,8 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    `workflow_status` changes). Archive Able's line (its Evaluation is Not tracked): the tracker drops Able, reads
    `5 open` and `0 past thru`, and the tab's past-thru count disappears. Archive the NCO's line: its With Rater
    Evaluation stays on the tracker with its due text until it is completed, and its completed one stays in
-   `Show completed` as history. The NCO's sheet offers no `Change rater` while its scheme is archived; the server refuses it too.
+   `Show completed` as history. Completing a `CR` on an archived scheme still gives the scheme its next rater but
+   opens no Annual, since the scheme is off the Rating Scheme.
    Reload the Dashboard as `ratingOperate`: Needs you reads `0`. Restore Able's line: the scheme's `archived_at` and
    `archived_by` read null, Able returns to the tracker, and a Dashboard reload shows Able's Past thru row again.
    Check 1024 and 390 after each change: rows and cards keep their layout and nothing clips.
@@ -346,18 +358,13 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      discards it. `Archive` sends `POST api/rating-scheme/<scheme id>/archive`, the sheet then reads `Archived` with
      `Restore`, and `archived_by` is the actor. There is no delete for a scheme
 
-   - ID: R3 - Screen and control: Change rater - How to reach it: Open a line that has an open Evaluation (the seeded
-     NCO), `Change rater` - Expected: While an Evaluation is open the sheet shows the rater read-only with `Change rater`
-     and a note that chain edits apply to the open Evaluation but the rater changes only through that button; the
-     button is disabled while the sheet has unsaved edits. The `Change rater` dialog asks for `New rater` and
-     `Last day with <current rater>` (today, kept inside the period), states the rated days (`N rated days.`, with
-     `A Change of Rater report needs at least 90.` when fewer, which does not block), and previews `Closes` (`CR`,
-     the period and the kept chain) and `Opens` (`AN`, the next day to a year later, `Drafting`). Confirming without a
-     rater shows an alert. One `POST api/evaluations/<id>/change-rater` closes both dialogs; `rows evaluations` reads the
-     old Evaluation `CR`/`completed` with the old rater in `snapshot_rater_*` and a new `AN` `drafting` Evaluation the
-     next day, and `rows rating_schemes` reads the new rater. A refused change keeps the dialog open with
-     `The rater was not changed`. Two buttons then carry the name `Change rater` (the sheet's and the dialog's), so click
-     the dialog's by UID
+   - ID: R3 - Screen and control: Rater lock - How to reach it: Open a line that has an open Evaluation (the seeded
+     NCO, whose rater is a typed name), link its rater to a Person, then reopen the sheet - Expected: A rater known only
+     by name stays editable while the Evaluation is open: it can be corrected or linked to a Person, and one
+     `PUT api/rating-scheme` saves it. Once linked, the rater shows read-only with the note `<Rank Last> has an open
+evaluation. Chain edits apply to it now. To replace the rater, make it a Change of Rater report with the next
+rater named, then complete it.` There is no `Change rater` button. A direct `PUT api/rating-scheme` that swaps a
+     linked rater returns 409 `Complete a Change of Rater evaluation to replace this rater` and the row is unchanged
 
    - ID: R4 - Screen and control: Access, empty and loading - How to reach it: `ratingView`, `ratingEmpty`, Personnel-only
      `manager`; `server-source arm evaluations hold 1 120000` then open the tab - Expected: View reads the lines with no

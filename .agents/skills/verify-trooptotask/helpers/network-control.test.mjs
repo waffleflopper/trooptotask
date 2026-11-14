@@ -638,45 +638,40 @@ test('held dispatch sends the selected mutation only after release and passes re
 const entry = '30000000-0000-4000-8000-000000000001';
 const otherEntry = '30000000-0000-4000-8000-000000000002';
 
-for (const move of ['workflow', 'change-rater']) {
-	test(`an Evaluation ${move} failure selects only that entry's POST and leaves the rest alone`, async () => {
-		const dispatched = [];
-		const page = {
-			location: { href: 'http://localhost/org/a/evals' },
-			fetch: async (url, init) => {
-				dispatched.push(`${init?.method ?? 'GET'} ${url}`);
-				return Response.json({ ok: true });
-			}
-		};
-		const suffix = `/org/a/api/evaluations/${entry}/${move}`;
-		installNetworkControl(page, {
-			...ratingEntryNetworkTarget(`evaluations/${entry}/${move}`),
-			mode: 'fail',
-			ordinal: 1,
-			suffix,
-			sameOrigin: true
-		});
-		await page.fetch(suffix);
-		await page.fetch(`/org/a/api/evaluations/${otherEntry}/${move}`, { method: 'POST' });
-		await page.fetch(`/org/a/api/evaluations/${entry}/${move === 'workflow' ? 'change-rater' : 'workflow'}`, {
-			method: 'POST'
-		});
-		await page.fetch('/org/a/api/rating-scheme', { method: 'POST' });
-		assert.equal(page.__mapNetwork.calls.length, 0);
-		assert.equal(dispatched.length, 4);
-
-		const failed = await page.fetch(suffix, { method: 'POST', body: '{}' });
-		assert.equal(failed.status, 503);
-		assert.equal(dispatched.length, 4);
-		assert.equal((await page.fetch(suffix, { method: 'POST', body: '{}' })).status, 200);
-		assert.equal(dispatched.length, 5);
+test(`an Evaluation workflow failure selects only that entry's POST and leaves the rest alone`, async () => {
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://localhost/org/a/evals' },
+		fetch: async (url, init) => {
+			dispatched.push(`${init?.method ?? 'GET'} ${url}`);
+			return Response.json({ ok: true });
+		}
+	};
+	const suffix = `/org/a/api/evaluations/${entry}/workflow`;
+	installNetworkControl(page, {
+		...ratingEntryNetworkTarget(`evaluations/${entry}/workflow`),
+		mode: 'fail',
+		ordinal: 1,
+		suffix,
+		sameOrigin: true
 	});
-}
+	await page.fetch(suffix);
+	await page.fetch(`/org/a/api/evaluations/${otherEntry}/workflow`, { method: 'POST' });
+	await page.fetch(`/org/a/api/rating-scheme/${entry}/archive`, { method: 'POST' });
+	await page.fetch('/org/a/api/rating-scheme', { method: 'POST' });
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	assert.equal(dispatched.length, 4);
+
+	const failed = await page.fetch(suffix, { method: 'POST', body: '{}' });
+	assert.equal(failed.status, 503);
+	assert.equal(dispatched.length, 4);
+	assert.equal((await page.fetch(suffix, { method: 'POST', body: '{}' })).status, 200);
+	assert.equal(dispatched.length, 5);
+});
 
 test('only a uuid-named Evaluation move or rating scheme action path is a POST family', () => {
 	for (const family of [
 		`evaluations/${entry}/workflow`,
-		`evaluations/${entry}/change-rater`,
 		`rating-scheme/${entry}/evaluations`,
 		`rating-scheme/${entry}/archive`
 	])
@@ -687,6 +682,7 @@ test('only a uuid-named Evaluation move or rating scheme action path is a POST f
 		'evaluations/workflow',
 		`evaluations/${entry}`,
 		`evaluations/${entry}/workflow/extra`,
+		`evaluations/${entry}/change-rater`,
 		`rating-scheme/${entry}/workflow`,
 		`rating-scheme/${entry}/delete`,
 		'evaluations/not-an-id/workflow',

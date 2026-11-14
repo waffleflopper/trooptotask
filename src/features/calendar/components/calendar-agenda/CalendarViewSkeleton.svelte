@@ -24,7 +24,7 @@
 	<div class="min-[641px]:hidden"><CalendarAgendaSkeleton /></div>
 	{@render monthGrid('max-[641px]:hidden')}
 {:else if view === '3-month'}
-	<Skeleton class="h-[min(820px,calc(100dvh-10rem))] w-full rounded-lg" data-testid="calendar-long-range-skeleton" />
+	<Skeleton class="h-[min(820px,calc(100dvh-10rem))] w-full rounded-lg" />
 {:else if view === 'week'}
 	<CalendarWeekSkeleton />
 {:else if view === 'agenda'}

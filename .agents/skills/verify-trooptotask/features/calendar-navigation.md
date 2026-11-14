@@ -390,8 +390,8 @@ calendar-range` and step again: the body is replaced by `Additional calendar dat
   the Organization has no person-assigned duty type. Folding widths depend on the controls present; retain the sweep's
   observed widths rather than assuming fixed thresholds.
 - A fresh visit to `/calendar` shows the Calendar layout's own `Loading Calendar data` block until the workspace
-  settles, so a held `server-source` read never shows the page's view-shaped skeleton. That skeleton's shape per saved
-  view is covered by `CalendarViewSkeleton.svelte.test.ts`.
+  settles, so a held `server-source` read never shows the page's view-shaped skeleton (`CalendarViewSkeleton`). That
+  skeleton appears only in the page's own loading states, which no helper holds yet.
 - A chosen view is saved for the actor, so a later step in the same worker that expects the width's opening view
   (step 22's 390 `Agenda` and 1280 `Month`) needs a fresh worker or an actor who has not chosen one.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February

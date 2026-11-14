@@ -80,13 +80,18 @@ export interface RatingSchemeCreateValues extends EvaluatorChainValues {
 
 export type RatingSchemePatchValues = Partial<RatingSchemeCreateValues>;
 
-/** Opens an Evaluation at Drafting, or records one already completed, on a listed scheme with its current chain. */
+/**
+ * Opens an Evaluation at Drafting, or records one already completed, on a listed scheme with its current chain.
+ * Only an open Change of Rater names a next rater.
+ */
 export interface EvaluationStart {
 	reportType: ReportType | null;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
 	completed: boolean;
 	notes: string | null;
+	nextRaterPersonId: string | null;
+	nextRaterName: string | null;
 }
 
 /** The fields of an Evaluation a save may change. Its type follows its scheme; its step and chain move through their own actions. */
@@ -95,19 +100,14 @@ export interface EvaluationPatchValues {
 	ratingPeriodStart?: string;
 	ratingPeriodEnd?: string;
 	notes?: string | null;
+	nextRaterPersonId?: string | null;
+	nextRaterName?: string | null;
 }
 
 export interface EvaluationWriteReference {
 	ratingSchemeId: string;
 	ratedPersonId: string;
-	raterPersonId: string | null;
-}
-
-/** The current rater's last day closes this evaluation as a Change of Rater; the new rater starts the next one. */
-export interface RatingSchemeRaterChange {
-	changeDate: string;
-	raterPersonId: string | null;
-	raterName: string | null;
+	nextRaterPersonId: string | null;
 }
 
 /** A workflow move names the step the caller saw, so a move from a stale view is refused. */
@@ -116,25 +116,25 @@ export interface RatingSchemeMove {
 	to: WorkflowStatus | null;
 }
 
+/** What completing a Change of Rater changed: the scheme now rated by the next rater, and the Annual it opened. */
+export interface EvaluationRaterChange {
+	ratingScheme: RatingScheme;
+	/** Null when the scheme is archived, so it opens no Evaluation. */
+	successor: Evaluation | null;
+}
+
 export interface EvaluationTransition {
 	evaluation: Evaluation;
 	/** False when the evaluation was already at the requested step. */
 	moved: boolean;
+	/** Set only by the move that first completes a Change of Rater. */
+	raterChange: EvaluationRaterChange | null;
 }
 
 export interface EvaluationStartResult {
 	evaluation: Evaluation;
 	/** False when the same Evaluation was already open, so nothing changed. */
 	created: boolean;
-}
-
-export interface RatingSchemeRaterChangeResult {
-	/** The completed Change of Rater evaluation, with the chain that signed it. */
-	evaluation: Evaluation;
-	/** The scheme with its new rater. */
-	ratingScheme: RatingScheme;
-	/** Null when the evaluation was already completed and no successor matches. */
-	successor: Evaluation | null;
 }
 
 export interface RatingSchemeArchiveResult {
@@ -158,7 +158,6 @@ export interface RatingSchemePersistence {
 	updateEvaluation(id: string, patch: EvaluationPatchValues): Promise<Evaluation | null>;
 	deleteEvaluation(id: string): Promise<void>;
 	transitionEvaluation(id: string, move: RatingSchemeMove): Promise<EvaluationTransition>;
-	changeEvaluationRater(id: string, change: RatingSchemeRaterChange): Promise<RatingSchemeRaterChangeResult>;
 }
 
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';

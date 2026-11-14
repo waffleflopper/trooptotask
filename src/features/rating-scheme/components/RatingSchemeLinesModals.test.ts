@@ -3,14 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { CHANGE_RATER_MODAL, LINE_SHEET_MODAL } from '../contexts/RatingSchemeLinesContext.svelte';
+import { LINE_SHEET_MODAL } from '../contexts/RatingSchemeLinesContext.svelte';
 import {
 	evaluationStore,
 	loadRatingSchemeEntries,
 	ratingSchemeEntryFixture,
 	ratingSchemeStore
 } from '../ratingSchemeStore.test-support.svelte';
-import { evaluation, linePersonnel, scheme } from '../utils/ratingSchemeLineTestData';
+import { linePersonnel, scheme } from '../utils/ratingSchemeLineTestData';
 import RatingSchemeLinesModals from './RatingSchemeLinesModals.svelte';
 
 const personnel: PersonnelLookup[] = linePersonnel;
@@ -118,40 +118,5 @@ describe('RatingSchemeLinesModals', () => {
 			expect(ratingSchemeStore.items.find((row) => row.id === 'scheme-1')?.archivedAt).toBe('2026-02-01T00:00:00Z')
 		);
 		expect(requests).toEqual(['POST /org/org-1/api/rating-scheme/scheme-1/archive']);
-	});
-
-	it('changes the rater, opens the successor and closes both dialogs', async () => {
-		const closed = evaluation('eval-1', 'scheme-1', { reportType: 'CR', workflowStatus: 'completed' });
-		const successor = evaluation('eval-2', 'scheme-1', {
-			ratingPeriodStart: '2026-04-01',
-			ratingPeriodEnd: '2027-03-31'
-		});
-		const requests = stubFetch(() => ({
-			evaluation: closed,
-			ratingScheme: scheme('scheme-1', { raterPersonId: 'park' }),
-			successor
-		}));
-		const modals = new ModalRegistry();
-		modals.open(LINE_SHEET_MODAL, { lineId: 'scheme-1' });
-		modals.open(CHANGE_RATER_MODAL, { lineId: 'scheme-1' });
-		renderModals(modals);
-
-		await pick('New rater', 'SGT Park, Lena');
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Change rater' }).at(-1)!);
-
-		await waitFor(() => expect(modals.isOpen(CHANGE_RATER_MODAL)).toBe(false));
-		expect(modals.isOpen(LINE_SHEET_MODAL)).toBe(false);
-		expect(requests).toEqual(['POST /org/org-1/api/evaluations/eval-1/change-rater']);
-		expect(ratingSchemeStore.items.find((row) => row.id === 'scheme-1')?.raterPersonId).toBe('park');
-		expect(evaluationStore.items.map((row) => row.id)).toContain('eval-2');
-	});
-
-	it('does not open the Change rater dialog for a line with no open Evaluation', () => {
-		loadRatingSchemeEntries([ratingSchemeEntryFixture({ ...listed, workflowStatus: 'completed' })], 'org-1');
-		const modals = new ModalRegistry();
-		modals.open(CHANGE_RATER_MODAL, { lineId: 'scheme-1' });
-		renderModals(modals);
-
-		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 });

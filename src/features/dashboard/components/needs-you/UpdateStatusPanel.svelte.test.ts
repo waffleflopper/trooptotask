@@ -167,26 +167,23 @@ describe('UpdateStatusPanel', () => {
 		expect(updates.putRecord.mock.calls[0][1].record.ratedPersonName).toBe('SGT Patel, Ravi');
 	});
 
-	it('shows the closed evaluation and its successor after a change of rater', async () => {
+	it('lists the completed Change of Rater and the Annual it opened', async () => {
 		const { updates } = open();
 		respond({
+			moved: true,
 			evaluation: { ...entry, ratingPeriodEnd: '2026-06-30', reportType: 'CR', workflowStatus: 'completed' },
-			ratingScheme: { ...ratingScheme, raterName: 'SSG New' },
-			successor: { ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30', reportType: 'AN' }
+			raterChange: {
+				ratingScheme: { ...ratingScheme, raterName: 'SSG New' },
+				successor: { ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30', reportType: 'AN', workflowStatus: 'drafting' }
+			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Change rater' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
 
 		expect(await screen.findByText('Sheet says: done')).toBeTruthy();
-		const [url, request] = fetchMock.mock.calls[0];
-		expect([url, request.method, JSON.parse(request.body)]).toEqual([
-			'/org/org-1/api/evaluations/e1/change-rater',
-			'POST',
-			{ changeDate: '2026-06-30', raterPersonId: null, raterName: 'SSG New' }
-		]);
 		expect(updates.putRecord.mock.calls.map(([, change]) => change.record)).toEqual([
 			dueRow({ ...entry, ratingPeriodEnd: '2026-06-30', workflowStatus: 'completed' }),
-			dueRow({ ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30' })
+			dueRow({ ...entry, id: 'e2', ratingPeriodEnd: '2027-06-30', workflowStatus: 'drafting' })
 		]);
 	});
 

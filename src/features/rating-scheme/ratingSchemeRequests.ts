@@ -10,9 +10,7 @@ import type {
 	RatingSchemeCreateValues,
 	RatingSchemeEntryEditorData,
 	RatingSchemeMove,
-	RatingSchemePatchValues,
-	RatingSchemeRaterChange,
-	RatingSchemeRaterChangeResult
+	RatingSchemePatchValues
 } from './contracts';
 
 async function send<T>(orgId: string, method: string, path: string, body?: unknown): Promise<T> {
@@ -60,12 +58,4 @@ export function archiveRatingScheme(
 
 export function moveEvaluation(orgId: string, id: string, move: RatingSchemeMove): Promise<EvaluationTransition> {
 	return send(orgId, 'POST', `evaluations/${id}/workflow`, move);
-}
-
-export function changeEvaluationRater(
-	orgId: string,
-	id: string,
-	change: RatingSchemeRaterChange
-): Promise<RatingSchemeRaterChangeResult> {
-	return send(orgId, 'POST', `evaluations/${id}/change-rater`, change);
 }

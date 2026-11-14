@@ -5,7 +5,7 @@ import {
 	ratingSchemeCreateSchema,
 	ratingSchemeUpdateSchema
 } from './ratingSchemeEntryOperations.server';
-import { ratingSchemeRaterChangeSchema, ratingSchemeTransitionSchema } from './ratingSchemeEntryMapping.server';
+import { ratingSchemeTransitionSchema } from './ratingSchemeEntryMapping.server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
 const RATER = '00000000-0000-4000-8000-0000000000b1';
@@ -40,7 +40,9 @@ describe('Rating Scheme validation', () => {
 			...period,
 			reportType: 'historical-report-code',
 			completed: false,
-			notes: null
+			notes: null,
+			nextRaterPersonId: null,
+			nextRaterName: null
 		});
 		expect(evaluationStartSchema.parse({ ...period, reportType: '', completed: true })).toMatchObject({
 			reportType: null,
@@ -111,23 +113,15 @@ describe('Rating Scheme validation', () => {
 		expect(ratingSchemeTransitionSchema.safeParse({}).success).toBe(false);
 	});
 
-	it('requires exactly one new rater and a valid date for a change of rater', () => {
-		expect(ratingSchemeRaterChangeSchema.parse({ changeDate: '2026-06-30', raterPersonId: RATER })).toEqual({
-			changeDate: '2026-06-30',
-			raterPersonId: RATER,
-			raterName: null
+	it('starts a Change of Rater with a next rater given by Personnel Record or trimmed name', () => {
+		expect(evaluationStartSchema.parse({ ...period, reportType: 'CR', nextRaterPersonId: RATER })).toMatchObject({
+			nextRaterPersonId: RATER,
+			nextRaterName: null
 		});
-		expect(ratingSchemeRaterChangeSchema.parse({ changeDate: '2026-06-30', raterName: '  SSG New  ' })).toEqual({
-			changeDate: '2026-06-30',
-			raterPersonId: null,
-			raterName: 'SSG New'
+		expect(evaluationStartSchema.parse({ ...period, reportType: 'CR', nextRaterName: '  SSG New  ' })).toMatchObject({
+			nextRaterPersonId: null,
+			nextRaterName: 'SSG New'
 		});
-		expect(ratingSchemeRaterChangeSchema.safeParse({ changeDate: '2026-06-30' }).success).toBe(false);
-		expect(ratingSchemeRaterChangeSchema.safeParse({ changeDate: '2026-06-30', raterName: '   ' }).success).toBe(false);
-		expect(
-			ratingSchemeRaterChangeSchema.safeParse({ changeDate: '2026-06-30', raterPersonId: RATER, raterName: 'Both' })
-				.success
-		).toBe(false);
-		expect(ratingSchemeRaterChangeSchema.safeParse({ changeDate: 'June', raterName: 'SSG New' }).success).toBe(false);
+		expect(evaluationStartSchema.safeParse({ ...period, nextRaterPersonId: 'not-a-person' }).success).toBe(false);
 	});
 });

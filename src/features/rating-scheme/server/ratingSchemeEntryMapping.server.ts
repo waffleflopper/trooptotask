@@ -51,13 +51,16 @@ export type EvaluationRow = Pick<
 	| 'snapshot_intermediate_rater_name'
 	| 'snapshot_reviewer_person_id'
 	| 'snapshot_reviewer_name'
+	| 'next_rater_person_id'
+	| 'next_rater_name'
+	| 'rater_changed_at'
 >;
 
 export const RATING_SCHEME_SELECT =
 	'id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,notes,archived_at';
 
 export const EVALUATION_SELECT =
-	'id,rating_scheme_id,rated_person_id,eval_type,report_type,rating_period_start,rating_period_end,workflow_status,notes,chain_snapshot_at,snapshot_rater_person_id,snapshot_rater_name,snapshot_senior_rater_person_id,snapshot_senior_rater_name,snapshot_intermediate_rater_person_id,snapshot_intermediate_rater_name,snapshot_reviewer_person_id,snapshot_reviewer_name';
+	'id,rating_scheme_id,rated_person_id,eval_type,report_type,rating_period_start,rating_period_end,workflow_status,notes,chain_snapshot_at,snapshot_rater_person_id,snapshot_rater_name,snapshot_senior_rater_person_id,snapshot_senior_rater_name,snapshot_intermediate_rater_person_id,snapshot_intermediate_rater_name,snapshot_reviewer_person_id,snapshot_reviewer_name,next_rater_person_id,next_rater_name,rater_changed_at';
 
 const evalTypeSchema = z.enum(['OER', 'NCOER', 'WOER']);
 const optionalText = z.string().nullable().optional();
@@ -98,14 +101,18 @@ export const evaluationStartSchema = z
 		ratingPeriodStart: dateOnlySchema,
 		ratingPeriodEnd: dateOnlySchema,
 		completed: z.boolean().optional(),
-		notes: z.string().trim().nullable().optional()
+		notes: z.string().trim().nullable().optional(),
+		nextRaterPersonId: uuidSchema.nullable().optional(),
+		nextRaterName: z.string().trim().nullable().optional()
 	})
-	.transform(({ reportType, ratingPeriodStart, ratingPeriodEnd, completed, notes }) => ({
-		reportType: (reportType || null) as Evaluation['reportType'],
-		ratingPeriodStart,
-		ratingPeriodEnd,
-		completed: completed ?? false,
-		notes: notes || null
+	.transform((start) => ({
+		reportType: (start.reportType || null) as Evaluation['reportType'],
+		ratingPeriodStart: start.ratingPeriodStart,
+		ratingPeriodEnd: start.ratingPeriodEnd,
+		completed: start.completed ?? false,
+		notes: start.notes || null,
+		nextRaterPersonId: start.nextRaterPersonId ?? null,
+		nextRaterName: start.nextRaterName || null
 	}));
 
 export const evaluationUpdateSchema = z.object({
@@ -115,10 +122,13 @@ export const evaluationUpdateSchema = z.object({
 	ratingPeriodStart: dateOnlySchema.optional(),
 	ratingPeriodEnd: dateOnlySchema.optional(),
 	notes: optionalText,
+	nextRaterPersonId: uuidSchema.nullable().optional(),
+	nextRaterName: z.string().trim().nullable().optional(),
 	status: workflowNotAField,
 	workflowStatus: workflowNotAField,
 	ratingSchemeId: notAField('An evaluation stays on its rating scheme'),
-	signedChain: notAField('The chain that signed an evaluation is kept when it completes')
+	signedChain: notAField('The chain that signed an evaluation is kept when it completes'),
+	raterChangedAt: notAField('Completing a Change of Rater moves its scheme to the next rater')
 });
 
 const workflowStepSchema = z
@@ -128,19 +138,6 @@ const workflowStepSchema = z
 export const ratingSchemeArchiveSchema = z.strictObject({ archived: z.boolean() });
 
 export const ratingSchemeTransitionSchema = z.strictObject({ from: workflowStepSchema, to: workflowStepSchema });
-
-export const ratingSchemeRaterChangeSchema = z
-	.strictObject({
-		changeDate: dateOnlySchema,
-		raterPersonId: uuidSchema.nullable().optional(),
-		raterName: z.string().trim().nullable().optional()
-	})
-	.transform(({ changeDate, raterPersonId, raterName }) => ({
-		changeDate,
-		raterPersonId: raterPersonId ?? null,
-		raterName: raterName || null
-	}))
-	.refine((change) => (change.raterPersonId === null) !== (change.raterName === null), 'Choose one new rater');
 
 export function mapRatingScheme(row: RatingSchemeRow): RatingScheme {
 	return {
@@ -171,6 +168,9 @@ export function mapEvaluation(row: EvaluationRow): Evaluation {
 		ratingPeriodEnd: row.rating_period_end,
 		workflowStatus: parseWorkflowStatus(row.workflow_status),
 		notes: row.notes,
+		nextRaterPersonId: row.next_rater_person_id ?? null,
+		nextRaterName: row.next_rater_name ?? null,
+		raterChangedAt: row.rater_changed_at ?? null,
 		signedChain: row.chain_snapshot_at
 			? {
 					signedAt: row.chain_snapshot_at,
@@ -233,6 +233,8 @@ export function evaluationPatchValues(input: EvaluationPatchValues) {
 		report_type: emptyToNull(input.reportType),
 		rating_period_start: input.ratingPeriodStart,
 		rating_period_end: input.ratingPeriodEnd,
-		notes: emptyToNull(input.notes)
+		notes: emptyToNull(input.notes),
+		next_rater_person_id: emptyToNull(input.nextRaterPersonId),
+		next_rater_name: emptyToNull(input.nextRaterName)
 	});
 }

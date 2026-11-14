@@ -19,5 +19,5 @@ export const trackRatingChain: HelpGuide = {
 		{ text: 'Press **Add to scheme**, then start their evaluation from the **Eval Tracker** tab.', to: 'evals' }
 	],
 	next: 'track-evaluation',
-	note: 'A new intermediate rater, senior rater or reviewer applies to the open evaluation at once. A new rater goes through **Change rater**, which closes the open evaluation as a Change of Rater report.'
+	note: "A new intermediate rater, senior rater or reviewer applies to the open evaluation at once. To replace the rater, set the open evaluation's report to **CR**, name the **Next rater**, and complete it. The scheme then moves to the next rater and opens their Annual the next day."
 };

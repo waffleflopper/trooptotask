@@ -21,13 +21,22 @@ SELECT results_eq(
   $$SELECT e.id, to_jsonb(e) - ARRAY['rating_scheme_id', 'chain_snapshot_at', 'snapshot_rater_person_id',
       'snapshot_rater_name', 'snapshot_intermediate_rater_person_id', 'snapshot_intermediate_rater_name',
       'snapshot_senior_rater_person_id', 'snapshot_senior_rater_name', 'snapshot_reviewer_person_id',
-      'snapshot_reviewer_name']
+      'snapshot_reviewer_name', 'next_rater_person_id', 'next_rater_name', 'rater_changed_at']
     FROM public.evaluations e WHERE organization_id = 'e7c40000-0000-4000-8000-000000000101' ORDER BY id$$,
   $$SELECT id, saved - ARRAY['rater_person_id', 'rater_name', 'intermediate_rater_person_id',
       'intermediate_rater_name', 'senior_rater_person_id', 'senior_rater_name', 'reviewer_person_id', 'reviewer_name',
       'archived_at', 'archived_by']
     FROM upgrade_fixture.rating_scheme_evaluation_split_before ORDER BY id$$,
   'every entry becomes an Evaluation with its id, step, period, report, type, notes and times');
+
+-- A completed Change of Rater already moved its scheme to the next rater, so reopening it keeps its chain and
+-- completing it again changes nothing. No copied entry names a next rater.
+SELECT results_eq(
+  $$SELECT id, rater_changed_at FROM public.evaluations
+    WHERE organization_id = 'e7c40000-0000-4000-8000-000000000101' AND (rater_changed_at IS NOT NULL
+      OR next_rater_person_id IS NOT NULL OR next_rater_name IS NOT NULL) ORDER BY id$$,
+  $$VALUES ('e7c40000-0000-4000-8000-000000000501'::uuid, '2025-07-01Z'::timestamptz)$$,
+  'only the completed Change of Rater is marked as having changed its rater, and none names a next rater');
 
 SELECT is(
   (SELECT count(*)::integer FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id

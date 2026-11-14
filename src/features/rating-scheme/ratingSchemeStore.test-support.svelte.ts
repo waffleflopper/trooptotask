@@ -60,6 +60,9 @@ export function splitRatingSchemeEntries(entries: readonly RatingSchemeEntry[]):
 			ratingPeriodEnd: entry.ratingPeriodEnd,
 			workflowStatus: entry.workflowStatus,
 			notes: entry.notes,
+			nextRaterPersonId: null,
+			nextRaterName: null,
+			raterChangedAt: null,
 			signedChain: entry.chainSigned ? { ...evaluatorChain(entry), signedAt: '2026-01-01T00:00:00Z' } : null
 		}))
 	};

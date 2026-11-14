@@ -118,10 +118,9 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   (pg_temp.id('306'), pg_temp.id('101'), pg_temp.id('201'), 'SSG', 'Leaving', 'Rater', 'lifecycle-leaving');
 
 SELECT ok(NOT has_function_privilege('anon', 'public.transition_evaluation(uuid,uuid,text,text)', 'EXECUTE')
-  AND NOT has_function_privilege('anon', 'public.change_evaluation_rater(uuid,uuid,date,uuid,text)', 'EXECUTE')
-  AND NOT has_function_privilege('anon', 'public.start_evaluation(uuid,uuid,text,date,date,boolean,text)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.start_evaluation(uuid,uuid,text,date,date,boolean,text,uuid,text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.set_rating_scheme_archived(uuid,uuid,boolean)', 'EXECUTE'),
-  'signed-out callers cannot start, move or close an Evaluation, change its rater or archive a scheme');
+  'signed-out callers cannot start, move or close an Evaluation or archive a scheme');
 
 INSERT INTO refusals (roles, from_steps, refused) VALUES
   ('none', ARRAY['drafting', 'completed'],
@@ -200,6 +199,7 @@ SELECT throws_ok(format($$ UPDATE public.evaluations SET %s WHERE id = %L $$, as
 FROM (VALUES ('workflow_status = ''completed''', 'the step'),
   ('chain_snapshot_at = now()', 'the signed time'),
   ('snapshot_rater_name = ''SSG Forged''', 'the signed chain'),
+  ('rater_changed_at = now()', 'the rater change'),
   ('rating_scheme_id = gen_random_uuid()', 'the scheme'),
   ('rated_person_id = gen_random_uuid()', 'the rated Person'),
   ('created_at = now()', 'the creation time'),
@@ -232,10 +232,10 @@ SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('
 INSERT INTO returned SELECT 'move', public.transition_evaluation(pg_temp.id('101'), pg_temp.f('stale'), 'with-rater', 'rater-signed');
 INSERT INTO returned SELECT 'repeat', public.transition_evaluation(pg_temp.id('101'), pg_temp.f('stale'), 'with-rater', 'rater-signed');
 SELECT is((SELECT result FROM returned WHERE label = 'move'),
-  jsonb_build_object('moved', true, 'evaluation', pg_temp.row(pg_temp.f('stale'))),
+  jsonb_build_object('moved', true, 'evaluation', pg_temp.row(pg_temp.f('stale')), 'raterChange', NULL),
   'a move returns the Evaluation as it now stands');
 SELECT is((SELECT result FROM returned WHERE label = 'repeat'),
-  jsonb_build_object('moved', false, 'evaluation', pg_temp.row(pg_temp.f('stale'))),
+  jsonb_build_object('moved', false, 'evaluation', pg_temp.row(pg_temp.f('stale')), 'raterChange', NULL),
   'repeating the move returns the same Evaluation with moved false');
 SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('stale')), 'rater-signed',
   'the repeated move left the Evaluation where the first move put it');
@@ -282,10 +282,19 @@ UPDATE public.evaluations SET notes = 'Filed', report_type = report_type WHERE i
 SELECT is((SELECT notes FROM public.evaluations WHERE id = pg_temp.f('stamped')), 'Filed',
   'a completed Evaluation still takes a notes edit that resends its report');
 
--- A scheme holds one open Evaluation, and its rater changes only by Change of rater while one is open.
-SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_name = 'SSG Sneaky' WHERE id = %L $$,
+-- A scheme holds one open Evaluation. While it is open, a rater known only by name is corrected or linked in place,
+-- and a linked rater is replaced only by completing a Change of Rater.
+SELECT lives_ok(format($$ UPDATE public.rating_schemes SET rater_name = 'SSG Later Jr' WHERE id = %L $$,
     pg_temp.scheme(pg_temp.f('signed'))),
-  '55000', 'Change the rater of an open evaluation with Change rater', 'an open Evaluation''s rater changes only by Change of rater');
+  'a rater known only by name is corrected while an Evaluation is open');
+SELECT lives_ok(format($$ UPDATE public.rating_schemes SET rater_name = NULL, rater_person_id = %L WHERE id = %L $$,
+    pg_temp.id('302'), pg_temp.scheme(pg_temp.f('signed'))),
+  'a rater known only by name is linked to their Personnel Record while an Evaluation is open');
+SELECT throws_ok(format($$ UPDATE public.rating_schemes SET %s WHERE id = %L $$, assignment, pg_temp.scheme(pg_temp.f('signed'))),
+  '55000', 'Complete a Change of Rater evaluation to replace this rater',
+  'a linked rater is not replaced by ' || label || ' while an Evaluation is open')
+FROM (VALUES (format('rater_person_id = %L', pg_temp.id('303')), 'another Person'),
+  ('rater_person_id = NULL, rater_name = ''SSG Sneaky''', 'a name')) AS w(assignment, label);
 SELECT lives_ok(format($$ UPDATE public.rating_schemes SET intermediate_rater_name = 'MSG Live', reviewer_name = 'LTC Live',
     intermediate_rater_person_id = NULL, reviewer_person_id = NULL WHERE id = %L $$, pg_temp.scheme(pg_temp.f('signed'))),
   'the intermediate rater and reviewer change on the scheme while its Evaluation is open');
@@ -293,9 +302,9 @@ INSERT INTO returned SELECT 'history', public.start_evaluation(pg_temp.id('101')
   '2029-01-01', '2029-12-31', true, 'Recorded history');
 SELECT results_eq(
   $$ SELECT r.result ->> 'created', e.workflow_status, e.report_type, e.notes, e.chain_snapshot_at IS NOT NULL,
-       e.snapshot_rater_name, e.snapshot_intermediate_rater_name
+       e.snapshot_rater_person_id, e.snapshot_intermediate_rater_name
      FROM returned r JOIN public.evaluations e ON e.id = (r.result #>> '{evaluation,id}')::uuid WHERE r.label = 'history' $$,
-  $$ VALUES ('true'::text, 'completed'::text, 'AN'::text, 'Recorded history'::text, true, 'SSG Later'::text, 'MSG Live'::text) $$,
+  $$ VALUES ('true'::text, 'completed'::text, 'AN'::text, 'Recorded history'::text, true, pg_temp.id('302'), 'MSG Live'::text) $$,
   'a completed Evaluation is recorded beside an open one with the scheme''s chain saved');
 SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, 'completed', 'drafting') $$,
     pg_temp.id('101'), (SELECT (result #>> '{evaluation,id}')::uuid FROM returned WHERE label = 'history')),
@@ -334,7 +343,7 @@ SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, NULL, 'wi
 -- The rater's link clears when their Personnel Record is deleted, but is not otherwise cleared by hand.
 SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_person_id = NULL WHERE id = %L $$,
     pg_temp.scheme(pg_temp.f('departing'))),
-  '55000', 'Change the rater of an open evaluation with Change rater', 'an open Evaluation''s rater link is not cleared by hand');
+  '55000', 'Complete a Change of Rater evaluation to replace this rater', 'an open Evaluation''s rater link is not cleared by hand');
 SELECT pg_temp.act_as('1');
 UPDATE public.personnel SET archived_at = now() WHERE id = pg_temp.id('306');
 SELECT lives_ok(format($$ DELETE FROM public.personnel WHERE id = %L $$, pg_temp.id('306')),
@@ -351,17 +360,12 @@ SELECT pg_temp.act_as('2');
 SELECT pg_temp.act_as('3');
 SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, 'with-rater', 'rater-signed') $$, pg_temp.id('101'),
     pg_temp.f('probe')), 'P0002', 'Evaluation not found', 'an operator outside the rated Person''s Group cannot find it');
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('probe'), pg_temp.id('303')), 'P0002', 'Evaluation not found',
-  'an operator outside the rated Person''s Group cannot change its rater');
 SELECT throws_ok(format($$ SELECT public.start_evaluation(%L, %L, 'AN', '2031-01-01', '2031-12-31', true) $$, pg_temp.id('101'),
     pg_temp.scheme(pg_temp.f('probe'))), 'P0002', 'Rating scheme not found',
   'an operator outside the rated Person''s Group cannot start an Evaluation');
 SELECT pg_temp.act_as('4');
 SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, 'with-rater', 'rater-signed') $$, pg_temp.id('101'),
     pg_temp.f('probe')), '42501', NULL, 'a view-only member cannot move an Evaluation');
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('probe'), pg_temp.id('303')), '42501', NULL, 'a view-only member cannot change the rater');
 SELECT throws_ok(format($$ SELECT public.start_evaluation(%L, %L, 'AN', '2031-01-01', '2031-12-31', true) $$, pg_temp.id('101'),
     pg_temp.scheme(pg_temp.f('probe'))), '42501', NULL, 'a view-only member cannot start an Evaluation');
 SELECT set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.claims', '{"role":"authenticated"}', true);
@@ -374,85 +378,122 @@ SELECT results_eq(
   $$ VALUES ('with-rater'::text, 1) $$,
   'denied calls left the Evaluation where it was and started none');
 
--- Change of rater.
-INSERT INTO returned SELECT 'change', public.change_evaluation_rater(pg_temp.id('101'), entry, '2030-06-15', pg_temp.id('303'), NULL)
-FROM changed;
-UPDATE changed SET successor = (SELECT (result -> 'successor' ->> 'id')::uuid FROM returned WHERE label = 'change');
-SELECT is((SELECT result FROM returned WHERE label = 'change'),
-    jsonb_build_object('evaluation', pg_temp.row((SELECT entry FROM changed)),
-      'ratingScheme', to_jsonb((SELECT s FROM public.rating_schemes s WHERE s.id = pg_temp.scheme((SELECT entry FROM changed)))) - 'archived_by',
-      'successor', pg_temp.row((SELECT successor FROM changed))),
-  'a change of rater returns the completed Evaluation, the scheme with its new rater and the successor as stored');
+-- A next rater belongs to a Change of Rater report, as one Person in the Organization or one name.
+SELECT throws_ok(format($$ UPDATE public.evaluations SET %s WHERE id = %L $$, assignment, pg_temp.f('fresh')), code, NULL, label)
+FROM (VALUES (format('next_rater_person_id = %L', pg_temp.id('303')), '23514', 'an Annual cannot name a next rater'),
+  (format('report_type = ''CR'', next_rater_person_id = %L, next_rater_name = ''SSG Both''', pg_temp.id('303')), '23514',
+    'a Change of Rater cannot name a next rater as both a Person and a name'),
+  (format('report_type = ''CR'', next_rater_person_id = %L', pg_temp.id('305')), '23503',
+    'a next rater from another Organization is refused')) AS w(assignment, code, label);
+UPDATE public.evaluations SET report_type = 'CR', next_rater_name = 'SSG Passing' WHERE id = pg_temp.f('fresh');
+UPDATE public.evaluations SET report_type = 'AN' WHERE id = pg_temp.f('fresh');
 SELECT results_eq(
-  $$ SELECT rating_period_start, rating_period_end, report_type, workflow_status, notes, snapshot_rater_person_id,
-       snapshot_senior_rater_name, snapshot_intermediate_rater_person_id, snapshot_reviewer_person_id
+  $$ SELECT report_type, next_rater_person_id, next_rater_name FROM public.evaluations WHERE id = pg_temp.f('fresh') $$,
+  $$ VALUES ('AN'::text, NULL::uuid, NULL::text) $$,
+  'changing the report away from Change of Rater clears its next rater');
+
+-- Completing a Change of Rater hands the scheme to the next rater and opens their Annual from the next day.
+UPDATE public.evaluations SET report_type = 'CR', rating_period_end = '2030-06-15', next_rater_person_id = pg_temp.id('303')
+WHERE id = (SELECT entry FROM changed);
+INSERT INTO returned SELECT 'change', public.transition_evaluation(pg_temp.id('101'), entry, 'with-rater', 'completed')
+FROM changed;
+UPDATE changed SET successor = (SELECT (result #>> '{raterChange,successor,id}')::uuid FROM returned WHERE label = 'change');
+SELECT is((SELECT result FROM returned WHERE label = 'change'),
+  jsonb_build_object('moved', true, 'evaluation', pg_temp.row((SELECT entry FROM changed)),
+    'raterChange', jsonb_build_object(
+      'ratingScheme', to_jsonb((SELECT s FROM public.rating_schemes s WHERE s.id = pg_temp.scheme((SELECT entry FROM changed)))) - 'archived_by',
+      'successor', pg_temp.row((SELECT successor FROM changed)))),
+  'completing a Change of Rater returns the completed Evaluation, the scheme with its new rater and the successor as stored');
+SELECT results_eq(
+  $$ SELECT rating_period_end, report_type, workflow_status, next_rater_person_id, rater_changed_at IS NOT NULL,
+       snapshot_rater_person_id, snapshot_senior_rater_name, snapshot_intermediate_rater_person_id, snapshot_reviewer_person_id
      FROM public.evaluations WHERE id = (SELECT entry FROM changed) $$,
-  $$ VALUES ('2030-01-01'::date, '2030-06-15'::date, 'CR'::text, 'completed'::text, 'Kept notes'::text, pg_temp.id('302'),
+  $$ VALUES ('2030-06-15'::date, 'CR'::text, 'completed'::text, pg_temp.id('303'), true, pg_temp.id('302'),
        'COL Senior'::text, pg_temp.id('303'), pg_temp.id('303')) $$,
-  'the Evaluation closes as a completed Change of Rater report through the change date, signed by the old chain');
+  'the Change of Rater keeps the departing chain that signed it');
 SELECT results_eq(
   $$ SELECT rater_person_id, rater_name, senior_rater_name, intermediate_rater_person_id, reviewer_person_id, notes
      FROM public.rating_schemes WHERE id = pg_temp.scheme((SELECT entry FROM changed)) $$,
   $$ VALUES (pg_temp.id('303'), NULL::text, 'COL Senior'::text, pg_temp.id('303'), pg_temp.id('303'), 'Scheme notes'::text) $$,
-  'the scheme takes the new rater and keeps the other evaluators');
+  'the scheme takes the next rater and keeps the other evaluators');
 SELECT results_eq(
   $$ SELECT organization_id, rating_scheme_id, eval_type, rating_period_start, rating_period_end, report_type, workflow_status,
-       notes, chain_snapshot_at
+       notes, chain_snapshot_at, next_rater_person_id, rater_changed_at
      FROM public.evaluations WHERE id = (SELECT successor FROM changed) $$,
   $$ VALUES (pg_temp.id('101'), pg_temp.scheme((SELECT entry FROM changed)), 'NCOER'::text, '2030-06-16'::date,
-       '2031-06-15'::date, 'AN'::text, 'drafting'::text, NULL::text, NULL::timestamptz) $$,
+       '2031-06-15'::date, 'AN'::text, 'drafting'::text, NULL::text, NULL::timestamptz, NULL::uuid, NULL::timestamptz) $$,
   'the successor is an Annual at drafting for the new rater from the next day, reading the scheme''s chain');
-SELECT is(public.change_evaluation_rater(pg_temp.id('101'), (SELECT entry FROM changed), '2030-06-15', pg_temp.id('303'), NULL),
-  jsonb_build_object('evaluation', pg_temp.row((SELECT entry FROM changed)),
-      'ratingScheme', to_jsonb((SELECT s FROM public.rating_schemes s WHERE s.id = pg_temp.scheme((SELECT entry FROM changed)))) - 'archived_by',
-    'successor', pg_temp.row((SELECT successor FROM changed))),
-  'replaying the change of rater returns the completed Evaluation and the successor it opened');
-SELECT is(public.change_evaluation_rater(pg_temp.id('101'), (SELECT entry FROM changed), '2030-06-14', pg_temp.id('303'), NULL),
-  jsonb_build_object('evaluation', pg_temp.row((SELECT entry FROM changed)),
-      'ratingScheme', to_jsonb((SELECT s FROM public.rating_schemes s WHERE s.id = pg_temp.scheme((SELECT entry FROM changed)))) - 'archived_by',
-    'successor', NULL),
-  'a different change of rater on the completed Evaluation returns it with no successor');
-SELECT is((SELECT count(*)::int FROM public.evaluations WHERE rating_scheme_id = pg_temp.scheme((SELECT entry FROM changed))), 2,
-  'repeating the change of rater opens no second successor');
+SELECT throws_ok(format($$ UPDATE public.evaluations SET next_rater_person_id = NULL, next_rater_name = 'SSG Late' WHERE id = %L $$,
+    (SELECT entry FROM changed)),
+  '55000', 'Reopen this evaluation to change its report or period', 'a completed Change of Rater keeps its next rater');
 
-UPDATE leap SET successor = (public.change_evaluation_rater(pg_temp.id('101'), entry, '2028-02-28', NULL, ' SSG Named Rater ')
-  -> 'successor' ->> 'id')::uuid;
+-- Reopening and completing the Change of Rater again keeps the departing chain and hands nothing over twice.
+SELECT public.transition_evaluation(pg_temp.id('101'), successor, 'drafting', NULL) FROM changed;
+SELECT public.transition_evaluation(pg_temp.id('101'), entry, 'completed', 'drafting') FROM changed;
 SELECT results_eq(
-  $$ SELECT e.rating_period_start, e.rating_period_end, s.rater_person_id, s.rater_name
+  $$ SELECT workflow_status, chain_snapshot_at IS NOT NULL, snapshot_rater_person_id FROM public.evaluations
+     WHERE id = (SELECT entry FROM changed) $$,
+  $$ VALUES ('drafting'::text, true, pg_temp.id('302')) $$,
+  'a reopened Change of Rater keeps the departing chain, since the scheme has moved to the next rater');
+UPDATE public.evaluations SET next_rater_person_id = NULL, next_rater_name = 'SSG Other' WHERE id = (SELECT entry FROM changed);
+INSERT INTO returned SELECT 'again', public.transition_evaluation(pg_temp.id('101'), entry, 'drafting', 'completed') FROM changed;
+SELECT results_eq(
+  $$ SELECT r.result -> 'raterChange', s.rater_person_id, s.rater_name, e.snapshot_rater_person_id,
+       (SELECT count(*)::int FROM public.evaluations WHERE rating_scheme_id = s.id)
+     FROM returned r JOIN public.evaluations e ON e.id = (r.result #>> '{evaluation,id}')::uuid
+     JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE r.label = 'again' $$,
+  $$ VALUES ('null'::jsonb, pg_temp.id('303'), NULL::text, pg_temp.id('302'), 2) $$,
+  'completing the Change of Rater again keeps the scheme''s rater and opens no second successor');
+
+-- A Change of Rater naming no next rater leaves the scheme without a rater, which may then be filled.
+UPDATE public.evaluations SET report_type = 'CR', rating_period_end = '2028-02-28' WHERE id = (SELECT entry FROM leap);
+UPDATE leap SET successor = (public.transition_evaluation(pg_temp.id('101'), entry, NULL, 'completed')
+  #>> '{raterChange,successor,id}')::uuid;
+SELECT results_eq(
+  $$ SELECT e.rating_period_start, e.rating_period_end, e.workflow_status, s.rater_person_id, s.rater_name
      FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = (SELECT successor FROM leap) $$,
-  $$ VALUES ('2028-02-29'::date, '2029-02-28'::date, NULL::uuid, 'SSG Named Rater'::text) $$,
-  'a successor from 29 February runs through 28 February the next year, for a new rater named outside the roster');
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2028-06-15', NULL, 'ssg named rater ') $$,
-    pg_temp.id('101'), (SELECT successor FROM leap)),
-  '22023', 'The new rater is already this evaluation''s rater', 'the current rater named outside the roster cannot replace themselves');
-SELECT results_eq(
-  $$ SELECT rating_period_end, report_type, workflow_status,
-       (SELECT count(*)::int FROM public.evaluations WHERE rating_period_start = '2028-06-16')
-     FROM public.evaluations WHERE id = (SELECT successor FROM leap) $$,
-  $$ VALUES ('2029-02-28'::date, 'AN'::text, 'drafting'::text, 0) $$,
-  'the refused change of the named rater left the Evaluation open and opened no successor');
+  $$ VALUES ('2028-02-29'::date, '2029-02-28'::date, 'drafting'::text, NULL::uuid, NULL::text) $$,
+  'a Change of Rater with no next rater blanks the scheme''s rater, and a successor from 29 February runs through 28 February');
+SELECT lives_ok(format($$ UPDATE public.rating_schemes SET rater_person_id = %L WHERE id = %L $$, pg_temp.id('303'),
+    pg_temp.scheme((SELECT entry FROM leap))),
+  'a blank rater is filled while the successor is open');
 
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, %L, %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('fresh'), d, pg_temp.id('303')),
-  '22023', 'The last day with the current rater must fall within the rating period', 'a change on ' || d || ' is refused')
-FROM unnest(ARRAY['2029-12-31', '2031-01-01']) AS d;
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2030-06-15', %L, %L) $$, pg_temp.id('101'),
-    pg_temp.f('fresh'), person, name),
-  '22023', 'Choose one new rater', label)
-FROM (VALUES (NULL, NULL, 'a change without a new rater is refused'),
-  (NULL, '   ', 'a blank new rater name is refused'),
-  (pg_temp.id('303')::text, 'SSG Both', 'a new rater given as both a Person and a name is refused')) AS c(person, name, label);
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('fresh'), pg_temp.id('302')),
-  '22023', 'The new rater is already this evaluation''s rater', 'the current rater cannot replace themselves');
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2030-06-15', %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('fresh'), pg_temp.id('305')),
-  '23503', NULL, 'a new rater from another Organization is refused');
+-- A Change of Rater recorded as already completed is history and leaves the scheme as it is.
+SELECT throws_ok(format($$ SELECT public.start_evaluation(%L, %L, %L, '2029-01-01', '2029-06-30', %L, NULL, %L, %L) $$,
+    pg_temp.id('101'), pg_temp.scheme(pg_temp.f('fresh')), report, completed, person, name),
+  '22023', message, label)
+FROM (VALUES ('CR', true, pg_temp.id('303')::text, NULL, 'Only an open Change of Rater evaluation names a next rater',
+    'a Change of Rater recorded as completed names no next rater'),
+  ('AN', false, NULL, 'SSG Next', 'Only an open Change of Rater evaluation names a next rater', 'an Annual names no next rater'),
+  ('CR', false, pg_temp.id('303')::text, 'SSG Both', 'Choose one next rater',
+    'a next rater given as both a Person and a name is refused')) AS c(report, completed, person, name, message, label);
+INSERT INTO returned SELECT 'recorded', public.start_evaluation(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('fresh')), 'CR',
+  '2029-01-01', '2029-06-30', true);
+SELECT public.transition_evaluation(pg_temp.id('101'), (result #>> '{evaluation,id}')::uuid, 'completed', 'drafting')
+FROM returned WHERE label = 'recorded';
+INSERT INTO returned SELECT 'recorded again', public.transition_evaluation(pg_temp.id('101'),
+  (result #>> '{evaluation,id}')::uuid, 'drafting', 'completed') FROM returned WHERE label = 'recorded';
 SELECT results_eq(
-  $$ SELECT e.rating_period_end, e.report_type, e.workflow_status, s.rater_person_id
-     FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('fresh') $$,
-  $$ VALUES ('2030-12-31'::date, 'AN'::text, NULL::text, pg_temp.id('302')) $$,
-  'a refused change of rater leaves the Evaluation open, its period whole and the scheme''s rater as it was');
+  $$ SELECT r.result -> 'raterChange', s.rater_person_id, e.workflow_status, e.rater_changed_at IS NOT NULL,
+       (SELECT count(*)::int FROM public.evaluations WHERE rating_scheme_id = s.id)
+     FROM returned r JOIN public.evaluations e ON e.id = (r.result #>> '{evaluation,id}')::uuid
+     JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE r.label = 'recorded again' $$,
+  $$ VALUES ('null'::jsonb, pg_temp.id('302'), 'completed'::text, true, 2) $$,
+  'a recorded Change of Rater, reopened and completed, keeps the scheme''s rater and opens no successor');
+
+-- An open Change of Rater starts with its next rater, and starting it again returns it.
+INSERT INTO returned SELECT 'opened', public.start_evaluation(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('fresh')), 'CR',
+  '2031-01-01', '2031-05-31', false, NULL, NULL, ' SSG Named ');
+SELECT results_eq(
+  $$ SELECT r.result ->> 'created', e.report_type, e.workflow_status, e.next_rater_person_id, e.next_rater_name
+     FROM returned r JOIN public.evaluations e ON e.id = (r.result #>> '{evaluation,id}')::uuid WHERE r.label = 'opened' $$,
+  $$ VALUES ('true'::text, 'CR'::text, 'drafting'::text, NULL::uuid, 'SSG Named'::text) $$,
+  'an open Change of Rater starts with the next rater it names');
+SELECT is(public.start_evaluation(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('fresh')), 'CR', '2031-01-01', '2031-05-31',
+    false, NULL, NULL, 'SSG Named'),
+  jsonb_build_object('created', false, 'evaluation',
+    pg_temp.row((SELECT (result #>> '{evaluation,id}')::uuid FROM returned WHERE label = 'opened'))),
+  'starting the same Change of Rater again returns it unchanged');
 
 SELECT * FROM finish();
 ROLLBACK;

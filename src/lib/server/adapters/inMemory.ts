@@ -422,8 +422,7 @@ function unavailableRatingScheme(): RatingSchemePersistence {
 		startEvaluation: unavailable,
 		updateEvaluation: unavailable,
 		deleteEvaluation: unavailable,
-		transitionEvaluation: unavailable,
-		changeEvaluationRater: unavailable
+		transitionEvaluation: unavailable
 	};
 }
 

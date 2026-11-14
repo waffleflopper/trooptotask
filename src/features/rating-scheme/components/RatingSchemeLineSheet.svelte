@@ -14,10 +14,11 @@
 		type RatingSchemeLineRequiredField
 	} from '../utils/ratingSchemeLineDraft';
 	import { spokenPersonLabel } from '../utils/personLabel';
-	import type { RatingSchemeLine } from '../utils/ratingSchemeLines';
+	import { isRaterLocked, type RatingSchemeLine } from '../utils/ratingSchemeLines';
 	import {
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
+		rosterOptions,
 		type EvaluatorDraft
 	} from '../utils/evaluatorDraft';
 	import EvalStatusBadge from './EvalStatusBadge.svelte';
@@ -45,7 +46,6 @@
 		onSave: (save: RatingSchemeLineSave, isCurrent: () => boolean) => Promise<void>;
 		/** Resolves once the scheme was archived or restored. */
 		onArchive: (ratingSchemeId: string, archived: boolean, isCurrent: () => boolean) => Promise<void>;
-		onChangeRater: (line: RatingSchemeLine) => void;
 		onClose: () => void;
 	}
 
@@ -58,7 +58,6 @@
 		isCurrentWorkspace,
 		onSave,
 		onArchive,
-		onChangeRater,
 		onClose
 	}: Props = $props();
 	let disposed = false;
@@ -83,16 +82,11 @@
 	const dirty = $derived(JSON.stringify(draft) !== pristine);
 
 	const missing = $derived(saveAttempted ? missingLineFields(draft) : []);
-	const raterLocked = $derived(line !== null && line.open !== null);
+	const raterLocked = $derived(line !== null && isRaterLocked(line));
 	const archived = $derived(line?.archivedAt != null);
 	const badge = $derived(line ? evalStatusBadge(line.open) : null);
 
-	const people = $derived(
-		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
-	);
-	const personnelOptions = $derived(
-		people.map((person) => ({ value: person.id, label: `${person.rank} ${person.lastName}, ${person.firstName}` }))
-	);
+	const personnelOptions = $derived(rosterOptions(personnel));
 	const ratedOptions = $derived(personnelOptions.filter((option) => !listedPersonIds.has(option.value)));
 	const ratedPerson = $derived(personnel.find((person) => person.id === (line?.ratedPersonId ?? draft.ratedPersonId)));
 	const ratedName = $derived(ratedPerson ? `${ratedPerson.rank} ${ratedPerson.lastName}` : 'this Soldier');
@@ -286,17 +280,12 @@
 					{#if raterLocked && line}
 						<Field.Root class="gap-1.5 sm:grid sm:grid-cols-[110px_minmax(0,1fr)] sm:items-start sm:gap-x-3">
 							<Field.Title class="text-sm font-medium sm:h-9 sm:items-center">Rater</Field.Title>
-							<div class="flex items-center gap-2">
-								<p
-									class="flex h-9 min-w-0 flex-1 items-center truncate rounded-md border bg-muted px-2.5 text-sm"
-									aria-label="Rater, locked while an evaluation is open"
-								>
-									{raterName}
-								</p>
-								<Button variant="outline" size="sm" disabled={busy || dirty} onclick={() => onChangeRater(line)}>
-									Change rater
-								</Button>
-							</div>
+							<p
+								class="flex h-9 min-w-0 items-center truncate rounded-md border bg-muted px-2.5 text-sm"
+								aria-label="Rater, locked while an evaluation is open"
+							>
+								{raterName}
+							</p>
 						</Field.Root>
 					{:else}
 						{@render chainRow('Rater', fieldIds.rater, draft.rater, (next) => (draft.rater = next), 'rater')}
@@ -357,8 +346,8 @@
 					{/if}
 					{#if raterLocked}
 						<div class="rounded-md border border-info/25 bg-info/8 px-3 py-2.5 text-[13px] leading-[18px]" role="note">
-							{ratedName} has an open evaluation. Chain edits apply to it now. The rater changes only through Change rater,
-							which closes it as a Change of Rater report.
+							{ratedName} has an open evaluation. Chain edits apply to it now. To replace the rater, make it a Change of Rater
+							report with the next rater named, then complete it.
 						</div>
 					{/if}
 				</section>

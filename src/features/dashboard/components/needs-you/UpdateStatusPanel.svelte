@@ -6,10 +6,9 @@
 		EvaluationPatchValues,
 		RatingScheme,
 		RatingSchemeDueEntry,
-		RatingSchemeMove,
-		RatingSchemeRaterChange
+		RatingSchemeMove
 	} from '$features/rating-scheme/contracts';
-	import { changeEvaluationRater, moveEvaluation, saveEvaluation } from '$features/rating-scheme';
+	import { moveEvaluation, saveEvaluation } from '$features/rating-scheme';
 	import { isEvaluationCompleted } from '$features/rating-scheme/contracts';
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { NeedsYouPanelProps } from '../../sections/needsYou';
@@ -22,7 +21,6 @@
 		isCurrentWorkspace: () => boolean;
 		onSave: (id: string, patch: EvaluationPatchValues, isCurrent: () => boolean) => Promise<void>;
 		onMove: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<void>;
-		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<void>;
 		onClose: () => void;
 	}>;
 
@@ -79,7 +77,8 @@
 
 	/**
 	 * A step keeps the Evaluation past thru, so the panel stays open for the next one. Completing it removes the row,
-	 * so that move saves through the row and focus moves on with it.
+	 * so that move saves through the row and focus moves on with it. Completing a Change of Rater also gives the scheme
+	 * its next rater and lists the Annual it opened.
 	 */
 	async function onMove(id: string, workflowMove: RatingSchemeMove, isCurrent: () => boolean): Promise<void> {
 		const move = async () => {
@@ -89,22 +88,13 @@
 			if (!isCurrent()) return;
 			evaluation = moved.evaluation;
 			putEntry(moved.evaluation);
+			if (!moved.raterChange) return;
+			scheme = moved.raterChange.ratingScheme;
+			if (moved.raterChange.successor) putEntry(moved.raterChange.successor);
 		};
 		if (isEvaluationCompleted(workflowMove.to)) await save(move);
 		else await move();
 	}
-
-	const onChangeRater = (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) =>
-		save(async () => {
-			const result = await changeEvaluationRater(orgId, id, change).catch(
-				rejected('The rater was not changed. Try again.')
-			);
-			if (!isCurrent()) return;
-			evaluation = result.evaluation;
-			scheme = result.ratingScheme;
-			putEntry(result.evaluation);
-			if (result.successor) putEntry(result.successor);
-		});
 </script>
 
 <Sheet
@@ -115,6 +105,5 @@
 	{isCurrentWorkspace}
 	{onSave}
 	{onMove}
-	{onChangeRater}
 	onClose={close}
 />

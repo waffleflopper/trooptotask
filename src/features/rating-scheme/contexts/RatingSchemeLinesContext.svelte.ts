@@ -33,7 +33,6 @@ export interface LineSheetPayload {
 	lineId: string | null;
 	fromUrl?: boolean;
 }
-export const CHANGE_RATER_MODAL = 'rating-scheme-change-rater';
 
 /** Which lines the Rating Scheme lists: those on it, those archived, or both. */
 export type RatingSchemeListingFilter = 'on-scheme' | 'archived' | 'all';

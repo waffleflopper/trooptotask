@@ -23,7 +23,10 @@ export function toRatingSchemeLines(
 	return schemes.map((scheme) => ({ ...scheme, open: openBySchemeId.get(scheme.id) ?? null }));
 }
 
-/** A scheme is locked to its rater while an Evaluation is open; Change rater closes that Evaluation first. */
-export function isRaterLocked(line: Pick<RatingSchemeLine, 'open'>): boolean {
-	return line.open !== null;
+/**
+ * While an Evaluation is open, a rater linked to a Personnel Record is replaced only by completing a Change of Rater.
+ * A blank rater, or one known only by name, stays editable.
+ */
+export function isRaterLocked(line: Pick<RatingSchemeLine, 'open' | 'raterPersonId'>): boolean {
+	return line.open !== null && line.raterPersonId !== null;
 }

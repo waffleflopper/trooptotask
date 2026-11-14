@@ -37,8 +37,9 @@ describe('toRatingSchemeLines', () => {
 });
 
 describe('isRaterLocked', () => {
-	it('locks the rater only while an Evaluation is open', () => {
-		expect(isRaterLocked({ open: evaluation('e', 'a') })).toBe(true);
-		expect(isRaterLocked({ open: null })).toBe(false);
+	it('locks a linked rater only while an Evaluation is open', () => {
+		expect(isRaterLocked({ open: evaluation('e', 'a'), raterPersonId: 'rater' })).toBe(true);
+		expect(isRaterLocked({ open: evaluation('e', 'a'), raterPersonId: null })).toBe(false);
+		expect(isRaterLocked({ open: null, raterPersonId: 'rater' })).toBe(false);
 	});
 });

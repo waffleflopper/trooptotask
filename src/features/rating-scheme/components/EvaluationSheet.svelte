@@ -2,7 +2,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import type { EvaluationPatchValues, RatingSchemeMove, RatingSchemeRaterChange } from '../contracts';
+	import type { EvaluationPatchValues, RatingSchemeMove } from '../contracts';
 	import type { Evaluation, EvaluatorChain, RatingScheme, ReportType } from '../rating-scheme.types';
 	import { personEvaluations, waitingOnName } from '../utils/evalTracker';
 	import {
@@ -20,10 +20,11 @@
 	import { spokenPersonLabel } from '../utils/personLabel';
 	import { getDaysUntilDue, getRatingDueStatus, getReportTypeLabel } from '../utils/ratingScheme';
 	import { ratingDueTone } from '../utils/ratingDueTone';
-	import { isEvaluationOpen, toRatingSchemeEntry } from '../utils/ratingSchemeEntries';
+	import { evaluatorDraft, evaluatorValues } from '../utils/evaluatorDraft';
+	import { toRatingSchemeEntry } from '../utils/ratingSchemeEntries';
 	import { reportPeriodProblem, type ReportPeriodDraft } from '../utils/reportPeriodDraft';
-	import ChangeRaterDialog from './ChangeRaterDialog.svelte';
 	import EvaluatorChainRows from './EvaluatorChainRows.svelte';
+	import NextRaterField from './NextRaterField.svelte';
 	import ReportPeriodFields from './ReportPeriodFields.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -49,7 +50,6 @@
 		onSave: (id: string, patch: EvaluationPatchValues, isCurrent: () => boolean) => Promise<void>;
 		/** Resolves once the step moved; throws with the reason when it was refused. */
 		onMove: (id: string, move: RatingSchemeMove, isCurrent: () => boolean) => Promise<void>;
-		onChangeRater: (id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean) => Promise<void>;
 		/** Resolves true once deleted, or once a deletion request went in. */
 		onDelete?: (id: string, isCurrent: () => boolean) => Promise<boolean>;
 		onOpenEvaluation?: (id: string) => void;
@@ -65,7 +65,6 @@
 		isCurrentWorkspace,
 		onSave,
 		onMove,
-		onChangeRater,
 		onDelete,
 		onOpenEvaluation,
 		onClose
@@ -102,6 +101,7 @@
 				ratingPeriodStart: from.ratingPeriodStart,
 				ratingPeriodEnd: from.ratingPeriodEnd
 			} satisfies ReportPeriodDraft as ReportPeriodDraft,
+			nextRater: evaluatorDraft(from.nextRaterPersonId, from.nextRaterName),
 			notes: from.notes ?? ''
 		};
 	}
@@ -114,7 +114,29 @@
 			draft.period.ratingPeriodEnd !== evaluation.ratingPeriodEnd
 	);
 	const notesChanged = $derived(draft.notes.trim() !== (evaluation.notes ?? '').trim());
-	const dirty = $derived((!completed && periodChanged) || notesChanged);
+
+	/**
+	 * A Change of Rater names who takes over as rater when it completes. Once it has completed, the swap is settled:
+	 * reopening it does not move the scheme again, so the field stays read-only.
+	 */
+	const nextRaterEditable = $derived(!completed && evaluation.raterChangedAt === null);
+	const nextRaterValues = $derived(evaluatorValues(draft.nextRater));
+	const nextRaterShown = $derived(
+		draft.period.reportType === 'CR' && (nextRaterEditable || draft.nextRater.kind !== 'empty')
+	);
+	const nextRaterChanged = $derived(
+		draft.period.reportType === 'CR' &&
+			nextRaterEditable &&
+			(nextRaterValues.personId !== evaluation.nextRaterPersonId || nextRaterValues.name !== evaluation.nextRaterName)
+	);
+	const nextRaterHint = $derived(
+		nextRaterEditable
+			? "Completing this report makes them the scheme's rater and opens an Annual the next day. With none named, the scheme's rater is left blank."
+			: completed
+				? 'Locked while completed.'
+				: 'This report already settled the rater. Completing it again changes nothing.'
+	);
+	const dirty = $derived((!completed && periodChanged) || nextRaterChanged || notesChanged);
 
 	let saving = $state(false);
 	let moving = $state<string | null>(null);
@@ -123,7 +145,6 @@
 	let saveError = $state('');
 	let moveError = $state('');
 	let confirmingDelete = $state(false);
-	let changingRater = $state(false);
 	const busy = $derived(saving || moving !== null || deleting);
 	const problem = $derived(saveAttempted && !completed ? reportPeriodProblem(draft.period) : null);
 
@@ -141,10 +162,6 @@
 		const text = days < 0 ? `${count(-days)} past thru` : days === 0 ? 'Thru today' : `Thru in ${count(days)}`;
 		return { text, tone: ratingDueTone[dueStatus] };
 	});
-
-	const changeRaterLine = $derived(
-		isEvaluationOpen(status) && scheme.archivedAt === null ? { ...scheme, open: evaluation } : null
-	);
 
 	function moveLabel(move: WorkflowMove): string {
 		switch (move.kind) {
@@ -194,6 +211,10 @@
 		}
 		if (draft.period.ratingPeriodEnd !== evaluation.ratingPeriodEnd)
 			values.ratingPeriodEnd = draft.period.ratingPeriodEnd;
+		if (nextRaterChanged) {
+			values.nextRaterPersonId = nextRaterValues.personId;
+			values.nextRaterName = nextRaterValues.name;
+		}
 		return values;
 	}
 
@@ -232,14 +253,6 @@
 		} finally {
 			if (isCurrent()) deleting = false;
 		}
-	}
-
-	async function changeRater(id: string, change: RatingSchemeRaterChange, isDialogCurrent: () => boolean) {
-		await onChangeRater(id, change, isDialogCurrent);
-		if (!isCurrent()) return;
-		toastStore.success('Rater changed. A new Annual opened at Drafting.');
-		changingRater = false;
-		onClose();
 	}
 
 	const ROLE_NAMES = [
@@ -432,6 +445,16 @@
 							: `${entry.evalType}, from the scheme line. Change the type on the Rating Scheme.`}
 						onChange={(next) => (draft.period = next)}
 					/>
+					{#if nextRaterShown}
+						<NextRaterField
+							id="evaluation-next-rater"
+							value={draft.nextRater}
+							{personnel}
+							locked={!nextRaterEditable}
+							hint={nextRaterHint}
+							onChange={(next) => (draft.nextRater = next)}
+						/>
+					{/if}
 				</section>
 
 				<section class="grid gap-3 border-b px-7 py-5.5">
@@ -452,16 +475,9 @@
 					{:else}
 						{@render sectionTitle('Rating chain', { href: schemeHref, label: 'Edit on Rating Scheme ›' })}
 						<EvaluatorChainRows chain={entry} {personnel} label="Rating chain" />
-						<div class="flex flex-wrap items-center gap-3">
-							{#if changeRaterLine}
-								<Button variant="outline" size="sm" disabled={busy || dirty} onclick={() => (changingRater = true)}>
-									Change rater
-								</Button>
-							{/if}
-							<p class="min-w-0 flex-1 text-[13px] leading-[18px] text-muted-foreground">
-								Read from the scheme line. A copy is kept on the evaluation when it completes.
-							</p>
-						</div>
+						<p class="text-[13px] leading-[18px] text-muted-foreground">
+							Read from the scheme line. A copy is kept on the evaluation when it completes.
+						</p>
 					{/if}
 				</section>
 
@@ -552,16 +568,6 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
-
-{#if changingRater && changeRaterLine}
-	<ChangeRaterDialog
-		line={changeRaterLine}
-		{personnel}
-		isCurrentWorkspace={isCurrent}
-		onChange={changeRater}
-		onClose={() => (changingRater = false)}
-	/>
-{/if}
 
 {#if confirmingDelete}
 	<ConfirmDialog

@@ -3,17 +3,11 @@
 		evaluation,
 		onSave,
 		onMove,
-		onChangeRater,
 		onClose
 	}: {
 		evaluation: { id: string; workflowStatus: string | null };
 		onSave: (id: string, patch: { notes: string }, isCurrent: () => boolean) => Promise<void>;
 		onMove: (id: string, move: { from: string | null; to: string | null }, isCurrent: () => boolean) => Promise<void>;
-		onChangeRater: (
-			id: string,
-			change: { changeDate: string; raterPersonId: string | null; raterName: string | null },
-			isCurrent: () => boolean
-		) => Promise<void>;
 		onClose: () => void;
 	} = $props();
 
@@ -42,19 +36,6 @@
 		onclick={() => report(onMove(evaluation.id, { from: evaluation.workflowStatus, to: 'completed' }, () => true))}
 	>
 		Mark completed
-	</button>
-	<button
-		type="button"
-		onclick={() =>
-			report(
-				onChangeRater(
-					evaluation.id,
-					{ changeDate: '2026-06-30', raterPersonId: null, raterName: 'SSG New' },
-					() => true
-				)
-			)}
-	>
-		Change rater
 	</button>
 	<button type="button" onclick={onClose}>Close evaluation</button>
 </section>

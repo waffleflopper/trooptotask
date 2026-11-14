@@ -6,8 +6,7 @@
 		EvaluationPatchValues,
 		EvaluationStart,
 		RatingScheme,
-		RatingSchemeMove,
-		RatingSchemeRaterChange
+		RatingSchemeMove
 	} from '../contracts';
 	import {
 		ENTRY_PARAM,
@@ -18,7 +17,7 @@
 		type StartEvaluationPayload
 	} from '../contexts/EvalTrackerContext.svelte';
 	import { evaluationStore, ratingSchemeStore } from '../stores/ratingScheme.svelte';
-	import { changeEvaluationRater, moveEvaluation, startEvaluation } from '../ratingSchemeRequests';
+	import { moveEvaluation, startEvaluation } from '../ratingSchemeRequests';
 	import { readyToStart } from '../utils/evalTracker';
 	import EvaluationSheet from './EvaluationSheet.svelte';
 	import StartEvaluationSheet from './StartEvaluationSheet.svelte';
@@ -104,21 +103,16 @@
 
 	async function move(id: string, step: RatingSchemeMove, isCurrent: () => boolean): Promise<void> {
 		if (!isCurrent()) return;
-		const { evaluation } = await moveEvaluation(initialOrgId, id, step).catch(
+		const { evaluation, raterChange } = await moveEvaluation(initialOrgId, id, step).catch(
 			failed('The workflow did not move. Try again.')
 		);
 		if (!isSameOrganization()) return;
-		evaluationStore.mergeBatchResults([], [evaluation]);
-	}
-
-	async function changeRater(id: string, change: RatingSchemeRaterChange, isCurrent: () => boolean): Promise<void> {
-		if (!isCurrent()) return;
-		const { evaluation, ratingScheme, successor } = await changeEvaluationRater(initialOrgId, id, change).catch(
-			failed('The rater was not changed. Try again.')
-		);
-		if (!isSameOrganization()) return;
-		ratingSchemeStore.mergeBatchResults([], [ratingScheme]);
-		evaluationStore.mergeBatchResults(successor ? [successor] : [], [evaluation]);
+		if (raterChange) ratingSchemeStore.mergeBatchResults([], [raterChange.ratingScheme]);
+		evaluationStore.mergeBatchResults(raterChange?.successor ? [raterChange.successor] : [], [evaluation]);
+		if (raterChange)
+			toastStore.success(
+				raterChange.successor ? 'Rater changed. A new Annual opened at Drafting.' : 'Rater changed on the scheme.'
+			);
 	}
 
 	async function remove(id: string, isCurrent: () => boolean): Promise<boolean> {
@@ -163,7 +157,6 @@
 			{isCurrentWorkspace}
 			onSave={save}
 			onMove={move}
-			onChangeRater={changeRater}
 			onDelete={remove}
 			onOpenEvaluation={openFromHistory}
 			onClose={closer(EVALUATION_SHEET_MODAL, ENTRY_PARAM)}

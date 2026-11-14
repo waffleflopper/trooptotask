@@ -5,6 +5,8 @@ export const RATING_SCHEME_GONE = 'Rating scheme not found';
 export const EVALUATION_MOVED = 'This evaluation has changed since you opened it. Refresh it and try again.';
 export const RATING_SCHEME_TAKEN = 'This person already has a rating scheme';
 export const COMPLETED_REPORT_KEPT = 'Reopen this evaluation to change its report or period';
+export const RATER_CHANGE_NEEDS_REPORT = 'Complete a Change of Rater evaluation to replace this rater';
+export const NEXT_RATER_REFUSED = 'Only a Change of Rater names a next rater, as one Person or one name';
 const EVALUATION_DENIED = 'You do not have permission to update this evaluation';
 const EVALUATOR_OUTSIDE = 'Evaluators must belong to this Organization';
 
@@ -12,7 +14,7 @@ const EVALUATOR_OUTSIDE = 'Evaluators must belong to this Organization';
 const RULE_REFUSALS = new Set([
 	'Another evaluation is already open on this rating scheme',
 	'The rating scheme is archived',
-	'Change the rater of an open evaluation with Change rater',
+	RATER_CHANGE_NEEDS_REPORT,
 	COMPLETED_REPORT_KEPT
 ]);
 
@@ -29,6 +31,9 @@ export function lifecycleFailure(error: { code?: string; message: string }): nev
 			return fail(409, RATING_SCHEME_TAKEN);
 		case '23503':
 			return fail(400, EVALUATOR_OUTSIDE);
+		case '23514':
+			if (error.message.includes('evaluations_next_rater_check')) return fail(400, NEXT_RATER_REFUSED);
+			throw new Error(error.message);
 		case '22023':
 			return fail(400, error.message);
 		default:

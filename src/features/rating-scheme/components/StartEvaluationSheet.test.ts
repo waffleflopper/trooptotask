@@ -59,6 +59,8 @@ describe('StartEvaluationSheet', () => {
 					ratingPeriodStart: '2026-01-01',
 					ratingPeriodEnd: '2026-12-31',
 					completed: false,
+					nextRaterPersonId: null,
+					nextRaterName: null,
 					notes: null
 				},
 				expect.any(Function)
@@ -84,6 +86,42 @@ describe('StartEvaluationSheet', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Start evaluation' }));
 		expect(props.onStart).not.toHaveBeenCalled();
 		expect(picker.getAttribute('aria-invalid')).toBe('true');
+	});
+
+	it('starts an open Change of Rater with the next rater named', async () => {
+		const props = renderSheet({ ratingSchemeId: 'scheme-watanabe' });
+
+		await fireEvent.change(screen.getByLabelText('Report'), { target: { value: 'CR' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Next rater' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Park, Lena' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Start evaluation' }));
+
+		await waitFor(() =>
+			expect(props.onStart).toHaveBeenCalledWith(
+				'scheme-watanabe',
+				expect.objectContaining({ reportType: 'CR', completed: false, nextRaterPersonId: 'park', nextRaterName: null }),
+				expect.any(Function)
+			)
+		);
+	});
+
+	it('records a completed Change of Rater as history, with no next rater', async () => {
+		const props = renderSheet({ ratingSchemeId: 'scheme-watanabe' });
+
+		await fireEvent.change(screen.getByLabelText('Report'), { target: { value: 'CR' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Next rater' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Park, Lena' }));
+		await fireEvent.click(screen.getByRole('radio', { name: /Already completed/ }));
+
+		expect(screen.queryByRole('button', { name: 'Next rater' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Record evaluation' }));
+		await waitFor(() =>
+			expect(props.onStart).toHaveBeenCalledWith(
+				'scheme-watanabe',
+				expect.objectContaining({ completed: true, nextRaterPersonId: null, nextRaterName: null }),
+				expect.any(Function)
+			)
+		);
 	});
 
 	it('records an Evaluation already completed for the person picked', async () => {

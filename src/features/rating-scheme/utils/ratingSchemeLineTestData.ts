@@ -40,6 +40,9 @@ export function evaluation(id: string, ratingSchemeId: string, overrides: Partia
 		ratingPeriodEnd: '2026-12-31',
 		workflowStatus: 'drafting',
 		notes: null,
+		nextRaterPersonId: null,
+		nextRaterName: null,
+		raterChangedAt: null,
 		signedChain: null,
 		...overrides
 	};

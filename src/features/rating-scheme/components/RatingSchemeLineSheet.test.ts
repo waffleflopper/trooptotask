@@ -17,7 +17,6 @@ function renderSheet(overrides: Partial<Props> = {}) {
 		isCurrentWorkspace: () => true,
 		onSave: vi.fn().mockResolvedValue(undefined),
 		onArchive: vi.fn().mockResolvedValue(undefined),
-		onChangeRater: vi.fn(),
 		onClose: vi.fn(),
 		...overrides
 	};
@@ -129,22 +128,28 @@ describe('RatingSchemeLineSheet editing a line', () => {
 describe('RatingSchemeLineSheet with an open Evaluation', () => {
 	const open = evaluation('eval-1', 'scheme-1', { workflowStatus: 'with-senior-rater' });
 
-	it('locks the rater behind Change rater while the other roles stay editable', async () => {
-		const props = renderSheet({ line: line('scheme-1', { open }) });
-
-		expect(screen.queryByRole('button', { name: 'Rater' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Senior rater' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Change rater' }));
-
-		expect(props.onChangeRater).toHaveBeenCalledWith(expect.objectContaining({ id: 'scheme-1' }));
-	});
-
-	it('holds Change rater while the chain has unsaved edits', async () => {
+	it('keeps a linked rater for a Change of Rater while the other roles stay editable', () => {
 		renderSheet({ line: line('scheme-1', { open }) });
 
-		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'edit' } });
+		expect(screen.queryByRole('button', { name: 'Rater' })).toBeNull();
+		expect(screen.getByLabelText('Rater, locked while an evaluation is open').textContent).toContain('Alvarez');
+		expect(screen.getByRole('button', { name: 'Senior rater' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
+	});
 
-		expect(screen.getByRole('button', { name: 'Change rater' })).toBeDisabled();
+	it('lets a rater known only by name be corrected or linked while an Evaluation is open', async () => {
+		const props = renderSheet({
+			line: line('scheme-1', { open, raterPersonId: null, raterName: 'SSG Alvares' })
+		});
+
+		await pick('Rater', 'SSG Alvarez, Marisol');
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await waitFor(() => expect(props.onSave).toHaveBeenCalledTimes(1));
+		expect(vi.mocked(props.onSave).mock.calls[0][0]).toMatchObject({
+			kind: 'update',
+			patch: { raterPersonId: 'alvarez', raterName: null }
+		});
 	});
 
 	it('links to the open Evaluation in Eval Tracker and never edits its step', () => {
@@ -177,6 +182,5 @@ describe('RatingSchemeLineSheet with an open Evaluation', () => {
 		renderSheet({ line: line('scheme-1', { open: null }) });
 
 		expect(screen.getByRole('button', { name: 'Rater' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Change rater' })).toBeNull();
 	});
 });

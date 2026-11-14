@@ -10,22 +10,18 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { PersonnelRatingSchemeRosterPort, PersonnelWriteSubject } from '$features/personnel/contracts';
 import type {
 	Evaluation,
-	EvaluatorChain,
 	EvaluationStartResult,
 	EvaluationTransition,
 	EvaluationWriteReference,
 	RatingScheme,
 	RatingSchemeArchiveResult,
-	RatingSchemePersistence,
-	RatingSchemePatchValues,
-	RatingSchemeRaterChangeResult
+	RatingSchemePersistence
 } from '../contracts';
 import {
 	evaluationStartSchema,
 	evaluationUpdateSchema,
 	ratingSchemeArchiveSchema,
 	ratingSchemeCreateSchema,
-	ratingSchemeRaterChangeSchema,
 	ratingSchemeTransitionSchema,
 	ratingSchemeUpdateSchema
 } from './ratingSchemeEntryMapping.server';
@@ -56,7 +52,6 @@ export interface RatingSchemeEntryWriteContext {
 		| 'updateEvaluation'
 		| 'deleteEvaluation'
 		| 'transitionEvaluation'
-		| 'changeEvaluationRater'
 	>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
@@ -73,8 +68,10 @@ const evaluatorFields = [
 	'raterPersonId',
 	'seniorRaterPersonId',
 	'intermediateRaterPersonId',
-	'reviewerPersonId'
+	'reviewerPersonId',
+	'nextRaterPersonId'
 ] as const;
+type EvaluatorReferences = Partial<Record<(typeof evaluatorFields)[number], string | null>>;
 
 function parseEntryInput<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
 	const result = schema.safeParse(data);
@@ -122,8 +119,8 @@ async function findEvaluation(ctx: RatingSchemeEntryWriteContext, id: string): P
 
 async function requireEvaluatorReferences(
 	ctx: RatingSchemeEntryWriteContext,
-	patch: RatingSchemePatchValues,
-	current?: Partial<EvaluatorChain>
+	patch: EvaluatorReferences,
+	current?: EvaluatorReferences
 ): Promise<void> {
 	const ids = evaluatorFields.flatMap((field) => {
 		const id = patch[field];
@@ -186,7 +183,7 @@ export async function createRatingScheme(
 	return ctx.ratingScheme.createRatingScheme(validated);
 }
 
-/** Changes the chain in one place. The rater of an open Evaluation changes only through Change rater. */
+/** Changes the chain in one place. While an Evaluation is open, a linked rater changes only by completing a Change of Rater. */
 export async function updateRatingScheme(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
@@ -224,21 +221,29 @@ export async function startEvaluation(
 		(await findRatingScheme(ctx, ratingSchemeId)).ratedPersonId,
 		ratingSchemeId
 	);
+	await requireEvaluatorReferences(ctx, start);
 	return ctx.ratingScheme.startEvaluation(ratingSchemeId, start);
 }
 
-/** Saves an Evaluation's report, period and notes. Its type follows its scheme; its step and chain move through their own actions. */
+/**
+ * Saves an Evaluation's report, period, next rater and notes. Its type follows its scheme; its step and chain move
+ * through their own actions.
+ */
 export async function updateEvaluation(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
 ): Promise<Evaluation> {
-	const { id, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(evaluationUpdateSchema, data);
-	await requireRatedPersonUpdatePolicy(ctx, (await findEvaluation(ctx, id)).ratedPersonId, id);
+	const { id, reportType, ratingPeriodStart, ratingPeriodEnd, notes, nextRaterPersonId, nextRaterName } =
+		parseEntryInput(evaluationUpdateSchema, data);
+	const current = await requireEvaluationUpdatePolicy(ctx, id);
+	await requireEvaluatorReferences(ctx, { nextRaterPersonId }, current);
 	const evaluation = await ctx.ratingScheme.updateEvaluation(id, {
 		reportType: reportType as Evaluation['reportType'] | undefined,
 		ratingPeriodStart,
 		ratingPeriodEnd,
-		notes
+		notes,
+		nextRaterPersonId,
+		nextRaterName
 	});
 	if (!evaluation) throw new RequestFailure(404, EVALUATION_GONE);
 	return evaluation;
@@ -262,18 +267,6 @@ export async function transitionEvaluation(
 	const move = parseEntryInput(ratingSchemeTransitionSchema, data);
 	await requireEvaluationUpdatePolicy(ctx, id);
 	return ctx.ratingScheme.transitionEvaluation(id, move);
-}
-
-/** Completes the evaluation as a Change of Rater report, gives the scheme the new rater and opens the next one. */
-export async function changeEvaluationRater(
-	ctx: RatingSchemeEntryWriteContext,
-	id: string,
-	data: Record<string, unknown>
-): Promise<RatingSchemeRaterChangeResult> {
-	const change = parseEntryInput(ratingSchemeRaterChangeSchema, data);
-	const current = await requireEvaluationUpdatePolicy(ctx, id);
-	await requireEvaluatorReferences(ctx, { raterPersonId: change.raterPersonId }, current);
-	return ctx.ratingScheme.changeEvaluationRater(id, change);
 }
 
 export async function removeEvaluation(

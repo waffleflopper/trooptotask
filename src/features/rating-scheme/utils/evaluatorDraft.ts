@@ -1,3 +1,5 @@
+import type { PersonnelLookup } from '$features/personnel/contracts';
+
 /** One evaluator slot as a form holds it: nobody yet, a Person in the unit, or a name from outside it. */
 export type EvaluatorDraft =
 	| { kind: 'empty' }
@@ -8,6 +10,21 @@ export function evaluatorDraft(personId: string | null | undefined, name: string
 	if (personId) return { kind: 'person', personId };
 	if (name) return { kind: 'external', name };
 	return { kind: 'empty' };
+}
+
+/** The slot as the scheme or Evaluation stores it: a Personnel Record, a trimmed name, or neither. */
+export function evaluatorValues(evaluator: EvaluatorDraft): { personId: string | null; name: string | null } {
+	return {
+		personId: evaluator.kind === 'person' ? evaluator.personId || null : null,
+		name: evaluator.kind === 'external' ? evaluator.name.trim() || null : null
+	};
+}
+
+/** The unit's people as an evaluator picker lists them, by last then first name. */
+export function rosterOptions(personnel: readonly PersonnelLookup[]): { value: string; label: string }[] {
+	return [...personnel]
+		.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+		.map((person) => ({ value: person.id, label: `${person.rank} ${person.lastName}, ${person.firstName}` }));
 }
 
 export function setEvaluatorFromPicker(value: { personId: string } | { externalName: string } | null): EvaluatorDraft {

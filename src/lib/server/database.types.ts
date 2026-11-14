@@ -1294,9 +1294,12 @@ export type Database = {
           created_at: string
           eval_type: string
           id: string
+          next_rater_name: string | null
+          next_rater_person_id: string | null
           notes: string | null
           organization_id: string
           rated_person_id: string
+          rater_changed_at: string | null
           rating_period_end: string
           rating_period_start: string
           rating_scheme_id: string
@@ -1317,9 +1320,12 @@ export type Database = {
           created_at?: string
           eval_type: string
           id?: string
+          next_rater_name?: string | null
+          next_rater_person_id?: string | null
           notes?: string | null
           organization_id: string
           rated_person_id: string
+          rater_changed_at?: string | null
           rating_period_end: string
           rating_period_start: string
           rating_scheme_id: string
@@ -1340,9 +1346,12 @@ export type Database = {
           created_at?: string
           eval_type?: string
           id?: string
+          next_rater_name?: string | null
+          next_rater_person_id?: string | null
           notes?: string | null
           organization_id?: string
           rated_person_id?: string
+          rater_changed_at?: string | null
           rating_period_end?: string
           rating_period_start?: string
           rating_scheme_id?: string
@@ -1365,6 +1374,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_organization_next_rater_fkey"
+            columns: ["organization_id", "next_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["organization_id", "id"]
           },
           {
             foreignKeyName: "evaluations_organization_snapshot_intermediate_rater_fkey"
@@ -4333,16 +4349,6 @@ export type Database = {
         Args: { p_organization_id: string; p_request_id: string }
         Returns: boolean
       }
-      change_evaluation_rater: {
-        Args: {
-          p_change_date: string
-          p_evaluation_id: string
-          p_organization_id: string
-          p_rater_name?: string
-          p_rater_person_id?: string
-        }
-        Returns: Json
-      }
       check_account_setup_rate_limit: {
         Args: {
           p_bucket_key: string
@@ -5564,6 +5570,8 @@ export type Database = {
       start_evaluation: {
         Args: {
           p_completed?: boolean
+          p_next_rater_name?: string
+          p_next_rater_person_id?: string
           p_notes?: string
           p_organization_id: string
           p_rating_period_end: string

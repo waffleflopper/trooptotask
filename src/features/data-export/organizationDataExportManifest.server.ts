@@ -496,6 +496,7 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 					senior_rater: evaluator(labels, chain?.senior_rater_person_id, chain?.senior_rater_name),
 					intermediate_rater: evaluator(labels, chain?.intermediate_rater_person_id, chain?.intermediate_rater_name),
 					reviewer: evaluator(labels, chain?.reviewer_person_id, chain?.reviewer_name),
+					next_rater: evaluator(labels, evaluation.next_rater_person_id, evaluation.next_rater_name),
 					chain_signed_at: evaluation.chain_snapshot_at,
 					notes: evaluation.notes
 				};

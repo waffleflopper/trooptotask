@@ -65,6 +65,9 @@ const evaluationRow: Row = {
 	notes: 'Evaluation notes',
 	chain_snapshot_at: null,
 	...snapshotColumns,
+	next_rater_person_id: null,
+	next_rater_name: null,
+	rater_changed_at: null,
 	created_at: '2025-10-05T12:00:00.654321+00:00',
 	updated_at: '2026-10-05T12:00:00.123456+00:00'
 };
@@ -79,6 +82,9 @@ const evaluation = {
 	ratingPeriodEnd: '2026-10-04',
 	workflowStatus: 'with-rater',
 	notes: 'Evaluation notes',
+	nextRaterPersonId: null,
+	nextRaterName: null,
+	raterChangedAt: null,
 	signedChain: null
 };
 
@@ -263,7 +269,7 @@ describe('owned Rating Scheme provider', () => {
 		await expect(ratingScheme.listEvaluations()).rejects.toThrow('Rating provider unavailable');
 	});
 
-	it('reads an Evaluation’s write reference through its scheme’s rater', async () => {
+	it('reads an Evaluation’s write reference with its next rater', async () => {
 		const { ratingScheme, state } = provider({
 			rating_schemes: [schemeRow],
 			evaluations: [evaluationRow, { ...evaluationRow, id: 'foreign', organization_id: 'org-b' }]
@@ -271,7 +277,7 @@ describe('owned Rating Scheme provider', () => {
 		expect(await ratingScheme.findEvaluationReference('evaluation-a')).toEqual({
 			ratingSchemeId: 'scheme-a',
 			ratedPersonId: 'person-a',
-			raterPersonId: 'rater-a'
+			nextRaterPersonId: null
 		});
 		expect(await ratingScheme.findEvaluationReference('foreign')).toBeNull();
 		expect(await ratingScheme.findRatingScheme('scheme-a')).toEqual(scheme);
@@ -368,10 +374,11 @@ describe('Rating Scheme lifecycle functions', () => {
 	}
 
 	it('answers a move from the function result with no second read', async () => {
-		const { calls, ratingScheme } = lifecycleProvider({ moved: false, evaluation: evaluationRow });
+		const { calls, ratingScheme } = lifecycleProvider({ moved: false, evaluation: evaluationRow, raterChange: null });
 		expect(await ratingScheme.transitionEvaluation('evaluation-a', { from: 'with-rater', to: 'with-rater' })).toEqual({
 			evaluation,
-			moved: false
+			moved: false,
+			raterChange: null
 		});
 		expect(calls).toEqual([
 			{
@@ -401,33 +408,38 @@ describe('Rating Scheme lifecycle functions', () => {
 			ratingPeriodStart: '2025-10-05',
 			ratingPeriodEnd: '2026-10-04',
 			completed: false,
-			notes: null
+			notes: null,
+			nextRaterPersonId: 'rater-b',
+			nextRaterName: null
 		};
 		expect(await ratingScheme.startEvaluation('scheme-a', start)).toEqual({ evaluation, created: true });
 		expect(calls[0]).toMatchObject({
 			path: 'start_evaluation',
-			body: { p_rating_scheme_id: 'scheme-a', p_report_type: 'CR', p_completed: false }
+			body: {
+				p_rating_scheme_id: 'scheme-a',
+				p_report_type: 'CR',
+				p_completed: false,
+				p_next_rater_person_id: 'rater-b'
+			}
 		});
 	});
 
-	it('answers a change of rater with the closed Evaluation, the scheme and its successor', async () => {
-		const completed = { ...evaluationRow, workflow_status: 'completed' };
+	it('answers a completed Change of Rater with the scheme it moved and the Annual it opened', async () => {
+		const completed = { ...evaluationRow, workflow_status: 'completed', next_rater_person_id: 'rater-b' };
 		const successor = { ...evaluationRow, id: 'evaluation-b', workflow_status: 'drafting', report_type: 'AN' };
-		const change = { changeDate: '2026-06-01', raterPersonId: 'rater-b', raterName: null };
-		const open = lifecycleProvider({
+		const { ratingScheme } = lifecycleProvider({
+			moved: true,
 			evaluation: completed,
-			ratingScheme: { ...schemeRow, rater_person_id: 'rater-b' },
-			successor
+			raterChange: { ratingScheme: { ...schemeRow, rater_person_id: 'rater-b' }, successor }
 		});
-		expect(await open.ratingScheme.changeEvaluationRater('evaluation-a', change)).toEqual({
-			evaluation: { ...evaluation, workflowStatus: 'completed' },
-			ratingScheme: { ...scheme, raterPersonId: 'rater-b' },
-			successor: { ...evaluation, id: 'evaluation-b', workflowStatus: 'drafting', reportType: 'AN' }
+		expect(await ratingScheme.transitionEvaluation('evaluation-a', { from: 'with-rater', to: 'completed' })).toEqual({
+			evaluation: { ...evaluation, workflowStatus: 'completed', nextRaterPersonId: 'rater-b' },
+			moved: true,
+			raterChange: {
+				ratingScheme: { ...scheme, raterPersonId: 'rater-b' },
+				successor: { ...evaluation, id: 'evaluation-b', workflowStatus: 'drafting', reportType: 'AN' }
+			}
 		});
-		expect(open.calls.map(({ path }) => path)).toEqual(['change_evaluation_rater']);
-
-		const repeat = lifecycleProvider({ evaluation: completed, ratingScheme: schemeRow, successor: null });
-		expect((await repeat.ratingScheme.changeEvaluationRater('evaluation-a', change)).successor).toBeNull();
 	});
 
 	it('turns a refused rule into the reason the person can act on', async () => {
@@ -447,7 +459,9 @@ describe('Rating Scheme lifecycle functions', () => {
 			ratingPeriodStart: '2026-01-01',
 			ratingPeriodEnd: '2026-12-31',
 			completed: false,
-			notes: null
+			notes: null,
+			nextRaterPersonId: null,
+			nextRaterName: null
 		};
 		await expect(ratingScheme.startEvaluation('scheme-a', start)).rejects.toMatchObject({
 			status: 409,

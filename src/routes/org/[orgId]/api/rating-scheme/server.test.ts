@@ -8,7 +8,6 @@ import { _getConfig, _postConfig, _putConfig } from './+server';
 import { _postConfig as _archiveConfig } from './[ratingSchemeId]/archive/+server';
 import { _postConfig as _startConfig } from './[ratingSchemeId]/evaluations/+server';
 import { _deleteConfig, _putConfig as _evaluationPutConfig } from '../evaluations/+server';
-import { _postConfig as _changeRaterConfig } from '../evaluations/[evaluationId]/change-rater/+server';
 import { _postConfig as _workflowConfig } from '../evaluations/[evaluationId]/workflow/+server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
@@ -228,7 +227,7 @@ describe('Rating Scheme and Evaluation lifecycle routes', () => {
 		ctx.store.findOne<Record<string, unknown>>(table, ctx.auth.orgId, { id });
 
 	it('authorizes every lifecycle route as a Rating Scheme entry update', () => {
-		for (const config of [_workflowConfig, _changeRaterConfig, _archiveConfig, _startConfig]) {
+		for (const config of [_workflowConfig, _archiveConfig, _startConfig]) {
 			expect(config.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
 		}
 	});
@@ -273,24 +272,6 @@ describe('Rating Scheme and Evaluation lifecycle routes', () => {
 			handleUseCaseRequest(_workflowConfig, ctx, { id: OTHER_GROUP_EVALUATION, body }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		expect((await storedRow(ctx, 'evaluations', OTHER_GROUP_EVALUATION))?.workflow_status).toBe('drafting');
-	});
-
-	it('lets a Group operator change the rater of an in-Group Evaluation and denies one outside the Group', async () => {
-		const ctx = groupOperator();
-		const body = { changeDate: '2026-06-30', raterName: 'SSG Incoming' };
-
-		await expect(
-			handleUseCaseRequest(_changeRaterConfig, ctx, { id: IN_GROUP_EVALUATION, body }, () => ctx)
-		).resolves.toMatchObject({
-			evaluation: { workflowStatus: 'completed', reportType: 'CR' },
-			ratingScheme: { id: IN_GROUP_SCHEME, raterName: 'SSG Incoming' },
-			successor: { ratingSchemeId: IN_GROUP_SCHEME, ratingPeriodStart: '2026-07-01' }
-		});
-		await expect(
-			handleUseCaseRequest(_changeRaterConfig, ctx, { id: OTHER_GROUP_EVALUATION, body }, () => ctx)
-		).rejects.toMatchObject({ status: 403 });
-		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(3);
-		expect((await storedRow(ctx, 'rating_schemes', OTHER_GROUP_SCHEME))?.rater_name).toBe('SSG Current');
 	});
 });
 

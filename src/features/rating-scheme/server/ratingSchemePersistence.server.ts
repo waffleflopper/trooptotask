@@ -56,17 +56,16 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 		async findEvaluationReference(id) {
 			const { data, error } = await client
 				.from('evaluations')
-				.select('rating_scheme_id,rated_person_id,rating_schemes(rater_person_id)')
+				.select('rating_scheme_id,rated_person_id,next_rater_person_id')
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.maybeSingle();
 			if (error) queryFailure(error);
 			if (!data) return null;
-			const scheme = data.rating_schemes as { rater_person_id: string | null } | null;
 			return {
 				ratingSchemeId: data.rating_scheme_id,
 				ratedPersonId: data.rated_person_id,
-				raterPersonId: scheme?.rater_person_id ?? null
+				nextRaterPersonId: data.next_rater_person_id
 			};
 		},
 		async listPersonReadiness(personnelId) {
@@ -120,7 +119,9 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 				p_rating_period_start: start.ratingPeriodStart,
 				p_rating_period_end: start.ratingPeriodEnd,
 				p_completed: start.completed,
-				p_notes: start.notes ?? undefined
+				p_notes: start.notes ?? undefined,
+				p_next_rater_person_id: start.nextRaterPersonId ?? undefined,
+				p_next_rater_name: start.nextRaterName ?? undefined
 			});
 			if (error) return lifecycleFailure(error);
 			const result = data as { created: boolean; evaluation: EvaluationRow };
@@ -149,27 +150,18 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 				p_to: to ?? undefined
 			});
 			if (error) return lifecycleFailure(error);
-			const result = data as { moved: boolean; evaluation: EvaluationRow };
-			return { evaluation: mapEvaluation(result.evaluation), moved: result.moved };
-		},
-		async changeEvaluationRater(id, change) {
-			const { data, error } = await client.rpc('change_evaluation_rater', {
-				p_organization_id: orgId,
-				p_evaluation_id: id,
-				p_change_date: change.changeDate,
-				p_rater_person_id: change.raterPersonId ?? undefined,
-				p_rater_name: change.raterName ?? undefined
-			});
-			if (error) return lifecycleFailure(error);
 			const result = data as {
+				moved: boolean;
 				evaluation: EvaluationRow;
-				ratingScheme: RatingSchemeRow;
-				successor: EvaluationRow | null;
+				raterChange: { ratingScheme: RatingSchemeRow; successor: EvaluationRow | null } | null;
 			};
 			return {
 				evaluation: mapEvaluation(result.evaluation),
-				ratingScheme: mapRatingScheme(result.ratingScheme),
-				successor: result.successor && mapEvaluation(result.successor)
+				moved: result.moved,
+				raterChange: result.raterChange && {
+					ratingScheme: mapRatingScheme(result.raterChange.ratingScheme),
+					successor: result.raterChange.successor && mapEvaluation(result.raterChange.successor)
+				}
 			};
 		}
 	};

@@ -187,28 +187,33 @@ SELECT throws_ok(format($$ SELECT public.set_rating_scheme_archived(%L, %L, true
 SELECT is((SELECT archived_at FROM public.rating_schemes WHERE id = pg_temp.scheme(pg_temp.f('scope'))),
   NULL::timestamptz, 'denied calls left the scheme listed');
 
--- Change of rater keeps the scheme listed: the closed Evaluation keeps its chain, and the successor is the open one.
-UPDATE probe SET result = public.change_evaluation_rater(pg_temp.id('101'), entry, '2032-06-15', pg_temp.id('303'), NULL)
+-- Completing a Change of Rater keeps the scheme listed: the closed Evaluation keeps its chain, and the successor is the
+-- open one. Under an archived scheme it still hands the rater on but opens nothing.
+UPDATE public.evaluations SET report_type = 'CR', next_rater_person_id = pg_temp.id('303')
+WHERE id IN (pg_temp.f('changed'), pg_temp.f('archived first'));
+SELECT public.transition_evaluation(pg_temp.id('101'), entry, NULL, 'drafting')
+FROM probe WHERE label IN ('changed', 'archived first');
+UPDATE probe SET result = public.transition_evaluation(pg_temp.id('101'), entry, 'drafting', 'completed')
 WHERE label = 'changed';
 SELECT results_eq(
   $$ SELECT e.workflow_status, e.snapshot_rater_person_id, s.archived_at, s.rater_person_id
      FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('changed') $$,
   $$ VALUES ('completed'::text, pg_temp.id('302'), NULL::timestamptz, pg_temp.id('303')) $$,
   'the closed Evaluation is completed with the old rater and its scheme stays listed with the new one');
-SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = (result #>> '{successor,id}')::uuid), 'drafting',
-  'the successor is open on the same scheme')
+SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = (result #>> '{raterChange,successor,id}')::uuid),
+  'drafting', 'the successor is open on the same scheme')
 FROM probe WHERE label = 'changed';
 
 SELECT public.set_rating_scheme_archived(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('archived first')), true);
-SELECT throws_ok(format($$ SELECT public.change_evaluation_rater(%L, %L, '2033-06-15', %L, NULL) $$, pg_temp.id('101'),
-    pg_temp.f('archived first'), pg_temp.id('303')), '55000', 'The rating scheme is archived',
-  'an Evaluation under an archived scheme cannot change its rater');
+UPDATE probe SET result = public.transition_evaluation(pg_temp.id('101'), entry, 'drafting', 'completed')
+WHERE label = 'archived first';
 SELECT results_eq(
-  $$ SELECT e.workflow_status, e.rating_period_end, s.rater_person_id,
+  $$ SELECT e.workflow_status, s.archived_at IS NOT NULL, s.rater_person_id, p.result #> '{raterChange,successor}',
        (SELECT count(*) FROM public.evaluations o WHERE o.rating_scheme_id = e.rating_scheme_id)
-     FROM public.evaluations e JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE e.id = pg_temp.f('archived first') $$,
-  $$ VALUES (NULL::text, '2033-12-31'::date, pg_temp.id('302'), 1::bigint) $$,
-  'the refused change left the Evaluation, its period and the scheme''s rater alone and opened no successor');
+     FROM probe p JOIN public.evaluations e ON e.id = p.entry JOIN public.rating_schemes s ON s.id = e.rating_scheme_id
+     WHERE p.label = 'archived first' $$,
+  $$ VALUES ('completed'::text, true, pg_temp.id('303'), 'null'::jsonb, 1::bigint) $$,
+  'a Change of Rater completed under an archived scheme hands it the next rater and opens no successor');
 
 -- The tracker the Person's card and the roster read: a listed scheme's Evaluation, or an open one under an archived scheme.
 CREATE FUNCTION pg_temp.roster_entries() RETURNS jsonb LANGUAGE sql AS $$
@@ -236,17 +241,19 @@ SELECT results_eq(
   $$ VALUES ('rating_scheme.archived'::text, pg_temp.id('2'), NULL::jsonb),
     ('rating_scheme.restored'::text, pg_temp.id('2'), NULL::jsonb) $$,
   'archiving and restoring are recorded as their own entries with the member');
-SELECT results_eq(
+SELECT bag_eq(
   $$ SELECT action, user_id, details -> 'change' FROM public.audit_logs
      WHERE org_id = pg_temp.id('101') AND resource_id IN (pg_temp.scheme(pg_temp.f('changed')), pg_temp.f('changed'))
-       AND action IN ('rating_scheme.updated', 'evaluation.updated') ORDER BY action $$,
+       AND action IN ('rating_scheme.updated', 'evaluation.updated') $$,
   $$ VALUES ('evaluation.updated'::text, pg_temp.id('2'),
-    '{"periodEnd": {"from": "2032-12-31", "to": "2032-06-15"}, "reportType": {"from": "AN", "to": "CR"},
-      "workflowStatus": {"from": null, "to": "completed"}}'::jsonb),
+    '{"reportType": {"from": "AN", "to": "CR"}, "nextRater": true}'::jsonb),
+    ('evaluation.updated'::text, pg_temp.id('2'), '{"workflowStatus": {"from": null, "to": "drafting"}}'::jsonb),
+    ('evaluation.updated'::text, pg_temp.id('2'), '{"workflowStatus": {"from": "drafting", "to": "completed"}}'::jsonb),
     ('rating_scheme.updated'::text, pg_temp.id('2'), '{"raters": true}'::jsonb) $$,
-  'a change of rater records the closed Evaluation and the scheme''s new rater');
+  'a change of rater records the named next rater, the closed Evaluation and the scheme''s new rater');
 SELECT is((SELECT count(*)::int FROM public.audit_logs WHERE org_id = pg_temp.id('101') AND action = 'evaluation.created'
-    AND resource_id = (SELECT (result #>> '{successor,id}')::uuid FROM probe WHERE label = 'changed') AND user_id = pg_temp.id('2')),
+    AND resource_id = (SELECT (result #>> '{raterChange,successor,id}')::uuid FROM probe WHERE label = 'changed')
+    AND user_id = pg_temp.id('2')),
   1, 'the successor is recorded as a new Evaluation by the member');
 
 SELECT * FROM finish();

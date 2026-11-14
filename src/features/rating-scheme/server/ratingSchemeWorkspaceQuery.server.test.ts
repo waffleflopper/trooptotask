@@ -42,6 +42,9 @@ function evaluation(id: string, ratingSchemeId: string, ratedPersonId = person.i
 		ratingPeriodEnd: '2026-12-31',
 		workflowStatus: 'with-rater',
 		notes: 'Saved note',
+		nextRaterPersonId: null,
+		nextRaterName: null,
+		raterChangedAt: null,
 		signedChain: null
 	};
 }

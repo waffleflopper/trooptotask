@@ -111,6 +111,11 @@ export interface Evaluation {
 	ratingPeriodEnd: string;
 	workflowStatus: WorkflowStatus | null;
 	notes: string | null;
+	/** Who rates next once this Change of Rater completes, a Personnel Record or a name. Only a Change of Rater names one. */
+	nextRaterPersonId: string | null;
+	nextRaterName: string | null;
+	/** When this Change of Rater moved its scheme to the next rater, or was recorded as history. Completing it again changes nothing. */
+	raterChangedAt: string | null;
 	/** The chain that signed it; null while it follows its scheme's current chain. */
 	signedChain: SignedChain | null;
 }

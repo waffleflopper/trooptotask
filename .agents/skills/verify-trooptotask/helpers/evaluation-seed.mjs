@@ -15,7 +15,9 @@ const CHAIN = [
  * Splits seed rows written as one Evaluation with its rating chain into rating_schemes and evaluations rows, as the
  * split migration does. A Person's first row names their scheme's chain. A Person who already has a listed scheme
  * keeps it, since they may have only one. A completed row, or one whose chain differs from its scheme's, keeps its
- * own chain as a snapshot.
+ * own chain as a snapshot. A Change of Rater row may name `next_rater_person_id` or `next_rater_name`, which stay on
+ * the Evaluation. The database stamps `rater_changed_at` on a row seeded as a completed Change of Rater, so it is
+ * history that moves no scheme, as the split migration treats one.
  */
 export async function evaluationSeedRows(client, entries) {
 	const { data, error } = await client

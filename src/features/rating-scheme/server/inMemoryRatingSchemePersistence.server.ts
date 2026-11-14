@@ -8,6 +8,8 @@ import {
 	COMPLETED_REPORT_KEPT,
 	EVALUATION_GONE,
 	EVALUATION_MOVED,
+	NEXT_RATER_REFUSED,
+	RATER_CHANGE_NEEDS_REPORT,
 	RATING_SCHEME_GONE,
 	RATING_SCHEME_TAKEN
 } from './ratingSchemeLifecycleFailure.server';
@@ -58,12 +60,22 @@ function snapshotValues(chain: EvaluatorChain | null) {
 	};
 }
 
-function sameRater(scheme: RatingScheme, raterPersonId: string | null, raterName: string | null): boolean {
-	if (raterPersonId !== null) return raterPersonId === scheme.raterPersonId;
-	return scheme.raterPersonId === null && raterName?.trim().toLowerCase() === scheme.raterName?.trim().toLowerCase();
+function dayAfter(date: string): string {
+	const next = parseDate(date);
+	next.setDate(next.getDate() + 1);
+	return formatDate(next);
 }
 
-/** Holds the database's rules: one listed scheme per person, one open Evaluation per scheme, a signed chain on completion. */
+/** Only a Change of Rater names a next rater, and it names one at most. */
+function requireNextRaterFits(row: Pick<EvaluationRow, 'report_type' | 'next_rater_person_id' | 'next_rater_name'>) {
+	const named = Number(row.next_rater_person_id !== null) + Number(row.next_rater_name !== null);
+	if (named > (row.report_type === 'CR' ? 1 : 0)) fail(400, NEXT_RATER_REFUSED);
+}
+
+/**
+ * Holds the database's rules: one listed scheme per person, one open Evaluation per scheme, a signed chain on
+ * completion, and a scheme that moves to the next rater when its Change of Rater first completes.
+ */
 export function createInMemoryRatingSchemePersistence(
 	store: RatingSchemeMemoryStore,
 	orgId: string
@@ -121,11 +133,10 @@ export function createInMemoryRatingSchemePersistence(
 		async findEvaluationReference(id) {
 			const row = await store.findOne<EvaluationRow>(EVALUATIONS, orgId, { id });
 			if (!row) return null;
-			const scheme = await findScheme(row.rating_scheme_id);
 			return {
 				ratingSchemeId: row.rating_scheme_id,
 				ratedPersonId: row.rated_person_id,
-				raterPersonId: scheme?.raterPersonId ?? null
+				nextRaterPersonId: row.next_rater_person_id
 			};
 		},
 		async listPersonReadiness(personnelId) {
@@ -153,11 +164,12 @@ export function createInMemoryRatingSchemePersistence(
 			const scheme = await findScheme(id);
 			if (!scheme) return null;
 			const values = ratingSchemePatchValues(patch);
-			const raterChanges =
-				(values.rater_person_id !== undefined && values.rater_person_id !== scheme.raterPersonId) ||
-				(values.rater_name !== undefined && values.rater_name !== scheme.raterName);
-			if (raterChanges && (await schemeEvaluations(id)).some((row) => isEvaluationOpen(row.workflowStatus))) {
-				fail(409, 'Change the rater of an open evaluation with Change rater');
+			const replacesLinkedRater =
+				scheme.raterPersonId !== null &&
+				values.rater_person_id !== undefined &&
+				values.rater_person_id !== scheme.raterPersonId;
+			if (replacesLinkedRater && (await schemeEvaluations(id)).some((row) => isEvaluationOpen(row.workflowStatus))) {
+				fail(409, RATER_CHANGE_NEEDS_REPORT);
 			}
 			if (values.rated_person_id !== undefined && values.rated_person_id !== scheme.ratedPersonId) {
 				if (scheme.archivedAt === null) await requireNoOtherListed(values.rated_person_id, id);
@@ -187,6 +199,13 @@ export function createInMemoryRatingSchemePersistence(
 			if (start.ratingPeriodEnd < start.ratingPeriodStart) {
 				fail(400, 'Choose a rating period that ends on or after it starts');
 			}
+			const nextRaterName = start.nextRaterName?.trim() || null;
+			if (start.nextRaterPersonId !== null || nextRaterName !== null) {
+				if (start.reportType !== 'CR' || start.completed) {
+					fail(400, 'Only an open Change of Rater evaluation names a next rater');
+				}
+				if (start.nextRaterPersonId !== null && nextRaterName !== null) fail(400, 'Choose one next rater');
+			}
 			const scheme = await requireScheme(ratingSchemeId);
 			if (scheme.archivedAt !== null) fail(409, 'The rating scheme is archived');
 			if (!start.completed) {
@@ -195,7 +214,9 @@ export function createInMemoryRatingSchemePersistence(
 					const replay =
 						open.reportType === start.reportType &&
 						open.ratingPeriodStart === start.ratingPeriodStart &&
-						open.ratingPeriodEnd === start.ratingPeriodEnd;
+						open.ratingPeriodEnd === start.ratingPeriodEnd &&
+						open.nextRaterPersonId === start.nextRaterPersonId &&
+						open.nextRaterName === nextRaterName;
 					return replay ? { evaluation: open, created: false } : fail(409, OPEN_ELSEWHERE);
 				}
 			}
@@ -208,6 +229,9 @@ export function createInMemoryRatingSchemePersistence(
 				rating_period_end: start.ratingPeriodEnd,
 				workflow_status: start.completed ? 'completed' : 'drafting',
 				notes: start.notes,
+				next_rater_person_id: start.nextRaterPersonId,
+				next_rater_name: nextRaterName,
+				rater_changed_at: start.completed && start.reportType === 'CR' ? new Date().toISOString() : null,
 				...snapshotValues(start.completed ? scheme : null)
 			});
 			return { evaluation: mapEvaluation(row), created: true };
@@ -216,67 +240,74 @@ export function createInMemoryRatingSchemePersistence(
 			const row = await store.findOne<EvaluationRow>(EVALUATIONS, orgId, { id });
 			if (!row) return null;
 			const values = evaluationPatchValues(patch);
-			const reportKeys = ['report_type', 'rating_period_start', 'rating_period_end'] as const;
+			const reportKeys = [
+				'report_type',
+				'rating_period_start',
+				'rating_period_end',
+				'next_rater_person_id',
+				'next_rater_name'
+			] as const;
 			if (
 				isEvaluationCompleted(mapEvaluation(row).workflowStatus) &&
 				reportKeys.some((key) => key in values && values[key] !== row[key])
 			) {
 				fail(409, COMPLETED_REPORT_KEPT);
 			}
-			return mapEvaluation(await store.update<EvaluationRow>(EVALUATIONS, orgId, id, values));
+			const leavesChangeOfRater = 'report_type' in values && values.report_type !== 'CR' && row.report_type === 'CR';
+			const next = { ...values, ...(leavesChangeOfRater && { next_rater_person_id: null, next_rater_name: null }) };
+			requireNextRaterFits({ ...row, ...next });
+			return mapEvaluation(await store.update<EvaluationRow>(EVALUATIONS, orgId, id, next));
 		},
 		deleteEvaluation(id) {
 			return store.deleteWhere(EVALUATIONS, orgId, { id });
 		},
 		async transitionEvaluation(id, { from, to }) {
 			const evaluation = await requireEvaluation(id);
-			if (evaluation.workflowStatus === to) return { evaluation, moved: false };
+			if (evaluation.workflowStatus === to) return { evaluation, moved: false, raterChange: null };
 			const scheme = await requireScheme(evaluation.ratingSchemeId);
 			const chain = evaluation.signedChain ?? scheme;
 			if (evaluation.workflowStatus !== from || !isWorkflowMoveAllowed(from, to, workflowRoles(chain))) {
 				return fail(409, EVALUATION_MOVED);
 			}
-			if (!isEvaluationOpen(from) && isEvaluationOpen(to)) {
-				const others = await schemeEvaluations(scheme.id);
-				if (others.some((row) => row.id !== id && isEvaluationOpen(row.workflowStatus))) fail(409, OPEN_ELSEWHERE);
+			const others = (await schemeEvaluations(scheme.id)).filter((row) => row.id !== id);
+			if (
+				!isEvaluationOpen(from) &&
+				isEvaluationOpen(to) &&
+				others.some((row) => isEvaluationOpen(row.workflowStatus))
+			) {
+				fail(409, OPEN_ELSEWHERE);
 			}
+			const changesRater =
+				isEvaluationCompleted(to) && evaluation.reportType === 'CR' && evaluation.raterChangedAt === null;
+			if (
+				changesRater &&
+				scheme.archivedAt === null &&
+				others.some((other) => isEvaluationOpen(other.workflowStatus))
+			) {
+				fail(409, OPEN_ELSEWHERE);
+			}
+			// A reopened Change of Rater keeps the chain that signed it, since its scheme has moved to the next rater.
 			const signed = isEvaluationCompleted(to)
-				? snapshotValues(evaluation.signedChain ?? scheme)
+				? {
+						...snapshotValues(evaluation.signedChain ?? scheme),
+						...(changesRater && { rater_changed_at: new Date().toISOString() })
+					}
 				: isEvaluationCompleted(from)
-					? { ...snapshotValues(null), eval_type: scheme.evalType }
+					? { ...(evaluation.raterChangedAt === null && snapshotValues(null)), eval_type: scheme.evalType }
 					: {};
 			const row = await store.update<EvaluationRow>(EVALUATIONS, orgId, id, { workflow_status: to, ...signed });
-			return { evaluation: mapEvaluation(row), moved: true };
-		},
-		async changeEvaluationRater(id, change) {
-			const evaluation = await requireEvaluation(id);
-			const scheme = await requireScheme(evaluation.ratingSchemeId);
-			const next = parseDate(change.changeDate);
-			next.setDate(next.getDate() + 1);
-			const start = formatDate(next);
-			const same = sameRater(scheme, change.raterPersonId, change.raterName);
-			if (isEvaluationCompleted(evaluation.workflowStatus)) {
-				const replay = evaluation.reportType === 'CR' && evaluation.ratingPeriodEnd === change.changeDate && same;
-				const successor = replay
-					? (await schemeEvaluations(scheme.id)).find((row) => row.ratingPeriodStart === start)
-					: undefined;
-				return { evaluation, ratingScheme: scheme, successor: successor ?? null };
+			if (!changesRater) return { evaluation: mapEvaluation(row), moved: true, raterChange: null };
+
+			const ratingScheme = mapRatingScheme(
+				await store.update<RatingSchemeRow>(SCHEMES, orgId, scheme.id, {
+					rater_person_id: evaluation.nextRaterPersonId,
+					rater_name: evaluation.nextRaterName
+				})
+			);
+			if (ratingScheme.archivedAt !== null) {
+				return { evaluation: mapEvaluation(row), moved: true, raterChange: { ratingScheme, successor: null } };
 			}
-			if (scheme.archivedAt !== null) return fail(409, 'The rating scheme is archived');
-			if (same) return fail(400, "The new rater is already this evaluation's rater");
-			if (change.changeDate < evaluation.ratingPeriodStart || change.changeDate > evaluation.ratingPeriodEnd) {
-				return fail(400, 'The last day with the current rater must fall within the rating period');
-			}
-			const closed = await store.update<EvaluationRow>(EVALUATIONS, orgId, id, {
-				rating_period_end: change.changeDate,
-				report_type: 'CR',
-				workflow_status: 'completed',
-				...snapshotValues(evaluation.signedChain ?? scheme)
-			});
-			const renamed = await store.update<RatingSchemeRow>(SCHEMES, orgId, scheme.id, {
-				rater_person_id: change.raterPersonId,
-				rater_name: change.raterName?.trim() || null
-			});
+			const start = dayAfter(evaluation.ratingPeriodEnd);
 			const successor = await store.insert<EvaluationRow>(EVALUATIONS, orgId, {
 				rating_scheme_id: scheme.id,
 				rated_person_id: scheme.ratedPersonId,
@@ -286,12 +317,15 @@ export function createInMemoryRatingSchemePersistence(
 				rating_period_end: calculateThruDate('AN', start),
 				workflow_status: 'drafting',
 				notes: null,
+				next_rater_person_id: null,
+				next_rater_name: null,
+				rater_changed_at: null,
 				...snapshotValues(null)
 			});
 			return {
-				evaluation: mapEvaluation(closed),
-				ratingScheme: mapRatingScheme(renamed),
-				successor: mapEvaluation(successor)
+				evaluation: mapEvaluation(row),
+				moved: true,
+				raterChange: { ratingScheme, successor: mapEvaluation(successor) }
 			};
 		}
 	};

@@ -2,7 +2,6 @@ import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import {
-	changeEvaluationRater,
 	createRatingScheme,
 	removeEvaluation,
 	setRatingSchemeArchived,
@@ -16,6 +15,7 @@ const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
 const SCHEME = '00000000-0000-4000-8000-0000000000c1';
 const EVALUATION = '00000000-0000-4000-8000-0000000000e1';
 const FOREIGN = '00000000-0000-4000-8000-0000000000f1';
+const NEXT_RATER = '00000000-0000-4000-8000-0000000000b1';
 
 function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
 	const ctx = createTestContext(overrides);
@@ -291,6 +291,9 @@ function seedEvaluation(ctx: ReturnType<typeof buildContext>, values: Record<str
 			snapshot_intermediate_rater_name: null,
 			snapshot_reviewer_person_id: null,
 			snapshot_reviewer_name: null,
+			next_rater_person_id: null,
+			next_rater_name: null,
+			rater_changed_at: null,
 			...values
 		}
 	]);
@@ -300,6 +303,19 @@ function seedAll(ctx: ReturnType<typeof buildContext>, evaluation: Record<string
 	seedRatedPerson(ctx);
 	seedScheme(ctx, scheme);
 	seedEvaluation(ctx, evaluation);
+}
+
+function seedNextRater(ctx: ReturnType<typeof buildContext>) {
+	ctx.store.seed('personnel', [
+		{
+			id: NEXT_RATER,
+			organization_id: ctx.auth.orgId,
+			rank: 'SFC',
+			last_name: 'Next',
+			first_name: 'Rater',
+			group_id: null
+		}
+	]);
 }
 
 async function storedEvaluation(ctx: ReturnType<typeof buildContext>, id = EVALUATION) {
@@ -347,15 +363,31 @@ describe('Rating scheme — update', () => {
 		expect((await storedScheme(ctx))?.archived_at).toBeNull();
 	});
 
-	it('keeps the rater of an open Evaluation for Change rater', async () => {
+	it('corrects or links a rater known only by name while an Evaluation is open', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, { workflow_status: 'with-rater' });
+		seedNextRater(ctx);
 
-		await expect(updateRatingScheme(ctx, { id: SCHEME, raterName: 'SSG Other' })).rejects.toMatchObject({
-			status: 409,
-			message: 'Change the rater of an open evaluation with Change rater'
+		await expect(updateRatingScheme(ctx, { id: SCHEME, raterName: 'SSG Corrected' })).resolves.toMatchObject({
+			raterName: 'SSG Corrected'
 		});
-		expect((await storedScheme(ctx))?.rater_name).toBe('SSG Current');
+		await expect(
+			updateRatingScheme(ctx, { id: SCHEME, raterPersonId: NEXT_RATER, raterName: null })
+		).resolves.toMatchObject({ raterPersonId: NEXT_RATER, raterName: null });
+	});
+
+	it('keeps a linked rater of an open Evaluation for a Change of Rater', async () => {
+		const ctx = buildContext();
+		seedNextRater(ctx);
+		seedAll(ctx, { workflow_status: 'with-rater' }, { rater_person_id: NEXT_RATER, rater_name: null });
+
+		await expect(
+			updateRatingScheme(ctx, { id: SCHEME, raterPersonId: null, raterName: 'SSG Other' })
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Complete a Change of Rater evaluation to replace this rater'
+		});
+		expect((await storedScheme(ctx))?.rater_person_id).toBe(NEXT_RATER);
 	});
 });
 
@@ -594,86 +626,154 @@ describe('Evaluation — workflow', () => {
 });
 
 describe('Evaluation — change of rater', () => {
-	it('completes the current Evaluation, gives the scheme the new rater and opens the next one', async () => {
-		const ctx = buildContext();
-		seedAll(ctx, { workflow_status: 'with-rater' });
+	const changeOfRater = {
+		workflow_status: 'with-rater',
+		report_type: 'CR',
+		rating_period_end: '2026-06-30',
+		next_rater_name: 'SSG New'
+	};
 
-		const result = await changeEvaluationRater(ctx, EVALUATION, { changeDate: '2026-06-30', raterName: 'SSG New' });
+	it('refuses a Change of Rater completion while another Evaluation is open, changing nothing', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, changeOfRater);
+		seedEvaluation(ctx, {
+			id: FOREIGN,
+			workflow_status: 'drafting',
+			rating_period_start: '2027-01-01',
+			rating_period_end: '2027-12-31'
+		});
+
+		await expect(transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Another evaluation is already open on this rating scheme'
+		});
+		expect(await storedEvaluation(ctx)).toMatchObject({ workflow_status: 'with-rater', rater_changed_at: null });
+		expect(await storedScheme(ctx)).toMatchObject({ rater_name: 'SSG Current' });
+	});
+
+	it('completing a Change of Rater gives the scheme its next rater and opens the next Annual', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, changeOfRater);
+
+		const result = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
 
 		expect(result.evaluation).toMatchObject({
 			ratingPeriodEnd: '2026-06-30',
 			reportType: 'CR',
 			workflowStatus: 'completed',
 			notes: 'Keep with the closed report',
+			nextRaterName: 'SSG New',
+			raterChangedAt: expect.any(String),
 			signedChain: { raterName: 'SSG Current' }
 		});
-		expect(result.ratingScheme).toMatchObject({ raterName: 'SSG New', seniorRaterName: 'MSG Senior' });
-		expect(result.successor).toMatchObject({
+		expect(result.raterChange?.ratingScheme).toMatchObject({ raterName: 'SSG New', seniorRaterName: 'MSG Senior' });
+		expect(result.raterChange?.successor).toMatchObject({
 			ratingSchemeId: SCHEME,
 			ratingPeriodStart: '2026-07-01',
 			ratingPeriodEnd: '2027-06-30',
 			reportType: 'AN',
 			workflowStatus: 'drafting',
 			notes: null,
+			nextRaterName: null,
 			signedChain: null
 		});
 	});
 
-	it('refuses to change the rater on an archived scheme', async () => {
+	it('leaves the scheme without a rater when the Change of Rater names none', async () => {
 		const ctx = buildContext();
-		seedAll(ctx, { workflow_status: 'with-rater' }, { archived_at: '2026-05-01T00:00:00.000Z' });
+		seedAll(ctx, { ...changeOfRater, next_rater_name: null });
 
-		await expect(
-			changeEvaluationRater(ctx, EVALUATION, { changeDate: '2026-06-30', raterName: 'SSG New' })
-		).rejects.toMatchObject({ status: 409 });
-		expect(await storedEvaluation(ctx)).toMatchObject({ workflow_status: 'with-rater', report_type: 'AN' });
+		const { raterChange } = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+
+		expect(raterChange?.ratingScheme).toMatchObject({ raterPersonId: null, raterName: null });
+		expect(raterChange?.successor).toMatchObject({ ratingPeriodStart: '2026-07-01', workflowStatus: 'drafting' });
 	});
 
-	it('returns the successor it opened when the change is sent again, and opens no second one', async () => {
+	it('keeps the departing chain when reopened and changes nothing when completed again', async () => {
 		const ctx = buildContext();
-		seedAll(ctx);
-		const change = { changeDate: '2026-06-30', raterName: 'SSG New' };
+		seedAll(ctx, changeOfRater);
+		const { raterChange } = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+		await transitionEvaluation(ctx, raterChange!.successor!.id, { from: 'drafting', to: null });
 
-		const first = await changeEvaluationRater(ctx, EVALUATION, change);
-		const repeated = await changeEvaluationRater(ctx, EVALUATION, { changeDate: '2026-06-30', raterName: ' ssg new ' });
-		const different = await changeEvaluationRater(ctx, EVALUATION, {
-			changeDate: '2026-06-30',
-			raterName: 'SSG Other'
-		});
+		const reopened = await transitionEvaluation(ctx, EVALUATION, { from: 'completed', to: 'drafting' });
+		await updateEvaluation(ctx, { id: EVALUATION, nextRaterName: 'SSG Other' });
+		const again = await transitionEvaluation(ctx, EVALUATION, { from: 'drafting', to: 'completed' });
 
-		expect(repeated.successor).toEqual(first.successor);
-		expect(different.successor).toBeNull();
+		expect(reopened.evaluation.signedChain).toMatchObject({ raterName: 'SSG Current' });
+		expect(again).toMatchObject({ raterChange: null, evaluation: { signedChain: { raterName: 'SSG Current' } } });
+		expect((await storedScheme(ctx))?.rater_name).toBe('SSG New');
 		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(2);
 	});
 
-	it('refuses a change date outside the rating period and changes nothing', async () => {
+	it('moves the rater of an archived scheme and opens no Annual', async () => {
 		const ctx = buildContext();
-		seedAll(ctx);
+		seedAll(ctx, changeOfRater, { archived_at: '2026-05-01T00:00:00.000Z' });
 
-		await expect(
-			changeEvaluationRater(ctx, EVALUATION, { changeDate: '2027-01-01', raterName: 'SSG New' })
-		).rejects.toMatchObject({ status: 400 });
+		const { raterChange } = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+
+		expect(raterChange).toMatchObject({ ratingScheme: { raterName: 'SSG New' }, successor: null });
 		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(1);
 	});
 
-	it('requires a new rater who belongs to the Organization', async () => {
+	it('records a completed Change of Rater as history that leaves the scheme as it is', async () => {
 		const ctx = buildContext();
-		seedAll(ctx);
+		seedRatedPerson(ctx);
+		seedScheme(ctx);
 
 		await expect(
-			changeEvaluationRater(ctx, EVALUATION, { changeDate: '2026-06-30', raterPersonId: FOREIGN })
+			startEvaluation(ctx, SCHEME, { ...period, reportType: 'CR', completed: true, nextRaterName: 'SSG New' })
 		).rejects.toMatchObject({ status: 400 });
+		const { evaluation } = await startEvaluation(ctx, SCHEME, { ...period, reportType: 'CR', completed: true });
+		await transitionEvaluation(ctx, evaluation.id, { from: 'completed', to: 'drafting' });
+		const again = await transitionEvaluation(ctx, evaluation.id, { from: 'drafting', to: 'completed' });
+
+		expect(again.raterChange).toBeNull();
+		expect((await storedScheme(ctx))?.rater_name).toBe('SSG Current');
 		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(1);
 	});
 
-	it('denies a change of rater without Rating Scheme operate access', async () => {
-		const ctx = buildContext(viewOnly);
-		seedAll(ctx);
+	it('names a next rater only on a Change of Rater, from the Organization', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { workflow_status: 'drafting' });
+		seedNextRater(ctx);
 
+		await expect(updateEvaluation(ctx, { id: EVALUATION, nextRaterName: 'SSG New' })).rejects.toMatchObject({
+			status: 400
+		});
 		await expect(
-			changeEvaluationRater(ctx, EVALUATION, { changeDate: '2026-06-30', raterName: 'SSG New' })
-		).rejects.toMatchObject({ status: 403 });
-		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(1);
+			updateEvaluation(ctx, { id: EVALUATION, reportType: 'CR', nextRaterPersonId: FOREIGN })
+		).rejects.toMatchObject({ status: 400 });
+		await expect(
+			updateEvaluation(ctx, { id: EVALUATION, reportType: 'CR', nextRaterPersonId: NEXT_RATER })
+		).resolves.toMatchObject({ reportType: 'CR', nextRaterPersonId: NEXT_RATER });
+		await expect(updateEvaluation(ctx, { id: EVALUATION, reportType: 'AN' })).resolves.toMatchObject({
+			nextRaterPersonId: null,
+			nextRaterName: null
+		});
+	});
+
+	it('starts an open Change of Rater with its next rater and answers the same start again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedScheme(ctx);
+		const start = { ...period, reportType: 'CR', nextRaterName: ' SSG New ' };
+
+		const first = await startEvaluation(ctx, SCHEME, start);
+		const repeated = await startEvaluation(ctx, SCHEME, start);
+
+		expect(first).toMatchObject({ created: true, evaluation: { nextRaterName: 'SSG New' } });
+		expect(repeated).toEqual({ created: false, evaluation: first.evaluation });
+	});
+
+	it('keeps a completed Change of Rater’s next rater until it is reopened', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { ...changeOfRater, workflow_status: 'completed', rater_changed_at: '2026-07-01T00:00:00Z' });
+
+		await expect(updateEvaluation(ctx, { id: EVALUATION, nextRaterName: 'SSG Other' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Reopen this evaluation to change its report or period'
+		});
+		expect((await storedEvaluation(ctx))?.next_rater_name).toBe('SSG New');
 	});
 });
 

@@ -50,8 +50,14 @@ CREATE TABLE public.evaluations (
   snapshot_senior_rater_name text,
   snapshot_reviewer_person_id uuid,
   snapshot_reviewer_name text,
+  next_rater_person_id uuid,
+  next_rater_name text,
+  rater_changed_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  -- A Change of Rater report may name who rates next, by Person or by name; no other report names one.
+  CONSTRAINT evaluations_next_rater_check CHECK (num_nonnulls(next_rater_person_id, next_rater_name) = 0
+    OR (report_type IS NOT DISTINCT FROM 'CR' AND num_nonnulls(next_rater_person_id, next_rater_name) = 1)),
   CONSTRAINT evaluations_rating_scheme_fkey FOREIGN KEY (rating_scheme_id, organization_id, rated_person_id)
     REFERENCES public.rating_schemes (id, organization_id, rated_person_id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT evaluations_chain_snapshot_check CHECK (chain_snapshot_at IS NOT NULL OR (
@@ -92,12 +98,14 @@ CROSS JOIN LATERAL (
   LIMIT 1
 ) AS a;
 
--- One Evaluation per entry. A completed entry, or one whose chain differs from its scheme's, keeps its own chain.
+-- One Evaluation per entry. A completed entry, or one whose chain differs from its scheme's, keeps its own chain. A
+-- completed Change of Rater entry is history whose rater change already happened.
 INSERT INTO public.evaluations (
   id, organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
   rating_period_end, workflow_status, notes, chain_snapshot_at, snapshot_rater_person_id, snapshot_rater_name,
   snapshot_intermediate_rater_person_id, snapshot_intermediate_rater_name, snapshot_senior_rater_person_id,
-  snapshot_senior_rater_name, snapshot_reviewer_person_id, snapshot_reviewer_name, created_at, updated_at
+  snapshot_senior_rater_name, snapshot_reviewer_person_id, snapshot_reviewer_name, rater_changed_at, created_at,
+  updated_at
 )
 SELECT r.id, r.organization_id, s.id, r.rated_person_id, r.eval_type, r.report_type, r.rating_period_start,
   r.rating_period_end, r.workflow_status, r.notes,
@@ -106,7 +114,7 @@ SELECT r.id, r.organization_id, s.id, r.rated_person_id, r.eval_type, r.report_t
   CASE WHEN k.keeps THEN r.intermediate_rater_person_id END, CASE WHEN k.keeps THEN r.intermediate_rater_name END,
   CASE WHEN k.keeps THEN r.senior_rater_person_id END, CASE WHEN k.keeps THEN r.senior_rater_name END,
   CASE WHEN k.keeps THEN r.reviewer_person_id END, CASE WHEN k.keeps THEN r.reviewer_name END,
-  r.created_at, r.updated_at
+  CASE WHEN r.report_type = 'CR' AND r.workflow_status = 'completed' THEN r.updated_at END, r.created_at, r.updated_at
 FROM public.rating_scheme_entries AS r
 JOIN public.rating_schemes AS s ON s.organization_id = r.organization_id AND s.rated_person_id = r.rated_person_id
 CROSS JOIN LATERAL (
@@ -175,6 +183,10 @@ BEGIN
   END LOOP;
 END;
 $$;
+ALTER TABLE public.evaluations ADD CONSTRAINT evaluations_organization_next_rater_fkey
+  FOREIGN KEY (organization_id, next_rater_person_id) REFERENCES public.personnel (organization_id, id)
+  ON DELETE SET NULL (next_rater_person_id);
+CREATE INDEX evaluations_next_rater_idx ON public.evaluations (next_rater_person_id) WHERE next_rater_person_id IS NOT NULL;
 
 CREATE UNIQUE INDEX rating_schemes_listed_person_key ON public.rating_schemes (organization_id, rated_person_id)
   WHERE archived_at IS NULL;
@@ -219,9 +231,9 @@ CREATE POLICY "Evaluations are deleted by privileged members within rating schem
   FOR DELETE USING (public.can_edit_rating_scheme_record(organization_id, rated_person_id)
     AND public.is_org_privileged(organization_id));
 
--- A client writes a scheme's chain and an Evaluation's period, report type and notes. Archive state, attribution,
--- workflow steps and the chain snapshot are written only by the functions below and their triggers, and an
--- Evaluation is created only by start_evaluation or change_evaluation_rater.
+-- A client writes a scheme's chain and an Evaluation's period, report type, next rater and notes. Archive state,
+-- attribution, workflow steps, the chain snapshot and the rater change are written only by the functions below and
+-- their triggers, and an Evaluation is created only by start_evaluation or by completing a Change of Rater.
 REVOKE ALL ON public.rating_schemes, public.evaluations FROM anon;
 GRANT SELECT ON public.rating_schemes, public.evaluations TO anon;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.rating_schemes FROM authenticated;
@@ -233,7 +245,7 @@ GRANT INSERT (id, organization_id, rated_person_id, eval_type, rater_person_id, 
 GRANT UPDATE (rated_person_id, eval_type, rater_person_id, rater_name, intermediate_rater_person_id,
   intermediate_rater_name, senior_rater_person_id, senior_rater_name, reviewer_person_id, reviewer_name, notes)
   ON public.rating_schemes TO authenticated;
-GRANT UPDATE (report_type, rating_period_start, rating_period_end, notes)
+GRANT UPDATE (report_type, rating_period_start, rating_period_end, notes, next_rater_person_id, next_rater_name)
   ON public.evaluations TO authenticated;
 
 CREATE TRIGGER update_rating_schemes_updated_at BEFORE UPDATE ON public.rating_schemes
@@ -284,12 +296,18 @@ CREATE TRIGGER require_one_open_evaluation BEFORE INSERT OR UPDATE OF workflow_s
 -- Completing an Evaluation keeps the chain that signed it: its own snapshot when it has one, else its scheme's
 -- current chain. It also takes the scheme's eval type as it stands when it completes, so a type change that
 -- commits just before keeps it. Reopening clears the snapshot and takes the scheme's eval type again.
+-- The first completion of a Change of Rater report stamps rater_changed_at: transition_evaluation hands the scheme to
+-- the next rater then, and a report recorded already completed is history the scheme has moved past. Either way the
+-- scheme no longer has the chain that signed it, so reopening keeps that chain and completing again changes nothing.
 CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS trigger
   LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
   IF NEW.workflow_status = 'completed' THEN
     IF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
       SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    END IF;
+    IF NEW.report_type = 'CR' AND NEW.rater_changed_at IS NULL THEN
+      NEW.rater_changed_at := pg_catalog.now();
     END IF;
     IF NEW.chain_snapshot_at IS NULL THEN
       SELECT pg_catalog.now(), s.rater_person_id, s.rater_name, s.intermediate_rater_person_id,
@@ -303,6 +321,9 @@ BEGIN
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
     -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
     SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR SHARE;
+    IF NEW.rater_changed_at IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
     NEW.chain_snapshot_at := NULL;
     NEW.snapshot_rater_person_id := NULL;
     NEW.snapshot_rater_name := NULL;
@@ -320,20 +341,41 @@ REVOKE ALL ON FUNCTION organization_private.keep_evaluation_chain_snapshot() FRO
 CREATE TRIGGER keep_evaluation_chain_snapshot BEFORE INSERT OR UPDATE OF workflow_status ON public.evaluations
   FOR EACH ROW EXECUTE FUNCTION organization_private.keep_evaluation_chain_snapshot();
 
--- A completed Evaluation's report and period are what was signed. Reopen it to change them; notes stay editable.
+-- A completed Evaluation's report, period and next rater are what was signed. Reopen it to change them; notes stay
+-- editable. Deleting the next rater's Personnel Record clears the link by itself.
 CREATE FUNCTION organization_private.keep_completed_report() RETURNS trigger
-  LANGUAGE plpgsql SET search_path = '' AS $$
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  RAISE EXCEPTION 'Reopen this evaluation to change its report or period' USING ERRCODE = '55000';
+  IF (NEW.report_type, NEW.rating_period_start, NEW.rating_period_end, NEW.next_rater_name)
+      IS DISTINCT FROM (OLD.report_type, OLD.rating_period_start, OLD.rating_period_end, OLD.next_rater_name)
+    OR (NEW.next_rater_person_id IS DISTINCT FROM OLD.next_rater_person_id
+      AND NOT (NEW.next_rater_person_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM public.personnel AS p WHERE p.id = OLD.next_rater_person_id))) THEN
+    RAISE EXCEPTION 'Reopen this evaluation to change its report or period' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
 END;
 $$;
 REVOKE ALL ON FUNCTION organization_private.keep_completed_report() FROM PUBLIC;
-CREATE TRIGGER keep_completed_report BEFORE UPDATE OF report_type, rating_period_start, rating_period_end
+CREATE TRIGGER keep_completed_report
+  BEFORE UPDATE OF report_type, rating_period_start, rating_period_end, next_rater_person_id, next_rater_name
   ON public.evaluations FOR EACH ROW
-  WHEN (OLD.workflow_status = 'completed' AND NEW.workflow_status = 'completed'
-    AND (NEW.report_type, NEW.rating_period_start, NEW.rating_period_end)
-      IS DISTINCT FROM (OLD.report_type, OLD.rating_period_start, OLD.rating_period_end))
+  WHEN (OLD.workflow_status = 'completed' AND NEW.workflow_status = 'completed')
   EXECUTE FUNCTION organization_private.keep_completed_report();
+
+-- A report that is not a Change of Rater names no next rater, so moving off Change of Rater clears it.
+CREATE FUNCTION organization_private.clear_next_rater() RETURNS trigger
+  LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  NEW.next_rater_person_id := NULL;
+  NEW.next_rater_name := NULL;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION organization_private.clear_next_rater() FROM PUBLIC;
+CREATE TRIGGER clear_next_rater BEFORE UPDATE OF report_type ON public.evaluations FOR EACH ROW
+  WHEN (NEW.report_type IS DISTINCT FROM 'CR' AND OLD.report_type IS NOT DISTINCT FROM 'CR')
+  EXECUTE FUNCTION organization_private.clear_next_rater();
 
 -- An Evaluation that is not completed has its scheme's eval type, set in the same transaction as the scheme.
 CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
@@ -350,14 +392,14 @@ CREATE TRIGGER follow_scheme_eval_type AFTER UPDATE OF eval_type ON public.ratin
   FOR EACH ROW WHEN (NEW.eval_type IS DISTINCT FROM OLD.eval_type)
   EXECUTE FUNCTION organization_private.follow_scheme_eval_type();
 
--- Intermediate rater, senior rater and reviewer edits apply live to the open Evaluation. The rater it is rated by
--- changes only through change_evaluation_rater, which completes it as a Change of Rater report first. Deleting the
--- rater's Personnel Record clears the link by itself, which is not a change of rater.
+-- Chain edits apply live to the open Evaluation. While one is open, a rater linked to a Personnel Record is replaced
+-- only by completing a Change of Rater report, which hands the scheme to its next rater once it is no longer open. A
+-- blank rater may be filled and a rater known only by name corrected or linked. Deleting the rater's Personnel Record
+-- clears the link by itself, which is not a change of rater.
 CREATE FUNCTION organization_private.require_rater_change_report() RETURNS trigger
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  IF (NEW.rater_person_id, NEW.rater_name) IS DISTINCT FROM (OLD.rater_person_id, OLD.rater_name)
-    AND pg_catalog.current_setting('trooptotask.rater_change', true) IS DISTINCT FROM 'on'
+  IF OLD.rater_person_id IS NOT NULL AND NEW.rater_person_id IS DISTINCT FROM OLD.rater_person_id
     AND NOT (
       NEW.rater_person_id IS NULL AND OLD.rater_person_id IS NOT NULL AND NEW.rater_name IS NOT DISTINCT FROM OLD.rater_name
       AND NOT EXISTS (SELECT 1 FROM public.personnel AS p WHERE p.id = OLD.rater_person_id)
@@ -366,7 +408,7 @@ BEGIN
       SELECT 1 FROM public.evaluations AS e
       WHERE e.rating_scheme_id = NEW.id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
     ) THEN
-    RAISE EXCEPTION 'Change the rater of an open evaluation with Change rater' USING ERRCODE = '55000';
+    RAISE EXCEPTION 'Complete a Change of Rater evaluation to replace this rater' USING ERRCODE = '55000';
   END IF;
   RETURN NEW;
 END;
@@ -461,6 +503,9 @@ BEGIN
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'evaluation.created' WHEN 'UPDATE' THEN 'evaluation.updated' WHEN 'DELETE' THEN 'evaluation.deleted' END;
   IF TG_OP = 'UPDATE' THEN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
+    IF (NEW.next_rater_person_id, NEW.next_rater_name) IS DISTINCT FROM (OLD.next_rater_person_id, OLD.next_rater_name) THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('nextRater', true);
+    END IF;
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
       v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
     END IF;
@@ -484,9 +529,13 @@ CREATE TRIGGER audit_evaluation AFTER INSERT OR DELETE OR UPDATE ON public.evalu
   FOR EACH ROW EXECUTE FUNCTION audit_private.audit_evaluation();
 
 -- Moves an Evaluation one step, or jumps to any step its chain has, as 20261112120000 did for entries. Its chain is
--- the one it shows: an unfinished Evaluation's kept chain when the split retained one, else its scheme's, which a
--- reopened Evaluation follows again. The triggers above keep one open Evaluation per scheme and
--- the snapshot of a completed one. A move works whether or not the scheme is archived.
+-- the one it shows: an unfinished Evaluation's kept chain when it has one, else its scheme's, which a reopened
+-- Evaluation follows again. The triggers above keep one open Evaluation per scheme and the snapshot of a completed
+-- one. A move works whether or not the scheme is archived.
+--
+-- Completing a Change of Rater report for the first time hands the scheme to its next rater, or to no rater when it
+-- names none, and opens an Annual from the next day on a listed scheme. raterChange returns both; it is null on every
+-- other move, including a repeat.
 CREATE FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text DEFAULT NULL,
   p_to text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -495,10 +544,14 @@ DECLARE
     'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
     'submitted-to-hrc', 'completed'];
   v_row public.evaluations;
+  v_before public.evaluations;
   v_scheme public.rating_schemes;
+  v_successor public.evaluations;
+  v_start date;
   v_has_ir boolean;
   v_has_reviewer boolean;
   v_absent text[] := '{}';
+  v_rater_change jsonb;
 BEGIN
   IF p_to IS NOT NULL AND NOT p_to = ANY (v_steps) THEN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
@@ -521,7 +574,7 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row));
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row), 'raterChange', NULL);
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',
@@ -554,30 +607,65 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_to, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
+  v_before := v_row;
   UPDATE public.evaluations SET workflow_status = p_to
   WHERE organization_id = p_organization_id AND id = p_evaluation_id
   RETURNING * INTO v_row;
-  RETURN pg_catalog.jsonb_build_object('moved', true, 'evaluation', pg_catalog.to_jsonb(v_row));
+
+  IF p_to = 'completed' AND v_before.report_type = 'CR' AND v_before.rater_changed_at IS NULL THEN
+    UPDATE public.rating_schemes
+    SET rater_person_id = v_row.next_rater_person_id, rater_name = v_row.next_rater_name
+    WHERE id = v_row.rating_scheme_id
+    RETURNING * INTO v_scheme;
+    IF v_scheme.archived_at IS NULL THEN
+      v_start := v_row.rating_period_end + 1;
+      INSERT INTO public.evaluations (
+        organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
+        rating_period_end, workflow_status
+      ) VALUES (
+        p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type, 'AN', v_start,
+        -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
+        (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
+        'drafting'
+      ) RETURNING * INTO v_successor;
+    END IF;
+    v_rater_change := pg_catalog.jsonb_build_object('ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
+      'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
+  END IF;
+  RETURN pg_catalog.jsonb_build_object('moved', true, 'evaluation', pg_catalog.to_jsonb(v_row),
+    'raterChange', v_rater_change);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.transition_evaluation(uuid, uuid, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.transition_evaluation(uuid, uuid, text, text) TO authenticated;
 
 -- Opens an Evaluation on a listed scheme at drafting with the scheme's eval type, or records a completed one, which
--- snapshots the scheme's current chain. Opening is refused while another Evaluation is open; a replay of the same
--- opening, sent again after its response was lost, returns the Evaluation it opened.
+-- snapshots the scheme's current chain. An open Change of Rater report may name its next rater; a completed one is
+-- history and names none. Opening is refused while another Evaluation is open; a replay of the same opening, sent
+-- again after its response was lost, returns the Evaluation it opened.
 CREATE FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text,
-  p_rating_period_start date, p_rating_period_end date, p_completed boolean DEFAULT false, p_notes text DEFAULT NULL)
+  p_rating_period_start date, p_rating_period_end date, p_completed boolean DEFAULT false, p_notes text DEFAULT NULL,
+  p_next_rater_person_id uuid DEFAULT NULL, p_next_rater_name text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_scheme public.rating_schemes;
   v_row public.evaluations;
+  v_report_type text := NULLIF(pg_catalog.btrim(p_report_type), '');
+  v_next_rater_name text := NULLIF(pg_catalog.btrim(p_next_rater_name), '');
 BEGIN
   IF p_rating_period_start IS NULL OR p_rating_period_end IS NULL OR p_rating_period_end < p_rating_period_start THEN
     RAISE EXCEPTION 'Choose a rating period that ends on or after it starts' USING ERRCODE = '22023';
   END IF;
   IF p_completed IS NULL THEN
     RAISE EXCEPTION 'Choose whether the evaluation is completed' USING ERRCODE = '22023';
+  END IF;
+  IF p_next_rater_person_id IS NOT NULL OR v_next_rater_name IS NOT NULL THEN
+    IF v_report_type IS DISTINCT FROM 'CR' OR p_completed THEN
+      RAISE EXCEPTION 'Only an open Change of Rater evaluation names a next rater' USING ERRCODE = '22023';
+    END IF;
+    IF p_next_rater_person_id IS NOT NULL AND v_next_rater_name IS NOT NULL THEN
+      RAISE EXCEPTION 'Choose one next rater' USING ERRCODE = '22023';
+    END IF;
   END IF;
 
   SELECT * INTO v_scheme FROM public.rating_schemes AS s
@@ -600,8 +688,10 @@ BEGIN
     ORDER BY e.created_at DESC, e.id
     LIMIT 1;
     IF FOUND THEN
-      IF v_row.report_type IS NOT DISTINCT FROM NULLIF(pg_catalog.btrim(p_report_type), '')
-        AND v_row.rating_period_start = p_rating_period_start AND v_row.rating_period_end = p_rating_period_end THEN
+      IF v_row.report_type IS NOT DISTINCT FROM v_report_type
+        AND v_row.rating_period_start = p_rating_period_start AND v_row.rating_period_end = p_rating_period_end
+        AND (v_row.next_rater_person_id, v_row.next_rater_name)
+          IS NOT DISTINCT FROM (p_next_rater_person_id, v_next_rater_name) THEN
         RETURN pg_catalog.jsonb_build_object('created', false, 'evaluation', pg_catalog.to_jsonb(v_row));
       END IF;
       RAISE EXCEPTION 'Another evaluation is already open on this rating scheme' USING ERRCODE = '55000';
@@ -610,105 +700,19 @@ BEGIN
 
   INSERT INTO public.evaluations (
     organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
-    rating_period_end, workflow_status, notes
+    rating_period_end, workflow_status, notes, next_rater_person_id, next_rater_name
   ) VALUES (
-    p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type,
-    NULLIF(pg_catalog.btrim(p_report_type), ''), p_rating_period_start, p_rating_period_end,
-    CASE WHEN p_completed THEN 'completed' ELSE 'drafting' END, NULLIF(pg_catalog.btrim(p_notes), '')
+    p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type, v_report_type, p_rating_period_start,
+    p_rating_period_end, CASE WHEN p_completed THEN 'completed' ELSE 'drafting' END,
+    NULLIF(pg_catalog.btrim(p_notes), ''), p_next_rater_person_id, v_next_rater_name
   ) RETURNING * INTO v_row;
   RETURN pg_catalog.jsonb_build_object('created', true, 'evaluation', pg_catalog.to_jsonb(v_row));
 END;
 $$;
-REVOKE ALL ON FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text) TO authenticated;
-
--- A change of rater completes the Evaluation as a Change of Rater report through the change date, which snapshots
--- the chain that signed it, gives the scheme the new rater, and opens an Annual for the new rater the next day. A
--- completed Evaluation has already been closed, so a repeat changes nothing; a replay of the same change returns the
--- successor it opened.
-CREATE FUNCTION public.change_evaluation_rater(p_organization_id uuid, p_evaluation_id uuid, p_change_date date,
-  p_rater_person_id uuid DEFAULT NULL, p_rater_name text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE
-  v_row public.evaluations;
-  v_scheme public.rating_schemes;
-  v_rater_name text := NULLIF(pg_catalog.btrim(p_rater_name), '');
-  v_start date := p_change_date + 1;
-  v_successor public.evaluations;
-  v_same_rater boolean;
-BEGIN
-  IF (p_rater_person_id IS NULL) = (v_rater_name IS NULL) THEN
-    RAISE EXCEPTION 'Choose one new rater' USING ERRCODE = '22023';
-  END IF;
-  IF p_change_date IS NULL THEN
-    RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
-  END IF;
-
-  -- The scheme locks before its Evaluation, the order a scheme type change takes.
-  PERFORM 1 FROM public.rating_schemes AS s
-  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
-    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
-  FOR UPDATE;
-  SELECT * INTO v_row FROM public.evaluations AS e
-  WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
-  FOR UPDATE;
-  IF NOT FOUND OR auth.uid() IS NULL
-    OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
-  END IF;
-  IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Changing this rater needs Evals operation access for its scope' USING ERRCODE = '42501';
-  END IF;
-  SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id FOR UPDATE;
-  v_same_rater := p_rater_person_id = v_scheme.rater_person_id
-    OR (p_rater_person_id IS NULL AND v_scheme.rater_person_id IS NULL
-      AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_scheme.rater_name)));
-
-  IF v_row.workflow_status = 'completed' THEN
-    SELECT * INTO v_successor FROM public.evaluations AS s
-    WHERE v_row.report_type = 'CR' AND v_row.rating_period_end = p_change_date AND v_same_rater
-      AND s.rating_scheme_id = v_row.rating_scheme_id AND s.rating_period_start = v_start
-    ORDER BY s.created_at DESC, s.id
-    LIMIT 1;
-    RETURN pg_catalog.jsonb_build_object('evaluation', pg_catalog.to_jsonb(v_row),
-      'ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
-      'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
-  END IF;
-  IF v_scheme.archived_at IS NOT NULL THEN
-    RAISE EXCEPTION 'The rating scheme is archived' USING ERRCODE = '55000';
-  END IF;
-  IF v_same_rater THEN
-    RAISE EXCEPTION 'The new rater is already this evaluation''s rater' USING ERRCODE = '22023';
-  END IF;
-  IF p_change_date < v_row.rating_period_start OR p_change_date > v_row.rating_period_end THEN
-    RAISE EXCEPTION 'The last day with the current rater must fall within the rating period' USING ERRCODE = '22023';
-  END IF;
-
-  UPDATE public.evaluations SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed'
-  WHERE organization_id = p_organization_id AND id = p_evaluation_id
-  RETURNING * INTO v_row;
-
-  PERFORM pg_catalog.set_config('trooptotask.rater_change', 'on', true);
-  UPDATE public.rating_schemes SET rater_person_id = p_rater_person_id, rater_name = v_rater_name
-  WHERE id = v_scheme.id
-  RETURNING * INTO v_scheme;
-  PERFORM pg_catalog.set_config('trooptotask.rater_change', '', true);
-
-  INSERT INTO public.evaluations (
-    organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
-    rating_period_end, workflow_status
-  ) VALUES (
-    p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type, 'AN', v_start,
-    -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
-    (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
-    'drafting'
-  ) RETURNING * INTO v_successor;
-  RETURN pg_catalog.jsonb_build_object('evaluation', pg_catalog.to_jsonb(v_row),
-    'ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by', 'successor', pg_catalog.to_jsonb(v_successor));
-END;
-$$;
-REVOKE ALL ON FUNCTION public.change_evaluation_rater(uuid, uuid, date, uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.change_evaluation_rater(uuid, uuid, date, uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text, uuid, text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text, uuid, text)
+  TO authenticated;
 
 -- Takes a scheme off the rating scheme or puts it back. Its open Evaluation stays on the tracker until it is
 -- completed. Restoring fails while the rated Person has another listed scheme. changed is false when the scheme was

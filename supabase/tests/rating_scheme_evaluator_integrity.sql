@@ -35,13 +35,15 @@ INSERT INTO public.rating_schemes (
   'd1601000-0000-4000-8000-000000000302', 'd1601000-0000-4000-8000-000000000302', 'd1601000-0000-4000-8000-000000000302', 'd1601000-0000-4000-8000-000000000302',
   'Retained Rater', 'Retained Senior', 'Retained Intermediate', 'Retained Reviewer', 'Retained scheme history'
 );
--- A completed report signed by the same chain; the scheme has no open Evaluation, so its rater may change.
+-- A completed Change of Rater signed by the same chain and naming the next rater; the scheme has no open Evaluation,
+-- so its rater may change.
 INSERT INTO public.evaluations (
   id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end,
-  report_type, workflow_status, notes
+  report_type, workflow_status, notes, next_rater_person_id
 ) VALUES (
   'd1601000-0000-4000-8000-000000000421', 'd1601000-0000-4000-8000-000000000101', 'd1601000-0000-4000-8000-000000000401',
-  'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'CR', 'completed', 'Retained evaluation history'
+  'd1601000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2026-12-31', 'CR', 'completed', 'Retained evaluation history',
+  'd1601000-0000-4000-8000-000000000302'
 );
 CREATE TEMP TABLE evaluator_write_before AS SELECT to_jsonb(s) AS row_data
   FROM public.rating_schemes s WHERE id = 'd1601000-0000-4000-8000-000000000401';
@@ -129,8 +131,9 @@ SELECT results_eq($$ SELECT to_jsonb(e) - 'updated_at' FROM public.rating_scheme
 SELECT results_eq($$ SELECT to_jsonb(e) - 'updated_at' FROM public.evaluations e
   WHERE id = 'd1601000-0000-4000-8000-000000000421' $$,
   $$ SELECT (row_data - 'updated_at') || jsonb_build_object('snapshot_rater_person_id', NULL, 'snapshot_senior_rater_person_id', NULL,
-    'snapshot_intermediate_rater_person_id', NULL, 'snapshot_reviewer_person_id', NULL) FROM signed_chain_before $$,
-  'local evaluator deletion clears only the signed chain''s person links and keeps its names, dates, step and notes');
+    'snapshot_intermediate_rater_person_id', NULL, 'snapshot_reviewer_person_id', NULL, 'next_rater_person_id', NULL)
+    FROM signed_chain_before $$,
+  'local evaluator deletion clears only the signed chain''s and next rater''s person links and keeps its names, dates, step and notes');
 SET LOCAL ROLE service_role;
 SELECT lives_ok($$ DELETE FROM public.personnel WHERE id = 'd1601000-0000-4000-8000-000000000301' $$,
   'rated-Person deletion retains its existing evaluation cascade');

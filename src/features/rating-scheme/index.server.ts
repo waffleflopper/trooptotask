@@ -14,7 +14,6 @@ export {
 	startEvaluation,
 	updateEvaluation,
 	transitionEvaluation,
-	changeEvaluationRater,
 	removeEvaluation,
 	describeEvaluationDeletionRequest,
 	evaluationStartSchema,

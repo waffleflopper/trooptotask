@@ -3,7 +3,7 @@ import type { EvalType } from '../rating-scheme.types';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues } from '../contracts';
 import { getEvalTypeForRank } from './ratingScheme';
 import { EVALUATOR_CHAIN_KEYS } from './ratingSchemeEntries';
-import { evaluatorDraft, type EvaluatorDraft } from './evaluatorDraft';
+import { evaluatorDraft, evaluatorValues, type EvaluatorDraft } from './evaluatorDraft';
 import type { RatingSchemeLine } from './ratingSchemeLines';
 
 /** What the scheme line sheet edits: the standing chain, the eval type each new Evaluation starts with, and notes. */
@@ -59,11 +59,7 @@ export function missingLineFields(draft: RatingSchemeLineDraft): RatingSchemeLin
 }
 
 function chainSlot(evaluator: EvaluatorDraft, shown = true): { personId: string | null; name: string | null } {
-	if (!shown) return { personId: null, name: null };
-	return {
-		personId: evaluator.kind === 'person' ? evaluator.personId || null : null,
-		name: evaluator.kind === 'external' ? evaluator.name.trim() || null : null
-	};
+	return shown ? evaluatorValues(evaluator) : { personId: null, name: null };
 }
 
 export function buildRatingSchemeLineValues(draft: RatingSchemeLineDraft): RatingSchemeCreateValues {

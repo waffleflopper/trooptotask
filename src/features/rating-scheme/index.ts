@@ -30,7 +30,7 @@ export { default as EvalsTabs } from './components/EvalsTabs.svelte';
 export { ratingSchemeWorkspaceHydrator } from './ratingSchemeWorkspaceHydration.svelte';
 export { default as PersonnelEvaluationCard } from './components/PersonnelEvaluationCard.svelte';
 
-/** Keeps the Rating Scheme's sheet and Change rater dialog out of the page's first load. */
+/** Keeps the Rating Scheme's line sheet out of the page's first load. */
 export function loadRatingSchemeLinesModals() {
 	return import('./components/RatingSchemeLinesModals.svelte');
 }
@@ -40,12 +40,7 @@ export function loadEvalTrackerModals() {
 	return import('./components/EvalTrackerModals.svelte');
 }
 
-export {
-	changeEvaluationRater,
-	loadRatingSchemeEntryEditor,
-	moveEvaluation,
-	saveEvaluation
-} from './ratingSchemeRequests';
+export { loadRatingSchemeEntryEditor, moveEvaluation, saveEvaluation } from './ratingSchemeRequests';
 /** The Evaluation sheet alone, for a surface outside Evals such as the dashboard. */
 export function loadEvaluationSheet() {
 	return import('./components/EvaluationSheet.svelte');

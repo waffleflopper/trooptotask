@@ -85,6 +85,16 @@ describe('Organization Data Export manifest', () => {
 		]);
 	});
 
+	it("names a Change of Rater's next rater by Personnel label, else by the name it keeps", () => {
+		const rows = evaluationRows([
+			{ rated_person_id: 'rated-1', rating_scheme_id: 'scheme-listed', next_rater_person_id: 'rater-1' },
+			{ rated_person_id: 'rated-1', rating_scheme_id: 'scheme-listed', next_rater_name: 'SSG Named' },
+			{ rated_person_id: 'rated-1', rating_scheme_id: 'scheme-listed' }
+		]);
+
+		expect(rows?.map((row) => row.next_rater)).toEqual(['SSG Rater', 'SSG Named', undefined]);
+	});
+
 	it("shows an unsigned Evaluation's chain from its own scheme, not the Person's listed scheme", () => {
 		const rows = evaluationRows([
 			{ rated_person_id: 'rated-1', rating_scheme_id: 'scheme-archived', chain_snapshot_at: null },

@@ -18,7 +18,6 @@ function renderSheet(overrides: Partial<Props> = {}) {
 		isCurrentWorkspace: () => true,
 		onSave: vi.fn().mockResolvedValue(undefined),
 		onMove: vi.fn().mockResolvedValue(undefined),
-		onChangeRater: vi.fn().mockResolvedValue(undefined),
 		onClose: vi.fn(),
 		...overrides
 	};
@@ -27,6 +26,11 @@ function renderSheet(overrides: Partial<Props> = {}) {
 }
 
 const steps = () => within(screen.getByRole('list', { name: 'Workflow steps' }));
+
+async function pick(trigger: string, option: string) {
+	await fireEvent.click(screen.getByRole('button', { name: trigger }));
+	await fireEvent.click(await screen.findByRole('option', { name: option }));
+}
 
 afterEach(() => {
 	cleanup();
@@ -85,6 +89,47 @@ describe('EvaluationSheet saving', () => {
 			expect(props.onSave).toHaveBeenCalledWith('eval-1', { reportType: 'CR' }, expect.any(Function))
 		);
 		await waitFor(() => expect(props.onClose).toHaveBeenCalled());
+	});
+});
+
+describe('EvaluationSheet next rater', () => {
+	it('names a next rater only once the report is a Change of Rater, and saves it with the report', async () => {
+		const props = renderSheet();
+
+		expect(screen.queryByRole('button', { name: 'Next rater' })).toBeNull();
+		await fireEvent.change(screen.getByLabelText('Report'), { target: { value: 'CR' } });
+		await pick('Next rater', 'SGT Park, Lena');
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await waitFor(() =>
+			expect(props.onSave).toHaveBeenCalledWith(
+				'eval-1',
+				{ reportType: 'CR', nextRaterPersonId: 'park', nextRaterName: null },
+				expect.any(Function)
+			)
+		);
+	});
+
+	it('holds workflow moves until the next rater is saved', async () => {
+		renderSheet({ evaluation: evaluation('eval-1', 'scheme-1', { reportType: 'CR', workflowStatus: 'with-rater' }) });
+
+		await pick('Next rater', 'SGT Park, Lena');
+
+		expect(steps().getByRole('button', { name: 'Jump to With Senior Rater' })).toBeDisabled();
+	});
+
+	it('shows the next rater read-only once the Change of Rater moved its scheme, even after a reopen', () => {
+		const settled = { reportType: 'CR', nextRaterPersonId: 'park', raterChangedAt: '2026-12-31T12:00:00Z' } as const;
+		renderSheet({ evaluation: evaluation('eval-1', 'scheme-1', { ...settled, workflowStatus: 'completed' }) });
+
+		expect(screen.queryByRole('button', { name: 'Next rater' })).toBeNull();
+		expect(screen.getByLabelText('Next rater').textContent).toContain('Park');
+		cleanup();
+
+		renderSheet({ evaluation: evaluation('eval-1', 'scheme-1', { ...settled, workflowStatus: 'with-rater' }) });
+
+		expect(screen.queryByRole('button', { name: 'Next rater' })).toBeNull();
+		expect(screen.getByLabelText('Next rater').textContent).toContain('Park');
 	});
 });
 

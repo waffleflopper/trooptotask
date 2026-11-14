@@ -5,8 +5,10 @@
 	import type { ReadyToStart } from '../utils/evalTracker';
 	import { spokenPersonLabel } from '../utils/personLabel';
 	import { getReportTypeLabel } from '../utils/ratingScheme';
+	import { evaluatorValues, type EvaluatorDraft } from '../utils/evaluatorDraft';
 	import { reportPeriodProblem, type ReportPeriodDraft } from '../utils/reportPeriodDraft';
 	import EvaluatorChainRows from './EvaluatorChainRows.svelte';
+	import NextRaterField from './NextRaterField.svelte';
 	import ReportPeriodFields from './ReportPeriodFields.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -67,6 +69,9 @@
 	let chosenId = $state(openedOn ?? '');
 	let period = $state(periodFor(openedRow));
 	let opensAs = $state<'open' | 'completed'>('open');
+	/** Only an open Change of Rater names a next rater; a completed one is history and moves nothing. */
+	let nextRater = $state<EvaluatorDraft>({ kind: 'empty' });
+	const nextRaterShown = $derived(period.reportType === 'CR' && opensAs === 'open');
 	let notes = $state('');
 	let attempted = $state(false);
 	let saving = $state(false);
@@ -77,6 +82,7 @@
 		return (
 			!!notes.trim() ||
 			opensAs !== 'open' ||
+			(nextRaterShown && nextRater.kind !== 'empty') ||
 			chosenId !== (openedOn ?? '') ||
 			period.reportType !== suggested.reportType ||
 			period.ratingPeriodStart !== suggested.ratingPeriodStart ||
@@ -109,6 +115,7 @@
 		if (!chosen || reportPeriodProblem(period)) return;
 		error = '';
 		saving = true;
+		const named = nextRaterShown ? evaluatorValues(nextRater) : { personId: null, name: null };
 		try {
 			await onStart(
 				chosen.scheme.id,
@@ -117,6 +124,8 @@
 					ratingPeriodStart: period.ratingPeriodStart,
 					ratingPeriodEnd: period.ratingPeriodEnd,
 					completed: opensAs === 'completed',
+					nextRaterPersonId: named.personId,
+					nextRaterName: named.name,
 					notes: notes.trim() || null
 				},
 				isCurrent
@@ -201,6 +210,15 @@
 							: 'Annual reports fill Thru in as 12 months after Start.'}
 						onChange={(next) => (period = next)}
 					/>
+					{#if nextRaterShown}
+						<NextRaterField
+							id="start-next-rater"
+							value={nextRater}
+							{personnel}
+							hint="Completing this report makes them the scheme's rater and opens an Annual the next day. With none named, the scheme's rater is left blank."
+							onChange={(next) => (nextRater = next)}
+						/>
+					{/if}
 				</section>
 
 				{#if chosen}

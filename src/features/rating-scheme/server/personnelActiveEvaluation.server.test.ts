@@ -37,6 +37,9 @@ function evaluation(overrides: Partial<Evaluation>): Evaluation {
 		ratingPeriodEnd: '2026-11-30',
 		workflowStatus: 'drafting',
 		notes: null,
+		nextRaterPersonId: null,
+		nextRaterName: null,
+		raterChangedAt: null,
 		signedChain: null,
 		...overrides
 	};

@@ -1,20 +1,12 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import type { RatingSchemeRaterChange } from '../contracts';
-	import {
-		CHANGE_RATER_MODAL,
-		LINE_PARAM,
-		LINE_SHEET_MODAL,
-		type LineSheetPayload
-	} from '../contexts/RatingSchemeLinesContext.svelte';
+	import { LINE_PARAM, LINE_SHEET_MODAL, type LineSheetPayload } from '../contexts/RatingSchemeLinesContext.svelte';
 	import { evaluationStore, ratingSchemeLines, ratingSchemeStore } from '../stores/ratingScheme.svelte';
-	import { archiveRatingScheme, changeEvaluationRater, createRatingScheme } from '../ratingSchemeRequests';
+	import { archiveRatingScheme, createRatingScheme } from '../ratingSchemeRequests';
 	import type { RatingSchemeLineSave } from '../utils/ratingSchemeLineDraft';
 	import type { RatingSchemeLine } from '../utils/ratingSchemeLines';
-	import ChangeRaterDialog from './ChangeRaterDialog.svelte';
 	import RatingSchemeLineSheet from './RatingSchemeLineSheet.svelte';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { writeAddress } from '$lib/utils/addressWriter';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -57,9 +49,8 @@
 		if (visibleUrl().searchParams.has(LINE_PARAM))
 			void writeAddress({ url: (url) => url.searchParams.delete(LINE_PARAM) });
 	}
-	const raterPayload = $derived(modals.payload<{ lineId: string }>(CHANGE_RATER_MODAL));
 
-	/** The line as the stores hold it now; a rater change or an archive may have moved it since the sheet opened. */
+	/** The line as the stores hold it now; a completed Change of Rater or an archive may have moved it since the sheet opened. */
 	function lineById(id: string | null | undefined): RatingSchemeLine | null {
 		return id ? (ratingSchemeLines.items.find((line) => line.id === id) ?? null) : null;
 	}
@@ -72,10 +63,6 @@
 					null)
 			: null
 	);
-	const raterLine = $derived.by(() => {
-		const line = lineById(raterPayload?.lineId);
-		return line?.open ? { ...line, open: line.open } : null;
-	});
 
 	async function saveLine(save: RatingSchemeLineSave, isCurrent: () => boolean): Promise<void> {
 		if (!isCurrent()) return;
@@ -104,26 +91,6 @@
 		if (!isCurrent()) return;
 		ratingSchemeStore.mergeBatchResults([], [ratingScheme]);
 	}
-
-	async function changeRater(
-		evaluationId: string,
-		change: RatingSchemeRaterChange,
-		isCurrent: () => boolean
-	): Promise<void> {
-		if (!isCurrent()) return;
-		const { evaluation, ratingScheme, successor } = await changeEvaluationRater(
-			initialOrgId,
-			evaluationId,
-			change
-		).catch(failed('The rater was not changed. Try again.'));
-		if (!isCurrent()) return;
-		ratingSchemeStore.mergeBatchResults([], [ratingScheme]);
-		evaluationStore.mergeBatchResults(successor ? [successor] : [], [evaluation]);
-		if (successor) toastStore.success('Rater changed. A new evaluation was opened.');
-		else toastStore.info('This evaluation was already completed.');
-		modals.close(CHANGE_RATER_MODAL);
-		closeLineSheet();
-	}
 </script>
 
 {#if modals.isOpen(LINE_SHEET_MODAL) && (sheetPayload?.lineId == null || sheetLine)}
@@ -137,20 +104,7 @@
 			{isCurrentWorkspace}
 			onSave={saveLine}
 			onArchive={archiveLine}
-			onChangeRater={(line) => modals.open(CHANGE_RATER_MODAL, { lineId: line.id })}
 			onClose={closeLineSheet}
-		/>
-	{/key}
-{/if}
-
-{#if raterLine}
-	{#key raterLine.open.id}
-		<ChangeRaterDialog
-			line={raterLine}
-			personnel={personnelLookup}
-			{isCurrentWorkspace}
-			onChange={changeRater}
-			onClose={modals.closerFor(CHANGE_RATER_MODAL)}
 		/>
 	{/key}
 {/if}

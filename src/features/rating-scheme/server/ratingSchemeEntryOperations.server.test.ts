@@ -633,6 +633,24 @@ describe('Evaluation — change of rater', () => {
 		next_rater_name: 'SSG New'
 	};
 
+	it('refuses a Change of Rater completion while another Evaluation is open, changing nothing', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, changeOfRater);
+		seedEvaluation(ctx, {
+			id: FOREIGN,
+			workflow_status: 'drafting',
+			rating_period_start: '2027-01-01',
+			rating_period_end: '2027-12-31'
+		});
+
+		await expect(transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Another evaluation is already open on this rating scheme'
+		});
+		expect(await storedEvaluation(ctx)).toMatchObject({ workflow_status: 'with-rater', rater_changed_at: null });
+		expect(await storedScheme(ctx)).toMatchObject({ rater_name: 'SSG Current' });
+	});
+
 	it('completing a Change of Rater gives the scheme its next rater and opens the next Annual', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, changeOfRater);

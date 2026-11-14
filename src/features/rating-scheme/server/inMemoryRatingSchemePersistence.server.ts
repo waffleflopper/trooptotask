@@ -279,6 +279,13 @@ export function createInMemoryRatingSchemePersistence(
 			}
 			const changesRater =
 				isEvaluationCompleted(to) && evaluation.reportType === 'CR' && evaluation.raterChangedAt === null;
+			if (
+				changesRater &&
+				scheme.archivedAt === null &&
+				others.some((other) => isEvaluationOpen(other.workflowStatus))
+			) {
+				fail(409, OPEN_ELSEWHERE);
+			}
 			// A reopened Change of Rater keeps the chain that signed it, since its scheme has moved to the next rater.
 			const signed = isEvaluationCompleted(to)
 				? {
@@ -300,7 +307,6 @@ export function createInMemoryRatingSchemePersistence(
 			if (ratingScheme.archivedAt !== null) {
 				return { evaluation: mapEvaluation(row), moved: true, raterChange: { ratingScheme, successor: null } };
 			}
-			if (others.some((other) => isEvaluationOpen(other.workflowStatus))) fail(409, OPEN_ELSEWHERE);
 			const start = dayAfter(evaluation.ratingPeriodEnd);
 			const successor = await store.insert<EvaluationRow>(EVALUATIONS, orgId, {
 				rating_scheme_id: scheme.id,

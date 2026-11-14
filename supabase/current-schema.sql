@@ -3610,7 +3610,8 @@ BEGIN
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
-    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
+    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR SHARE;
     NEW.chain_snapshot_at := NULL;
     NEW.snapshot_rater_person_id := NULL;
     NEW.snapshot_rater_name := NULL;

@@ -13,6 +13,20 @@ export interface FeatureLaneWorkspaceHydrationTargetDescriptor {
 	settle?(): void;
 }
 
+/**
+ * The `startLoading` of a lane whose page stays on screen through a refresh. A store that already shows this
+ * Organization keeps its rows while a newer snapshot streams in, so the page never drops back to its skeleton.
+ */
+export function startLoadingUnlessHeld(
+	store: { readonly orgId: string; startLoading?(): void },
+	orgId: string
+): (() => void) | undefined {
+	if (!store.startLoading) return undefined;
+	return () => {
+		if (store.orgId !== orgId) store.startLoading?.();
+	};
+}
+
 export interface FeatureLaneWorkspaceHydrator {
 	applyDescriptors(orgId: string, descriptors: FeatureLaneWorkspaceHydrationTargetDescriptor[]): Promise<void>;
 	reset(): void;

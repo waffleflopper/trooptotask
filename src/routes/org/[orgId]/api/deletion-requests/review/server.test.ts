@@ -17,7 +17,7 @@ function configFor(ctx: ReturnType<typeof createTestContext>, effects: Partial<A
 		approvePersonnelArchive: unexpected,
 		approveTrainingType: unexpected,
 		approveTrainingRecord: unexpected,
-		approveRatingEntry: unexpected,
+		approveEvaluation: unexpected,
 		approveCounseling: unexpected,
 		...effects
 	}));
@@ -49,7 +49,7 @@ describe('POST /api/deletion-requests/review', () => {
 			{
 				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
-				resource_type: 'rating_scheme_entry',
+				resource_type: 'evaluation',
 				resource_id: 'entry',
 				status: 'pending'
 			}
@@ -84,19 +84,19 @@ describe('POST /api/deletion-requests/review', () => {
 			{
 				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
-				resource_type: 'rating_scheme_entry',
+				resource_type: 'evaluation',
 				resource_id: 'entry',
 				status: 'pending'
 			}
 		]);
-		const approveRatingEntry = vi.fn();
-		const config = configFor(ctx, { approveRatingEntry });
+		const approveEvaluation = vi.fn();
+		const config = configFor(ctx, { approveEvaluation });
 		await expect(
 			handleUseCaseRequest(config, ctx, { id: REQUEST_ID, action: 'approve' }, () => ctx)
 		).rejects.toMatchObject({
 			status: 403
 		});
-		expect(approveRatingEntry).not.toHaveBeenCalled();
+		expect(approveEvaluation).not.toHaveBeenCalled();
 		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).resolves.toMatchObject({
 			status: 'pending'
 		});

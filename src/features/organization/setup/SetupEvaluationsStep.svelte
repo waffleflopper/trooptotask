@@ -25,7 +25,7 @@
 					{#if !canUpdate}Adding entries needs Evaluations operate access.{/if}
 				</p>
 				{#if canUpdate}
-					<Button variant="outline" href="{flow.dashboardHref}/evals">Open the rating scheme</Button>
+					<Button variant="outline" href="{flow.dashboardHref}/evals/rating-scheme">Open the rating scheme</Button>
 				{/if}
 			</div>
 		</PanelSection>

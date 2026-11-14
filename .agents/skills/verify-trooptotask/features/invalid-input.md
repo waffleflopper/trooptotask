@@ -78,7 +78,7 @@ Training`: the sheet stays open with `A Training type with that name already exi
    - **Personnel detail Data sheet.** Use a temporary Person deleted elsewhere (archive, then
      `api/personnel/permanent`). Save changes returns `404` and shows `Personnel record not found` in the form alert.
    - **Rating Scheme edit.** Delete the entry from the owner's session. A non-owner delete may need approval. Save
-     returns `404` and shows `Rating Scheme entry not found`.
+     returns `404` and shows `Evaluation not found`.
    - **Onboarding start.** Start the same member from another session. Submit returns `409` and shows
      `Soldier already has an active onboarding`.
 

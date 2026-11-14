@@ -96,7 +96,7 @@ function createRequesterContext(
 		{ id: RECORD_ALPHA, organization_id: orgId, personnel_id: PERSON_ALPHA, training_type_id: TRAINING_TYPE },
 		{ id: RECORD_BRAVO, organization_id: orgId, personnel_id: PERSON_BRAVO, training_type_id: TRAINING_TYPE }
 	]);
-	ctx.rawStore.seed('rating_scheme_entries', [
+	ctx.rawStore.seed('evaluations', [
 		{ id: ENTRY_ALPHA, organization_id: orgId, rated_person_id: PERSON_ALPHA, eval_type: 'NCOER' },
 		{ id: ENTRY_BRAVO, organization_id: orgId, rated_person_id: PERSON_BRAVO, eval_type: 'NCOER' }
 	]);
@@ -169,7 +169,7 @@ describe('/api/deletion-requests route config', () => {
 			resourceId: RECORD_ALPHA,
 			...forged
 		});
-		const rating = await submit(requester, { resourceType: 'rating_scheme_entry', resourceId: ENTRY_ALPHA, ...forged });
+		const rating = await submit(requester, { resourceType: 'evaluation', resourceId: ENTRY_ALPHA, ...forged });
 
 		expect([personnel.status, training.status, rating.status]).toEqual([201, 201, 201]);
 		expect(personnel.body).toMatchObject({
@@ -181,7 +181,7 @@ describe('/api/deletion-requests route config', () => {
 		expect(await savedRequests(requester)).toEqual([
 			['personnel', PERSON_ALPHA, 'Archive SGT Smith, Jane', `/org/${orgId}/personnel`, 'pending'],
 			['personnel_training', RECORD_ALPHA, 'CLS record for SGT Smith', `/org/${orgId}/training`, 'pending'],
-			['rating_scheme_entry', ENTRY_ALPHA, 'Rating scheme entry for SGT Smith', `/org/${orgId}/evals`, 'pending']
+			['evaluation', ENTRY_ALPHA, 'Evaluation for SGT Smith', `/org/${orgId}/evals`, 'pending']
 		]);
 	});
 
@@ -192,8 +192,8 @@ describe('/api/deletion-requests route config', () => {
 			await submit(requester, { resourceType: 'personnel', resourceId: PERSON_BRAVO }),
 			await submit(requester, { resourceType: 'personnel', resourceId: MISSING }),
 			await submit(requester, { resourceType: 'personnel_training', resourceId: RECORD_BRAVO }),
-			await submit(requester, { resourceType: 'rating_scheme_entry', resourceId: ENTRY_BRAVO }),
-			await submit(requester, { resourceType: 'rating_scheme_entry', resourceId: MISSING })
+			await submit(requester, { resourceType: 'evaluation', resourceId: ENTRY_BRAVO }),
+			await submit(requester, { resourceType: 'evaluation', resourceId: MISSING })
 		].map((outcome) => outcome.status);
 
 		expect(outcomes).toEqual([404, 404, 403, 403, 404]);

@@ -178,7 +178,13 @@ describe('a feature that is on but not set up', () => {
 	it.each([
 		['training', { trainingTypes: false }, 'training', 'Add a training type', '/org/org-1/training/types'],
 		['criticalTasks', { activeTasks: false }, 'critical-tasks', 'Add a task', '/org/org-1/critical-tasks/library'],
-		['evaluations', { ratingEntries: false }, 'evaluations', 'Add an entry', '/org/org-1/evals']
+		[
+			'evaluations',
+			{ ratingEntries: false },
+			'evaluations',
+			'Add to the rating scheme',
+			'/org/org-1/evals/rating-scheme'
+		]
 	] as const)('drops %s for everyone and hints the owner', (feature, gap, column, fixLabel, fixHref) => {
 		const loaded = unit(gap);
 		const forOwner = compose(loaded, owner);

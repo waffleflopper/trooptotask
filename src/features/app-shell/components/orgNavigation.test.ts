@@ -145,6 +145,7 @@ describe('getOrgNavigation', () => {
 		}
 
 		expect(isOrgNavItemActive('/org/org-1/evals/reports', item)).toBe(true);
+		expect(isOrgNavItemActive('/org/org-1/evals/rating-scheme', item)).toBe(true);
 	});
 });
 
@@ -177,6 +178,16 @@ describe('Calendar sub-items', () => {
 });
 
 describe('getOrgBreadcrumbs', () => {
+	it('names the Rating Scheme view under Evals', () => {
+		const nav = getOrgNavigation('org-1', { ...baseCapabilities, ratingScheme: 'view' }, []);
+
+		expect(getOrgBreadcrumbs('/org/org-1/evals/rating-scheme', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Evaluations', href: '/org/org-1/evals' },
+			{ label: 'Rating Scheme' }
+		]);
+	});
+
 	it('names Events & Taskings under Calendar on its lists and detail pages', () => {
 		const nav = getOrgNavigation('org-1', { ...baseCapabilities, calendar: 'view' }, []);
 

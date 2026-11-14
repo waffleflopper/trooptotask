@@ -125,15 +125,19 @@ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id,
 	(pg_temp.id('721'), pg_temp.id('101'), pg_temp.id('711'), 'Badge', 'checkbox', 2),
 	(pg_temp.id('722'), pg_temp.id('102'), pg_temp.id('712'), 'Badge', 'checkbox', 1);
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
-	(pg_temp.id('801'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', pg_temp.id('301'), '2026-01-01', '2026-12-31'),
-	(pg_temp.id('802'), pg_temp.id('101'), pg_temp.id('302'), 'NCOER', pg_temp.id('302'), '2026-01-01', '2026-12-31'),
-	(pg_temp.id('803'), pg_temp.id('102'), pg_temp.id('305'), 'NCOER', pg_temp.id('305'), '2026-01-01', '2026-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, rater_person_id) VALUES
+	(pg_temp.id('804'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', pg_temp.id('301')),
+	(pg_temp.id('805'), pg_temp.id('101'), pg_temp.id('302'), 'NCOER', pg_temp.id('302')),
+	(pg_temp.id('806'), pg_temp.id('102'), pg_temp.id('305'), 'NCOER', pg_temp.id('305'));
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end) VALUES
+	(pg_temp.id('801'), pg_temp.id('101'), pg_temp.id('804'), pg_temp.id('301'), 'NCOER', '2026-01-01', '2026-12-31'),
+	(pg_temp.id('802'), pg_temp.id('101'), pg_temp.id('805'), pg_temp.id('302'), 'NCOER', '2026-01-01', '2026-12-31'),
+	(pg_temp.id('803'), pg_temp.id('102'), pg_temp.id('806'), pg_temp.id('305'), 'NCOER', '2026-01-01', '2026-12-31');
 
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description) VALUES
 	(pg_temp.id('901'), pg_temp.id('101'), pg_temp.id('3'), 'switches-3@example.test', 'training_type', pg_temp.id('502'), 'Alpha Retired'),
 	(pg_temp.id('902'), pg_temp.id('101'), pg_temp.id('3'), 'switches-3@example.test', 'personnel_training', pg_temp.id('512'), 'Casey CLS'),
-	(pg_temp.id('903'), pg_temp.id('101'), pg_temp.id('3'), 'switches-3@example.test', 'rating_scheme_entry', pg_temp.id('802'), 'Blake NCOER');
+	(pg_temp.id('903'), pg_temp.id('101'), pg_temp.id('3'), 'switches-3@example.test', 'evaluation', pg_temp.id('802'), 'Blake NCOER');
 
 CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
 	SELECT set_config('role', 'authenticated', true),
@@ -178,15 +182,16 @@ CREATE FUNCTION pg_temp.readable(p_org uuid) RETURNS text[] LANGUAGE sql AS $$
 		UNION ALL SELECT 13, 'personnel_onboardings' FROM public.personnel_onboardings WHERE organization_id = p_org
 		UNION ALL SELECT 14, 'onboarding_step_progress' FROM public.onboarding_step_progress WHERE organization_id = p_org
 		UNION ALL SELECT 15, 'active_onboarding_calendar_personnel_ids()' FROM public.active_onboarding_calendar_personnel_ids(p_org)
-		UNION ALL SELECT 16, 'rating_scheme_entries' FROM public.rating_scheme_entries WHERE organization_id = p_org
-		UNION ALL SELECT 17, 'list_rating_scheme_personnel_lookup()' FROM public.list_rating_scheme_personnel_lookup(p_org)
-		UNION ALL SELECT 18, 'list_personnel_award_tracking_acknowledged()' FROM public.list_personnel_award_tracking_acknowledged(p_org)
-		UNION ALL SELECT 19, 'personnel' FROM public.personnel WHERE organization_id = p_org
-		UNION ALL SELECT 20, 'personnel_extended_info' FROM public.personnel_extended_info WHERE organization_id = p_org
-		UNION ALL SELECT 21, 'counseling file' FROM storage.objects
+		UNION ALL SELECT 16, 'rating_schemes' FROM public.rating_schemes WHERE organization_id = p_org
+		UNION ALL SELECT 17, 'evaluations' FROM public.evaluations WHERE organization_id = p_org
+		UNION ALL SELECT 18, 'list_rating_scheme_personnel_lookup()' FROM public.list_rating_scheme_personnel_lookup(p_org)
+		UNION ALL SELECT 19, 'list_personnel_award_tracking_acknowledged()' FROM public.list_personnel_award_tracking_acknowledged(p_org)
+		UNION ALL SELECT 20, 'personnel' FROM public.personnel WHERE organization_id = p_org
+		UNION ALL SELECT 21, 'personnel_extended_info' FROM public.personnel_extended_info WHERE organization_id = p_org
+		UNION ALL SELECT 22, 'counseling file' FROM storage.objects
 			WHERE bucket_id = 'counseling-files' AND name LIKE p_org::text || '/counseling-records/%'
-		UNION ALL SELECT 22, 'availability_entries' FROM public.availability_entries WHERE organization_id = p_org
-		UNION ALL SELECT 23, 'groups' FROM public.groups WHERE organization_id = p_org
+		UNION ALL SELECT 23, 'availability_entries' FROM public.availability_entries WHERE organization_id = p_org
+		UNION ALL SELECT 24, 'groups' FROM public.groups WHERE organization_id = p_org
 	) AS visible(position, name) GROUP BY position, name ORDER BY position);
 $$;
 
@@ -205,11 +210,12 @@ BEGIN
 		(5, 'personnel_ict_completions', format('UPDATE public.personnel_ict_completions SET notes = %L WHERE organization_id = %L', 'changed', p_org)),
 		(6, 'onboarding_templates', format('UPDATE public.onboarding_templates SET name = %L WHERE organization_id = %L', 'Changed', p_org)),
 		(7, 'append_onboarding_step_note()', format('SELECT public.append_onboarding_step_note(%L, id, %L) FROM public.onboarding_step_progress WHERE organization_id = %L', p_org, 'note', p_org)),
-		(8, 'rating_scheme_entries', format('UPDATE public.rating_scheme_entries SET notes = %L WHERE organization_id = %L', 'changed', p_org)),
-		(9, 'award acknowledgement', format('UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = %L WHERE organization_id = %L', '2026-02-01', p_org)),
-		(10, 'personnel', format('UPDATE public.personnel SET first_name = first_name || %L WHERE organization_id = %L', '.', p_org)),
-		(11, 'data sheet field', format('UPDATE public.personnel_extended_info SET blood_type = %L WHERE organization_id = %L', 'A+', p_org)),
-		(12, 'availability_entries', format('UPDATE public.availability_entries SET end_date = %L WHERE organization_id = %L', '2030-04-03', p_org))
+		(8, 'rating_schemes', format('UPDATE public.rating_schemes SET notes = %L WHERE organization_id = %L', 'changed', p_org)),
+		(9, 'evaluations', format('UPDATE public.evaluations SET notes = %L WHERE organization_id = %L', 'changed', p_org)),
+		(10, 'award acknowledgement', format('UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = %L WHERE organization_id = %L', '2026-02-01', p_org)),
+		(11, 'personnel', format('UPDATE public.personnel SET first_name = first_name || %L WHERE organization_id = %L', '.', p_org)),
+		(12, 'data sheet field', format('UPDATE public.personnel_extended_info SET blood_type = %L WHERE organization_id = %L', 'A+', p_org)),
+		(13, 'availability_entries', format('UPDATE public.availability_entries SET end_date = %L WHERE organization_id = %L', '2030-04-03', p_org))
 	) AS w(position, name, statement) ORDER BY position LOOP
 		BEGIN
 			EXECUTE attempt.statement;
@@ -253,7 +259,7 @@ INSERT INTO feature_owned VALUES
 	('onboarding', 'onboarding_templates'), ('onboarding', 'onboarding_template_steps'),
 	('onboarding', 'personnel_onboardings'), ('onboarding', 'onboarding_step_progress'),
 	('onboarding', 'active_onboarding_calendar_personnel_ids()'), ('onboarding', 'append_onboarding_step_note()'),
-	('evaluations', 'rating_scheme_entries'), ('evaluations', 'list_rating_scheme_personnel_lookup()'),
+	('evaluations', 'rating_schemes'), ('evaluations', 'evaluations'), ('evaluations', 'list_rating_scheme_personnel_lookup()'),
 	('lossesAndAwards', 'list_personnel_award_tracking_acknowledged()'), ('lossesAndAwards', 'award acknowledgement');
 
 CREATE TEMP TABLE actor_baseline (actor text, label text, reads text[], writes text[]);
@@ -263,40 +269,40 @@ INSERT INTO actor_baseline VALUES
 			'training certificate file', 'roster scan file', 'ict_tasks', 'personnel_ict_completions',
 			'latest_active_personnel_ict_completions()', 'onboarding_templates', 'onboarding_template_steps',
 			'personnel_onboardings', 'onboarding_step_progress', 'active_onboarding_calendar_personnel_ids()',
-			'rating_scheme_entries', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
+			'rating_schemes', 'evaluations', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
 			'personnel', 'personnel_extended_info', 'counseling file', 'availability_entries', 'groups'],
 		ARRAY['training_types', 'personnel_trainings', 'sign_in_rosters', 'ict_tasks', 'personnel_ict_completions',
-			'onboarding_templates', 'append_onboarding_step_note()', 'rating_scheme_entries', 'award acknowledgement',
+			'onboarding_templates', 'append_onboarding_step_note()', 'rating_schemes', 'evaluations', 'award acknowledgement',
 			'personnel', 'data sheet field', 'availability_entries']),
 	('2', 'an admin',
 		ARRAY['training_types', 'training_views', 'personnel_trainings', 'personnel_training_history', 'sign_in_rosters',
 			'training certificate file', 'roster scan file', 'ict_tasks', 'personnel_ict_completions',
 			'latest_active_personnel_ict_completions()', 'onboarding_templates', 'onboarding_template_steps',
 			'personnel_onboardings', 'onboarding_step_progress', 'active_onboarding_calendar_personnel_ids()',
-			'rating_scheme_entries', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
+			'rating_schemes', 'evaluations', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
 			'personnel', 'personnel_extended_info', 'counseling file', 'availability_entries', 'groups'],
 		ARRAY['training_types', 'personnel_trainings', 'sign_in_rosters', 'ict_tasks', 'personnel_ict_completions',
-			'onboarding_templates', 'append_onboarding_step_note()', 'rating_scheme_entries', 'award acknowledgement',
+			'onboarding_templates', 'append_onboarding_step_note()', 'rating_schemes', 'evaluations', 'award acknowledgement',
 			'personnel', 'data sheet field', 'availability_entries']),
 	('3', 'an Organization-wide member',
 		ARRAY['training_types', 'training_views', 'personnel_trainings', 'personnel_training_history', 'sign_in_rosters',
 			'training certificate file', 'roster scan file', 'ict_tasks', 'personnel_ict_completions',
 			'latest_active_personnel_ict_completions()', 'onboarding_templates', 'onboarding_template_steps',
 			'personnel_onboardings', 'onboarding_step_progress', 'active_onboarding_calendar_personnel_ids()',
-			'rating_scheme_entries', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
+			'rating_schemes', 'evaluations', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
 			'personnel', 'personnel_extended_info', 'counseling file', 'availability_entries', 'groups'],
 		ARRAY['training_types', 'personnel_trainings', 'sign_in_rosters', 'ict_tasks', 'personnel_ict_completions',
-			'onboarding_templates', 'append_onboarding_step_note()', 'rating_scheme_entries', 'award acknowledgement',
+			'onboarding_templates', 'append_onboarding_step_note()', 'rating_schemes', 'evaluations', 'award acknowledgement',
 			'personnel', 'data sheet field']),
 	('4', 'a Group-scoped member',
 		ARRAY['training_types', 'training_views', 'personnel_trainings', 'personnel_training_history', 'sign_in_rosters',
 			'training certificate file', 'roster scan file', 'ict_tasks', 'personnel_ict_completions',
 			'latest_active_personnel_ict_completions()', 'onboarding_templates', 'onboarding_template_steps',
 			'personnel_onboardings', 'onboarding_step_progress', 'active_onboarding_calendar_personnel_ids()',
-			'rating_scheme_entries', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
+			'rating_schemes', 'evaluations', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
 			'personnel', 'personnel_extended_info', 'counseling file', 'availability_entries', 'groups'],
 		ARRAY['personnel_trainings', 'sign_in_rosters', 'personnel_ict_completions', 'append_onboarding_step_note()',
-			'rating_scheme_entries', 'award acknowledgement', 'personnel', 'data sheet field']);
+			'rating_schemes', 'evaluations', 'award acknowledgement', 'personnel', 'data sheet field']);
 
 CREATE FUNCTION pg_temp.without(p_items text[], p_feature text) RETURNS text[] LANGUAGE sql AS $$
 	SELECT ARRAY(SELECT item FROM unnest(p_items) WITH ORDINALITY AS i(item, n)
@@ -354,7 +360,7 @@ SELECT is(pg_temp.readable_as('1', '101'),
 	ARRAY['training certificate file', 'roster scan file', 'ict_tasks', 'personnel_ict_completions',
 		'latest_active_personnel_ict_completions()', 'onboarding_templates', 'onboarding_template_steps',
 		'personnel_onboardings', 'onboarding_step_progress', 'active_onboarding_calendar_personnel_ids()',
-		'rating_scheme_entries', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
+		'rating_schemes', 'evaluations', 'list_rating_scheme_personnel_lookup()', 'list_personnel_award_tracking_acknowledged()',
 		'personnel', 'personnel_extended_info', 'counseling file', 'availability_entries', 'groups'],
 	'an owner reads no Training rows while Training is off; Organization deletion still lists its retained files');
 SELECT is(pg_temp.writable_as(actor, '101'), pg_temp.without(writes, 'training'),
@@ -568,7 +574,7 @@ SELECT throws_ok(
 	'42501', NULL, 'a Training record deletion cannot be approved while Training is off'
 );
 SELECT throws_ok(
-	format($$ SELECT public.approve_record_deletion_request(%L, %L, 'rating_scheme_entry', %L, %L, now()) $$,
+	format($$ SELECT public.approve_record_deletion_request(%L, %L, 'evaluation', %L, %L, now()) $$,
 		pg_temp.id('101'), pg_temp.id('903'), pg_temp.id('802'), pg_temp.id('2')),
 	'42501', NULL, 'an Evaluations deletion cannot be approved while Evaluations is off'
 );
@@ -578,7 +584,7 @@ SELECT is(
 		(SELECT string_agg(status, ',' ORDER BY id) FROM public.deletion_requests WHERE organization_id = pg_temp.id('101')),
 		(SELECT count(*)::text FROM public.training_types WHERE id = pg_temp.id('502')),
 		(SELECT count(*)::text FROM public.personnel_trainings WHERE id = pg_temp.id('512')),
-		(SELECT count(*)::text FROM public.rating_scheme_entries WHERE id = pg_temp.id('802'))
+		(SELECT count(*)::text FROM public.evaluations WHERE id = pg_temp.id('802'))
 	],
 	ARRAY['pending,pending,pending', '1', '1', '1'],
 	'denied approvals keep the requests pending and their records stored'

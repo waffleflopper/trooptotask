@@ -57,9 +57,11 @@ INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, train
 	('f4000000-0000-4000-8000-000000000411', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000401', '2030-01-01'),
 	('f4000000-0000-4000-8000-000000000412', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000402', '2030-02-01');
 
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end) VALUES
-	('f4000000-0000-4000-8000-000000000421', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'NCOER', 'f4000000-0000-4000-8000-000000000301', '2030-01-01', '2030-12-31'),
-	('f4000000-0000-4000-8000-000000000422', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'NCOER', 'f4000000-0000-4000-8000-000000000301', '2031-01-01', '2031-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, rater_person_id) VALUES
+	('f4000000-0000-4000-8000-000000000423', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'NCOER', 'f4000000-0000-4000-8000-000000000301');
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end) VALUES
+	('f4000000-0000-4000-8000-000000000421', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000423', 'f4000000-0000-4000-8000-000000000301', 'NCOER', '2030-01-01', '2030-12-31'),
+	('f4000000-0000-4000-8000-000000000422', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000423', 'f4000000-0000-4000-8000-000000000301', 'NCOER', '2031-01-01', '2031-12-31');
 
 INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path, archived_at) VALUES
 	('f4000000-0000-4000-8000-000000000501', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-01-01', 'Active counseling', 'Active counseling', 'fixture',
@@ -201,16 +203,16 @@ WITH removed AS (
 	DELETE FROM public.personnel_trainings WHERE id = 'f4000000-0000-4000-8000-000000000411' RETURNING id
 ) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Training operator cannot hard-delete a training record');
 WITH removed AS (
-	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Rating Scheme operator cannot delete an entry');
+	DELETE FROM public.evaluations WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Rating Scheme operator cannot delete an Evaluation');
 
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
 WITH removed AS (
 	DELETE FROM public.personnel_trainings WHERE id = 'f4000000-0000-4000-8000-000000000412' RETURNING id
 ) SELECT is((SELECT count(*)::integer FROM removed), 1, 'a Training configurator hard-deletes an in-Group training record');
 WITH removed AS (
-	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed), 0, 'Rating Scheme configure without governance cannot delete an entry');
+	DELETE FROM public.evaluations WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'Rating Scheme configure without governance cannot delete an Evaluation');
 WITH
 	counseling AS (DELETE FROM public.counseling_records WHERE id = 'f4000000-0000-4000-8000-000000000501' RETURNING id),
 	documents AS (DELETE FROM public.personnel_documents WHERE id = 'f4000000-0000-4000-8000-000000000511' RETURNING id),
@@ -232,8 +234,10 @@ SELECT is(
 
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000004');
 WITH removed AS (
-	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000422' RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed), 1, 'an admin deletes a Rating Scheme entry');
+	DELETE FROM public.evaluations WHERE id = 'f4000000-0000-4000-8000-000000000422' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 1, 'an admin deletes an Evaluation');
+SELECT throws_ok($$ DELETE FROM public.rating_schemes WHERE id = 'f4000000-0000-4000-8000-000000000423' $$, '42501', NULL,
+	'not even an admin deletes a rating scheme directly; it is archived');
 
 -- Stored artifact files stay under their own Organization and Person.
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
@@ -540,7 +544,7 @@ SELECT results_eq(
 	SELECT 'personnel:' || id || ':' || first_name || ':' || COALESCE(archived_at::text, 'active') FROM public.personnel
 		WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND slug NOT LIKE 'feature-writes-imported%'
 	UNION ALL SELECT 'training:' || id FROM public.personnel_trainings WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
-	UNION ALL SELECT 'rating:' || id FROM public.rating_scheme_entries WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'rating:' || id FROM public.evaluations WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
 	UNION ALL SELECT 'counseling:' || id FROM public.counseling_records WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND title <> 'Bound'
 	UNION ALL SELECT 'document:' || id || ':' || personnel_id FROM public.personnel_documents WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
 	UNION ALL SELECT 'note:' || id FROM public.leader_notes WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'

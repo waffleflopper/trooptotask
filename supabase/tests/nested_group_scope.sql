@@ -79,8 +79,10 @@ INSERT INTO public.personnel_ict_completions (organization_id, personnel_id, ict
 SELECT pg_temp.id(101), pg_temp.id(n), pg_temp.id(505), '2030-01-01', 'Practical Exercise' FROM generate_series(301,312) n;
 INSERT INTO public.personnel_onboardings (organization_id, personnel_id, template_id)
 SELECT pg_temp.id(101), pg_temp.id(n), pg_temp.id(506) FROM generate_series(301,312) n;
-INSERT INTO public.rating_scheme_entries (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
-SELECT pg_temp.id(101), pg_temp.id(n), 'NCOER', '2030-01-01', '2030-12-31' FROM generate_series(301,312) n;
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type)
+SELECT pg_temp.id(n + 400), pg_temp.id(101), pg_temp.id(n), 'NCOER' FROM generate_series(301,312) n;
+INSERT INTO public.evaluations (organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
+SELECT pg_temp.id(101), pg_temp.id(n + 400), pg_temp.id(n), 'NCOER', '2030-01-01', '2030-12-31' FROM generate_series(301,312) n;
 INSERT INTO public.calendar_taskings (id, organization_id, responsible_group_id, title, suspense_on, execution_starts_on, execution_ends_on)
 SELECT pg_temp.id(n), pg_temp.id(101), pg_temp.id(g), 'Tasking ' || n, '2030-01-10', '2030-01-01', '2030-01-02'
 FROM (VALUES (401,201),(402,202),(403,203),(404,204),(405,205),(406,NULL::integer)) t(n,g);
@@ -96,7 +98,8 @@ BEGIN
   FOR lane IN SELECT * FROM (VALUES
     ('personnel','id'), ('availability_entries','personnel_id'),
     ('personnel_trainings','personnel_id'), ('personnel_ict_completions','personnel_id'),
-    ('personnel_onboardings','personnel_id'), ('rating_scheme_entries','rated_person_id')
+    ('personnel_onboardings','personnel_id'), ('rating_schemes','rated_person_id'),
+    ('evaluations','rated_person_id')
   ) v(table_name, id_column) LOOP
     EXECUTE format('SELECT coalesce(array_agg(%I ORDER BY %I), ARRAY[]::uuid[]) FROM public.%I WHERE organization_id = $1',
       lane.id_column, lane.id_column, lane.table_name) INTO actual USING pg_temp.id(101);

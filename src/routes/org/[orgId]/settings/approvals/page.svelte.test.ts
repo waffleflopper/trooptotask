@@ -98,7 +98,7 @@ describe('Approvals rows', () => {
 		['counseling_record', 'Counseling record', 'Approve delete'],
 		['training_type', 'Training type', 'Approve delete'],
 		['personnel_training', 'Training record', 'Approve delete'],
-		['rating_scheme_entry', 'Rating scheme', 'Approve delete'],
+		['evaluation', 'Evaluation', 'Approve delete'],
 		['retired_kind', 'Record', 'Approve delete']
 	])('labels a %s request as %s with %s', (resourceType, kind, approve) => {
 		mount([request('r', { resource_type: resourceType, resource_description: 'SGT Patel, R. · CLS' })]);

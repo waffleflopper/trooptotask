@@ -55,7 +55,7 @@ test('fails only the selected exact A GET; B, auth, other tables, origins and wr
 	control.command('arm', { table: 'personnel_trainings', mode: 'fail' });
 	const ordinary = [
 		[target.replace(orgA, orgB)],
-		[target.replace('personnel_trainings', 'rating_scheme_entries')],
+		[target.replace('personnel_trainings', 'evaluations')],
 		[target.replace('/rest/v1/personnel_trainings', '/auth/v1/user')],
 		[target.replace(':56321', ':56322')],
 		[target.replace('http://', 'http://user:password@')],

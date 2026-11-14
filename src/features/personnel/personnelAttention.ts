@@ -101,7 +101,7 @@ function evaluationItems(input: AttentionInput['evaluation']): AttentionItem[] {
 		{
 			kind: 'evaluation',
 			status: 'due',
-			id: entry.entryId,
+			id: entry.evaluationId,
 			title: [entry.reportTypeLabel, entry.evalType].filter(Boolean).join(' '),
 			detail: [
 				`Thru ${formatDayMonth(entry.periodEnd)}`,
@@ -112,7 +112,7 @@ function evaluationItems(input: AttentionInput['evaluation']): AttentionItem[] {
 				.join(' · '),
 			dueDate: entry.periodEnd,
 			daysUntilDue: entry.daysUntilThru,
-			target: { tab: 'evals', entryId: entry.entryId }
+			target: { tab: 'evals', evaluationId: entry.evaluationId }
 		}
 	];
 }

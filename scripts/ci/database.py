@@ -3,6 +3,7 @@
 
 import errno
 import argparse
+import difflib
 from functools import partial
 import hashlib
 import json
@@ -195,6 +196,9 @@ POST_TREE_CONTRACTS = (
     "evaluation_jump_steps_after.sql",
     "rating_scheme_membership_after.sql",
 )
+# The post-tree contracts above read rating_scheme_entries, so the split applies once they pass.
+EVALUATION_SPLIT_MIGRATION = "20261113120000_rating_scheme_evaluation_split.sql"
+EVALUATION_SPLIT_ROLLBACK = "supabase/rollback/20261113120000_rating_scheme_evaluation_split.down.sql"
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
@@ -848,17 +852,20 @@ def normalize_schema_dump(dump):
     ).strip() + '\n'
 
 
+def schema_dump(workdir, execute, container):
+    return normalize_schema_dump(execute(['docker', 'exec', '-e', 'PGPASSWORD=postgres', container,
+                                          'pg_dump', '-U', 'supabase_admin',
+                                          '-d', 'postgres', '--schema-only',
+                                          *(f'--schema={schema}' for schema in APP_SCHEMAS)],
+                                         workdir, quiet=True, separate_stderr=True).stdout)
+
+
 def generate_schema(repository, workdir, execute, container, *, cli_version, write=False):
     types = execute(['supabase', 'gen', 'types', 'typescript', '--local', '--schema', 'public'],
                     workdir, quiet=True, separate_stderr=True).stdout
-    dump = execute(['docker', 'exec', '-e', 'PGPASSWORD=postgres', container,
-                    'pg_dump', '-U', 'supabase_admin',
-                    '-d', 'postgres', '--schema-only',
-                    *(f'--schema={schema}' for schema in APP_SCHEMAS)],
-                   workdir, quiet=True, separate_stderr=True).stdout
     outputs = {
         'src/lib/server/database.types.ts': types.rstrip() + '\n',
-        'supabase/current-schema.sql': normalize_schema_dump(dump),
+        'supabase/current-schema.sql': schema_dump(workdir, execute, container),
     }
     drift = []
     for name, content in outputs.items():
@@ -905,7 +912,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             if pending:
                 raise SystemExit(128 + pending)
         if staged_upgrade:
-            for name in (*STAGED_UPGRADE_MIGRATIONS, *POST_TREE_UPGRADE_MIGRATIONS):
+            for name in (*STAGED_UPGRADE_MIGRATIONS, *POST_TREE_UPGRADE_MIGRATIONS, EVALUATION_SPLIT_MIGRATION):
                 (workdir / "supabase/migrations" / name).unlink()
         print(f"Disposable project: {project_id}; directory: {workdir}", flush=True)
         print("Ports: " + ", ".join(
@@ -978,7 +985,6 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             if retained != (before['groups'] or []) or after['memberships'] != before['memberships']:
                 raise ValueError('Nested Groups upgrade changed existing Group values or stored membership grants')
             print('Nested Groups upgrade retained every Group value and membership grant; all existing paths contain only their own id.', flush=True)
-            execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
             for name in POST_TREE_FIXTURES:
                 fixture = workdir / "supabase/migration-tests" / name
                 execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
@@ -988,6 +994,16 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
             for name in POST_TREE_CONTRACTS:
                 execute(["supabase", "test", "db", f"supabase/migration-tests/{name}"], workdir)
+            for name in ("rating_scheme_evaluation_split_before.sql", "rating_scheme_split_rollback_before.sql"):
+                execute([*psql[:2], "-i", *psql[2:]], workdir,
+                        input_text=(workdir / "supabase/migration-tests" / name).read_text())
+            before_split = schema_dump(workdir, execute, container)
+            shutil.copy2(repository / "supabase/migrations" / EVALUATION_SPLIT_MIGRATION,
+                         workdir / "supabase/migrations" / EVALUATION_SPLIT_MIGRATION)
+            execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
+            execute(["supabase", "test", "db", "supabase/migration-tests/rating_scheme_evaluation_split_after.sql"], workdir)
+            # Group scope reads every person-scoped table, including the split ones.
+            execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
             for name in POST_TREE_SQL_TESTS:
                 execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
@@ -997,7 +1013,26 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 environment=_provider_environment(repository, workdir, execute))
             run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))
-            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades passed.", flush=True)
+            execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=(
+                workdir / "supabase/migration-tests/rating_scheme_split_rollback_changes.sql").read_text())
+            # Robert runs the rollback as postgres, which owns what it restores.
+            rollback = ["docker", "exec", "-i", "-e", "PGPASSWORD=postgres", container, "psql", "-U", "postgres",
+                        "-d", "postgres", "-v", "ON_ERROR_STOP=1"]
+            execute(rollback, workdir, input_text=(repository / EVALUATION_SPLIT_ROLLBACK).read_text())
+            after_rollback = schema_dump(workdir, execute, container)
+            if after_rollback != before_split:
+                drift = ''.join(list(difflib.unified_diff(
+                    before_split.splitlines(keepends=True), after_rollback.splitlines(keepends=True),
+                    'before split', 'after rollback'))[:200])
+                raise ValueError('The split rollback did not restore the schema from before the split:\n' + drift)
+            print('The split rollback restored the schema from before the split exactly.', flush=True)
+            execute(["supabase", "test", "db", "supabase/migration-tests/rating_scheme_split_rollback_after.sql"],
+                    workdir)
+            refused = execute(rollback, workdir, input_text=(repository / EVALUATION_SPLIT_ROLLBACK).read_text(),
+                              check=False)
+            if refused.returncode == 0:
+                raise ValueError('The split rollback ran against a database that is no longer at the split')
+            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades and the rating scheme split rollback passed.", flush=True)
             return
         drift = generate_schema(repository, workdir, execute, container, cli_version=cli_version, write=write_schema)
         if write_schema:

@@ -51,7 +51,7 @@ export interface AttentionInput {
 		}>;
 	}>;
 	evaluation: ReadinessSourceResult<{
-		entryId: string;
+		evaluationId: string;
 		evalType: string;
 		reportTypeLabel: string | null;
 		periodEnd: string;
@@ -69,7 +69,7 @@ export type AttentionSource = keyof AttentionInput;
 /** Where an attention row leads: an item's Readiness drawer, the Evals entry, or the Data sheet. */
 export type AttentionTarget =
 	| { tab: 'readiness'; item: { kind: 'training' | 'critical-task'; id: string } }
-	| { tab: 'evals'; entryId: string }
+	| { tab: 'evals'; evaluationId: string }
 	| { tab: 'data-sheet' };
 
 interface AttentionItemBase {

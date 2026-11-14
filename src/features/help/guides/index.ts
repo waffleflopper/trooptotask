@@ -16,6 +16,7 @@ import { openSoldierRecord } from './open-soldier-record';
 import { reviewApprovals } from './review-approvals';
 import { showDutyCalendarLane } from './show-duty-calendar-lane';
 import { startOnboarding } from './start-onboarding';
+import { trackEvaluation } from './track-evaluation';
 import { trackRatingChain } from './track-rating-chain';
 import { turnFeaturesOnOff } from './turn-features-on-off';
 
@@ -36,6 +37,7 @@ export const HELP_GUIDES: readonly HelpGuide[] = [
 	addTrainingTypes,
 	buildCriticalTaskLibrary,
 	trackRatingChain,
+	trackEvaluation,
 	limitMemberToGroups,
 	inviteMembers,
 	reviewApprovals,

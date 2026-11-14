@@ -1,4 +1,4 @@
--- Training, critical tasks and Rating Scheme entries write their own audit entries. Records about a person save the
+-- Training, critical tasks, rating schemes and Evaluations write their own audit entries. Records about a person save the
 -- person's roster label at the time. Every write below runs as an ordinary signed-in member; setup and readback are
 -- the only privileged steps.
 BEGIN;
@@ -54,12 +54,14 @@ INSERT INTO public.personnel_ict_completions (id, organization_id, personnel_id,
 VALUES (pg_temp.id('511'), pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('501'), '2030-03-01', 'Demonstration');
 UPDATE public.personnel_ict_completions SET completed_at = '2030-03-02', notes = 'Private note' WHERE id = pg_temp.id('511');
 UPDATE public.personnel_ict_completions SET validated_by = 'SSG Private' WHERE id = pg_temp.id('511');
-INSERT INTO public.rating_scheme_entries (
-  id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end
-) VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
-UPDATE public.rating_scheme_entries SET rater_person_id = pg_temp.id('302'), notes = 'Private note'
-WHERE id = pg_temp.id('601');
-SELECT public.transition_rating_scheme_entry(pg_temp.id('101'), pg_temp.id('601'), NULL, 'completed');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type)
+VALUES (pg_temp.id('602'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER');
+UPDATE public.rating_schemes SET rater_person_id = pg_temp.id('302'), notes = 'Private note'
+WHERE id = pg_temp.id('602');
+CREATE TEMP TABLE audit_started AS
+  SELECT public.start_evaluation(pg_temp.id('101'), pg_temp.id('602'), 'AN', '2030-01-01', '2030-12-31') AS result;
+SELECT public.transition_evaluation(pg_temp.id('101'), (SELECT (result #>> '{evaluation,id}')::uuid FROM audit_started),
+  'drafting', 'completed');
 RESET ROLE;
 
 SELECT bag_eq(
@@ -111,14 +113,15 @@ SELECT bag_eq(
       '{"completedAt": "2030-03-02", "validationMethod": "Demonstration", "change": {"validator": true}}'::jsonb) $$,
   'a critical task completion saves the task title, the person and the date, and notes a change of validator without the name');
 SELECT bag_eq(
-  $$ SELECT action, record_label, subject_label, details FROM public.audit_logs WHERE resource_type = 'rating_scheme' AND org_id = pg_temp.id('101') $$,
+  $$ SELECT action, record_label, subject_label, details FROM public.audit_logs
+    WHERE resource_type IN ('rating_scheme', 'evaluation') AND org_id = pg_temp.id('101') $$,
   $$ VALUES
-    ('rating_scheme.created', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31"}'::jsonb),
-    ('rating_scheme.updated', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31",
-      "change": {"raters": true, "notes": true}}'::jsonb),
-    ('rating_scheme.updated', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31",
-      "change": {"workflowStatus": {"from": null, "to": "completed"}}}'::jsonb) $$,
-  'a Rating Scheme entry saves the rated person and period, its step changes, and a change of raters and notes without them');
+    ('rating_scheme.created', 'NCOER', 'SPC Doe, Jane', '{}'::jsonb),
+    ('rating_scheme.updated', 'NCOER', 'SPC Doe, Jane', '{"change": {"raters": true, "notes": true}}'::jsonb),
+    ('evaluation.created', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31"}'::jsonb),
+    ('evaluation.updated', 'NCOER', 'SPC Doe, Jane', '{"periodStart": "2030-01-01", "periodEnd": "2030-12-31",
+      "change": {"workflowStatus": {"from": "drafting", "to": "completed"}}}'::jsonb) $$,
+  'a rating scheme saves the rated person and a change of raters and notes without them, and an Evaluation saves its period and step changes');
 
 UPDATE public.personnel SET last_name = 'Smith' WHERE id = pg_temp.id('301');
 -- A Training type with history rows is archived, not deleted; clear them so the type can be removed.
@@ -127,7 +130,7 @@ SELECT pg_temp.act_as('2');
 SET LOCAL ROLE authenticated;
 DELETE FROM public.personnel_trainings WHERE id = pg_temp.id('421');
 DELETE FROM public.personnel_ict_completions WHERE id = pg_temp.id('511');
-DELETE FROM public.rating_scheme_entries WHERE id = pg_temp.id('601');
+DELETE FROM public.evaluations WHERE id = (SELECT (result #>> '{evaluation,id}')::uuid FROM audit_started);
 DELETE FROM public.training_views WHERE id = pg_temp.id('411');
 DELETE FROM public.training_types WHERE id = pg_temp.id('401');
 RESET ROLE;
@@ -136,7 +139,7 @@ SELECT bag_eq(
   $$ VALUES
     ('training_record.deleted', pg_temp.id('2'), 'admin@example.test', 'Annual Safety Brief', 'SPC Smith, Jane'),
     ('personnel_ict_completion.deleted', pg_temp.id('2'), 'admin@example.test', 'Apply a hemorrhage tourniquet', 'SPC Smith, Jane'),
-    ('rating_scheme.deleted', pg_temp.id('2'), 'admin@example.test', 'NCOER', 'SPC Smith, Jane'),
+    ('evaluation.deleted', pg_temp.id('2'), 'admin@example.test', 'NCOER', 'SPC Smith, Jane'),
     ('training_view.deleted', pg_temp.id('2'), 'admin@example.test', 'Medic board', NULL),
     ('training_type.deleted', pg_temp.id('2'), 'admin@example.test', 'Annual Safety Brief', NULL) $$,
   'a deletion saves the actor and the last labels, and an entry written before a rename keeps the name it had');

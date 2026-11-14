@@ -10,7 +10,7 @@ export const APPROVAL_KINDS = {
 	counseling_record: { label: 'Counseling record', approveLabel: 'Approve delete' },
 	training_type: { label: 'Training type', approveLabel: 'Approve delete' },
 	personnel_training: { label: 'Training record', approveLabel: 'Approve delete' },
-	rating_scheme_entry: { label: 'Rating scheme', approveLabel: 'Approve delete' }
+	evaluation: { label: 'Evaluation', approveLabel: 'Approve delete' }
 } as const satisfies Record<DeletionRequestResourceType, ApprovalKind>;
 
 /** Saved requests keep their original type, so one from a retired kind still gets a row. */

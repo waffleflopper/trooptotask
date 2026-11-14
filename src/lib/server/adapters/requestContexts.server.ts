@@ -868,7 +868,7 @@ export function createRequestUnitCountsContext(request: AdmittedOrganizationRequ
 	const client = () => (admin ??= getAdminClient());
 	return {
 		unitCounts: createSupabaseOrganizationUnitCountsPort(client, orgId, {
-			countEntries: () => createSupabaseRatingSchemePersistence(client(), orgId).countEntries()
+			countRatingSchemes: () => createSupabaseRatingSchemePersistence(client(), orgId).countRatingSchemes()
 		})
 	};
 }
@@ -930,8 +930,7 @@ export function createApprovedDeletionEffects(
 			training.approveTrainingTypeDeletion(ctx, requestId, id, reviewedAt),
 		approveTrainingRecord: (requestId, id, reviewedAt) =>
 			training.approveTrainingRecordDeletion(ctx, requestId, id, reviewedAt),
-		approveRatingEntry: (requestId, id, reviewedAt) =>
-			rating.approveRatingSchemeEntryDeletion(ctx, requestId, id, reviewedAt),
+		approveEvaluation: (requestId, id, reviewedAt) => rating.approveEvaluationDeletion(ctx, requestId, id, reviewedAt),
 		approveCounseling: (requestId, id, reviewedAt) =>
 			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
 	};

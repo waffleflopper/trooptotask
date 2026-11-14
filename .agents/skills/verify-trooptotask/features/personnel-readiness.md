@@ -49,7 +49,7 @@ then confirm with `$V rows training_types orgA`.
    Training shows a busy skeleton while critical tasks and the rail render. The skeleton is shaped like the smallest
    typical table (one problem, the Current group row, one current item and the footer), so for a Person with one of
    each, such as Able, `Critical tasks` keeps its top when Training loads. Each additional row adds 57 px.
-   `$V server-source release`, then `restore`. Holding `personnel_ict_completions` or `rating_scheme_entries` shows the
+   `$V server-source release`, then `restore`. Holding `personnel_ict_completions` or `evaluations` shows the
    same for Critical tasks and the Evaluation card (its empty state, 90 px).
 3. **Unchecked.** `$V server-source arm personnel_trainings fail-hard 1`, choose the tab. Expect
    `Couldn't check training. Reload the page to try again.` with the other sections loaded. Restore. On a full page load

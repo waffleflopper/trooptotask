@@ -1,9 +1,9 @@
-import { ratingSchemeStore } from './stores/ratingScheme.svelte';
+import { evaluationStore, ratingSchemeStore } from './stores/ratingScheme.svelte';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { RatingSchemeEntry } from './rating-scheme.types';
+import type { Evaluation, RatingScheme } from './rating-scheme.types';
 import type { RatingSchemeWorkspaceHydration, RatingSchemeWorkspaceHydrationTarget } from './contracts';
 
 export interface RatingSchemeHydrationLoadable<T> {
@@ -15,7 +15,8 @@ export interface RatingSchemeHydrationLoadable<T> {
 }
 
 export interface RatingSchemeHydrationStores {
-	ratingSchemeStore: RatingSchemeHydrationLoadable<RatingSchemeEntry>;
+	ratingSchemeStore: RatingSchemeHydrationLoadable<RatingScheme>;
+	evaluationStore: RatingSchemeHydrationLoadable<Evaluation>;
 }
 
 export interface RatingSchemeWorkspaceHydrator {
@@ -25,7 +26,8 @@ export interface RatingSchemeWorkspaceHydrator {
 }
 
 const defaultRatingSchemeHydrationStores: RatingSchemeHydrationStores = {
-	ratingSchemeStore
+	ratingSchemeStore,
+	evaluationStore
 };
 
 function createTargetDescriptor<T>(
@@ -58,6 +60,7 @@ export function createRatingSchemeWorkspaceHydrator(): RatingSchemeWorkspaceHydr
 		restrict(orgId: string, stores: RatingSchemeHydrationStores = defaultRatingSchemeHydrationStores) {
 			hydrationTargets.reset();
 			stores.ratingSchemeStore.load([], orgId);
+			stores.evaluationStore.load([], orgId);
 		},
 
 		async hydrate(
@@ -66,15 +69,13 @@ export function createRatingSchemeWorkspaceHydrator(): RatingSchemeWorkspaceHydr
 		): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
-			const descriptor = createTargetDescriptor(
-				hydration.ratingSchemeEntries,
-				stores.ratingSchemeStore,
-				orgId,
-				'ratingSchemeEntries'
-			);
-			if (!descriptor) return;
+			const descriptors = [
+				createTargetDescriptor(hydration.ratingSchemes, stores.ratingSchemeStore, orgId, 'ratingSchemes'),
+				createTargetDescriptor(hydration.evaluations, stores.evaluationStore, orgId, 'evaluations')
+			].filter((descriptor) => descriptor !== undefined);
+			if (!descriptors.length) return;
 
-			await hydrationTargets.applyDescriptors(orgId, [descriptor]);
+			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}
 	};
 }

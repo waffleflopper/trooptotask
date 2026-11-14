@@ -68,7 +68,7 @@ const sources: AttentionInput = {
 	evaluation: {
 		ok: true,
 		value: {
-			entryId: 'eval-1',
+			evaluationId: 'eval-1',
 			evalType: 'NCOER',
 			reportTypeLabel: 'Annual',
 			periodEnd: '2026-11-30',
@@ -121,7 +121,7 @@ describe('buildPersonnelAttention', () => {
 				'2026-10-27',
 				{ tab: 'readiness', item: { kind: 'training', id: 'sharp' } }
 			],
-			['evaluation', 'due', 'Annual NCOER', 55, '2026-11-30', { tab: 'evals', entryId: 'eval-1' }],
+			['evaluation', 'due', 'Annual NCOER', 55, '2026-11-30', { tab: 'evals', evaluationId: 'eval-1' }],
 			['loss', 'upcoming', 'ETS 14 Mar 2027', 159, '2027-03-14', { tab: 'data-sheet' }]
 		]);
 		const [expired, missing, expiring, evaluation] = attention.items;
@@ -190,7 +190,7 @@ describe('buildPersonnelAttention', () => {
 			evaluation: {
 				ok: true,
 				value: {
-					entryId: 'eval-1',
+					evaluationId: 'eval-1',
 					evalType: 'NCOER',
 					reportTypeLabel: 'Annual',
 					periodEnd: '2027-03-01',

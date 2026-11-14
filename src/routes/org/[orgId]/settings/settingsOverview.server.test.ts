@@ -9,7 +9,7 @@ function unitCounts(ratingSchemeEntries: number): OrganizationUnitCountsPort & {
 	return {
 		reads,
 		countRows: async (source) => (reads.push(source.table), TABLE_COUNTS[source.table]),
-		countRatingSchemeEntries: async () => (reads.push('rating_scheme_entries'), ratingSchemeEntries)
+		countRatingSchemeEntries: async () => (reads.push('rating_schemes'), ratingSchemeEntries)
 	};
 }
 
@@ -37,7 +37,7 @@ describe('loadSettingsOverview', () => {
 		});
 
 		expect(await overview.featuresNotSetUp).toEqual(['evaluations']);
-		expect(counts.reads.sort()).toEqual(['onboarding_templates', 'rating_scheme_entries']);
+		expect(counts.reads.sort()).toEqual(['onboarding_templates', 'rating_schemes']);
 	});
 
 	it('reads nothing for features when every checked feature is off', async () => {

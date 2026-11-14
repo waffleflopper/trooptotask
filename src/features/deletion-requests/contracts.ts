@@ -5,7 +5,7 @@ export type DeletionRequestResourceType =
 	| 'counseling_record'
 	| 'training_type'
 	| 'personnel_training'
-	| 'rating_scheme_entry';
+	| 'evaluation';
 
 /** Saved request history retains its original values, including historical resource types. */
 export interface DeletionRequest {

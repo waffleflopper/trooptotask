@@ -12,7 +12,7 @@ describe('createSupabaseRatingSchemeRosterSignals', () => {
 		expect(slices).toHaveBeenCalledWith('evaluations', query);
 		expect(read.get('b')).toBeNull();
 		expect(read.get('a')).toMatchObject({
-			entryId: 'e1',
+			evaluationId: 'e1',
 			periodEnd: '2026-12-07',
 			daysUntilThru: 45,
 			dueStatus: 'due-60',

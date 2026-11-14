@@ -552,6 +552,60 @@ $_$;
 ALTER FUNCTION audit_private.audit_daily_assignment() OWNER TO postgres;
 
 --
+-- Name: audit_evaluation(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_evaluation() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.evaluations;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.rated_person_id);
+  -- Rows removed with their scheme, Person or unit: that deletion is the audited event.
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL
+    OR (TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'evaluation.created' WHEN 'UPDATE' THEN 'evaluation.updated' WHEN 'DELETE' THEN 'evaluation.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
+    IF (NEW.next_rater_person_id, NEW.next_rater_name) IS DISTINCT FROM (OLD.next_rater_person_id, OLD.next_rater_name) THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('nextRater', true);
+    END IF;
+    IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('periodStart', v_row.rating_period_start, 'periodEnd', v_row.rating_period_end);
+  IF TG_OP = 'UPDATE' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'evaluation', v_row.id, v_row.eval_type,
+    v_row.rated_person_id, v_who, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_evaluation() OWNER TO postgres;
+
+--
 -- Name: audit_group(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -1233,10 +1287,10 @@ CREATE FUNCTION audit_private.audit_rating_scheme() RETURNS trigger
     SET search_path TO ''
     AS $$
 DECLARE
-  v_row public.rating_scheme_entries;
+  v_row public.rating_schemes;
   v_kind text;
   v_change jsonb := '{}'::jsonb;
-  v_details jsonb;
+  v_details jsonb := '{}'::jsonb;
   v_who text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -1254,8 +1308,11 @@ BEGIN
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'rating_scheme.created' WHEN 'UPDATE' THEN 'rating_scheme.updated' WHEN 'DELETE' THEN 'rating_scheme.deleted' END;
   IF TG_OP = 'UPDATE' THEN
-    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
-    IF NEW.rater_person_id IS DISTINCT FROM OLD.rater_person_id OR NEW.rater_name IS DISTINCT FROM OLD.rater_name OR NEW.senior_rater_person_id IS DISTINCT FROM OLD.senior_rater_person_id OR NEW.senior_rater_name IS DISTINCT FROM OLD.senior_rater_name OR NEW.intermediate_rater_person_id IS DISTINCT FROM OLD.intermediate_rater_person_id OR NEW.intermediate_rater_name IS DISTINCT FROM OLD.intermediate_rater_name OR NEW.reviewer_person_id IS DISTINCT FROM OLD.reviewer_person_id OR NEW.reviewer_name IS DISTINCT FROM OLD.reviewer_name THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type"}');
+    IF (NEW.rater_person_id, NEW.rater_name, NEW.intermediate_rater_person_id, NEW.intermediate_rater_name,
+      NEW.senior_rater_person_id, NEW.senior_rater_name, NEW.reviewer_person_id, NEW.reviewer_name)
+      IS DISTINCT FROM (OLD.rater_person_id, OLD.rater_name, OLD.intermediate_rater_person_id, OLD.intermediate_rater_name,
+      OLD.senior_rater_person_id, OLD.senior_rater_name, OLD.reviewer_person_id, OLD.reviewer_name) THEN
       v_change := v_change || pg_catalog.jsonb_build_object('raters', true);
     END IF;
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
@@ -1270,10 +1327,9 @@ BEGIN
     ELSIF v_change = '{}'::jsonb THEN
       RETURN NULL;
     END IF;
-  END IF;
-  v_details := pg_catalog.jsonb_build_object('periodStart', v_row.rating_period_start, 'periodEnd', v_row.rating_period_end);
-  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
-    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+    IF v_change <> '{}'::jsonb THEN
+      v_details := pg_catalog.jsonb_build_object('change', v_change);
+    END IF;
   END IF;
   PERFORM audit_private.record_entry(
     v_row.organization_id, v_kind, 'rating_scheme', v_row.id, v_row.eval_type,
@@ -3277,6 +3333,41 @@ $$;
 ALTER FUNCTION organization_private.cascade_group_path() OWNER TO postgres;
 
 --
+-- Name: clear_next_rater(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.clear_next_rater() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  NEW.next_rater_person_id := NULL;
+  NEW.next_rater_name := NULL;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.clear_next_rater() OWNER TO postgres;
+
+--
+-- Name: delete_frozen_rating_scheme_entry(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.delete_frozen_rating_scheme_entry() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  DELETE FROM public.rating_scheme_entries WHERE id = OLD.id;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.delete_frozen_rating_scheme_entry() OWNER TO postgres;
+
+--
 -- Name: fence_inserted_artifact_files(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -3451,6 +3542,25 @@ $$;
 ALTER FUNCTION organization_private.file_key_retired(p_bucket_id text, p_object_name text) OWNER TO postgres;
 
 --
+-- Name: follow_scheme_eval_type(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  UPDATE public.evaluations AS e SET eval_type = NEW.eval_type
+  WHERE e.rating_scheme_id = NEW.id AND e.eval_type <> NEW.eval_type
+    AND e.workflow_status IS DISTINCT FROM 'completed';
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.follow_scheme_eval_type() OWNER TO postgres;
+
+--
 -- Name: group_within(uuid, uuid, uuid); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -3514,6 +3624,79 @@ $$;
 
 
 ALTER FUNCTION organization_private.keep_artifact_identity() OWNER TO postgres;
+
+--
+-- Name: keep_completed_report(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.keep_completed_report() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF (NEW.report_type, NEW.rating_period_start, NEW.rating_period_end, NEW.next_rater_name)
+      IS DISTINCT FROM (OLD.report_type, OLD.rating_period_start, OLD.rating_period_end, OLD.next_rater_name)
+    OR (NEW.next_rater_person_id IS DISTINCT FROM OLD.next_rater_person_id
+      AND NOT (NEW.next_rater_person_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM public.personnel AS p WHERE p.id = OLD.next_rater_person_id))) THEN
+    RAISE EXCEPTION 'Reopen this evaluation to change its report or period' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.keep_completed_report() OWNER TO postgres;
+
+--
+-- Name: keep_evaluation_chain_snapshot(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.workflow_status = 'completed' THEN
+    IF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    END IF;
+    IF NEW.report_type = 'CR' AND NEW.rater_changed_at IS NULL THEN
+      NEW.rater_changed_at := pg_catalog.now();
+    END IF;
+    IF NEW.chain_snapshot_at IS NULL THEN
+      SELECT pg_catalog.now(), s.rater_person_id, s.rater_name, s.intermediate_rater_person_id,
+        s.intermediate_rater_name, s.senior_rater_person_id, s.senior_rater_name, s.reviewer_person_id, s.reviewer_name
+      INTO NEW.chain_snapshot_at, NEW.snapshot_rater_person_id, NEW.snapshot_rater_name,
+        NEW.snapshot_intermediate_rater_person_id, NEW.snapshot_intermediate_rater_name,
+        NEW.snapshot_senior_rater_person_id, NEW.snapshot_senior_rater_name, NEW.snapshot_reviewer_person_id,
+        NEW.snapshot_reviewer_name
+      FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      NEW.chain_snapshot_at := pg_catalog.now();
+    END IF;
+  ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
+    -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
+    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR SHARE;
+    IF NEW.rater_changed_at IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
+    NEW.chain_snapshot_at := NULL;
+    NEW.snapshot_rater_person_id := NULL;
+    NEW.snapshot_rater_name := NULL;
+    NEW.snapshot_intermediate_rater_person_id := NULL;
+    NEW.snapshot_intermediate_rater_name := NULL;
+    NEW.snapshot_senior_rater_person_id := NULL;
+    NEW.snapshot_senior_rater_name := NULL;
+    NEW.snapshot_reviewer_person_id := NULL;
+    NEW.snapshot_reviewer_name := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.keep_evaluation_chain_snapshot() OWNER TO postgres;
 
 --
 -- Name: keep_follow_up_archive_time(); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -4041,6 +4224,34 @@ $$;
 ALTER FUNCTION organization_private.require_onboarding_operation_rules() OWNER TO postgres;
 
 --
+-- Name: require_one_open_evaluation(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.require_one_open_evaluation() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.workflow_status IS NULL OR NEW.workflow_status = 'completed'
+    OR (TG_OP = 'UPDATE' AND OLD.workflow_status IS NOT NULL AND OLD.workflow_status <> 'completed') THEN
+    RETURN NEW;
+  END IF;
+  PERFORM 1 FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR UPDATE;
+  IF EXISTS (
+    SELECT 1 FROM public.evaluations AS e
+    WHERE e.rating_scheme_id = NEW.rating_scheme_id AND e.id <> NEW.id
+      AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
+  ) THEN
+    RAISE EXCEPTION 'Another evaluation is already open on this rating scheme' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.require_one_open_evaluation() OWNER TO postgres;
+
+--
 -- Name: require_personnel_lifecycle_authority(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -4064,6 +4275,33 @@ $$;
 
 
 ALTER FUNCTION organization_private.require_personnel_lifecycle_authority() OWNER TO postgres;
+
+--
+-- Name: require_rater_change_report(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.require_rater_change_report() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF OLD.rater_person_id IS NOT NULL AND NEW.rater_person_id IS DISTINCT FROM OLD.rater_person_id
+    AND NOT (
+      NEW.rater_person_id IS NULL AND OLD.rater_person_id IS NOT NULL AND NEW.rater_name IS NOT DISTINCT FROM OLD.rater_name
+      AND NOT EXISTS (SELECT 1 FROM public.personnel AS p WHERE p.id = OLD.rater_person_id)
+    )
+    AND EXISTS (
+      SELECT 1 FROM public.evaluations AS e
+      WHERE e.rating_scheme_id = NEW.id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
+    ) THEN
+    RAISE EXCEPTION 'Complete a Change of Rater evaluation to replace this rater' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.require_rater_change_report() OWNER TO postgres;
 
 --
 -- Name: require_registered_file_upload(); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -5095,7 +5333,7 @@ BEGIN
 	IF public.feature_is_off(p_organization_id, CASE p_resource_type
 		WHEN 'training_type' THEN 'training'
 		WHEN 'personnel_training' THEN 'training'
-		WHEN 'rating_scheme_entry' THEN 'evaluations'
+		WHEN 'evaluation' THEN 'evaluations'
 	END) THEN
 		RAISE EXCEPTION 'This feature is turned off for the organization' USING ERRCODE = '42501';
 	END IF;
@@ -5107,8 +5345,8 @@ BEGIN
 	ELSIF p_resource_type = 'personnel_training' THEN
 		DELETE FROM public.personnel_trainings
 		WHERE organization_id = p_organization_id AND id = p_resource_id;
-	ELSIF p_resource_type = 'rating_scheme_entry' THEN
-		DELETE FROM public.rating_scheme_entries
+	ELSIF p_resource_type = 'evaluation' THEN
+		DELETE FROM public.evaluations
 		WHERE organization_id = p_organization_id AND id = p_resource_id;
 	ELSE
 		RAISE EXCEPTION 'Unsupported deletion resource type' USING ERRCODE = '22023';
@@ -6488,88 +6726,6 @@ $$;
 ALTER FUNCTION public.cancel_own_deletion_request(p_organization_id uuid, p_request_id uuid) OWNER TO postgres;
 
 --
--- Name: change_rating_scheme_rater(uuid, uuid, date, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid DEFAULT NULL::uuid, p_rater_name text DEFAULT NULL::text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
-    AS $$
-DECLARE
-  v_row public.rating_scheme_entries;
-  v_rater_name text := NULLIF(pg_catalog.btrim(p_rater_name), '');
-  v_start date := p_change_date + 1;
-  v_successor public.rating_scheme_entries;
-BEGIN
-  IF (p_rater_person_id IS NULL) = (v_rater_name IS NULL) THEN
-    RAISE EXCEPTION 'Choose one new rater' USING ERRCODE = '22023';
-  END IF;
-  IF p_change_date IS NULL THEN
-    RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
-  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
-  FOR UPDATE;
-  IF NOT FOUND OR auth.uid() IS NULL
-    OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
-  END IF;
-  IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Changing this rater needs Evals operation access for its scope' USING ERRCODE = '42501';
-  END IF;
-
-  IF v_row.workflow_status = 'completed' THEN
-    SELECT * INTO v_successor FROM public.rating_scheme_entries AS s
-    WHERE v_row.report_type = 'CR' AND v_row.rating_period_end = p_change_date
-      AND s.organization_id = p_organization_id AND s.rated_person_id = v_row.rated_person_id
-      AND s.eval_type IS NOT DISTINCT FROM v_row.eval_type AND s.rating_period_start = v_start
-      AND (s.rater_person_id = p_rater_person_id
-        OR (p_rater_person_id IS NULL AND s.rater_person_id IS NULL
-          AND pg_catalog.lower(pg_catalog.btrim(s.rater_name)) = pg_catalog.lower(v_rater_name)))
-    ORDER BY s.created_at DESC, s.id
-    LIMIT 1;
-    RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row),
-      'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
-  END IF;
-  IF v_row.archived_at IS NOT NULL THEN
-    RAISE EXCEPTION 'The evaluation is archived' USING ERRCODE = '55000';
-  END IF;
-  IF p_rater_person_id = v_row.rater_person_id
-    OR (p_rater_person_id IS NULL AND v_row.rater_person_id IS NULL
-      AND pg_catalog.lower(v_rater_name) = pg_catalog.lower(pg_catalog.btrim(v_row.rater_name))) THEN
-    RAISE EXCEPTION 'The new rater is already this evaluation''s rater' USING ERRCODE = '22023';
-  END IF;
-  IF p_change_date < v_row.rating_period_start OR p_change_date > v_row.rating_period_end THEN
-    RAISE EXCEPTION 'The last day with the current rater must fall within the rating period' USING ERRCODE = '22023';
-  END IF;
-
-  UPDATE public.rating_scheme_entries
-  SET rating_period_end = p_change_date, report_type = 'CR', workflow_status = 'completed',
-    archived_at = pg_catalog.now()
-  WHERE organization_id = p_organization_id AND id = p_entry_id
-  RETURNING * INTO v_row;
-
-  INSERT INTO public.rating_scheme_entries (
-    organization_id, rated_person_id, eval_type, rater_person_id, rater_name,
-    senior_rater_person_id, senior_rater_name, intermediate_rater_person_id, intermediate_rater_name,
-    reviewer_person_id, reviewer_name, rating_period_start, rating_period_end, report_type
-  ) VALUES (
-    p_organization_id, v_row.rated_person_id, v_row.eval_type, p_rater_person_id, v_rater_name,
-    v_row.senior_rater_person_id, v_row.senior_rater_name, v_row.intermediate_rater_person_id, v_row.intermediate_rater_name,
-    v_row.reviewer_person_id, v_row.reviewer_name, v_start,
-    -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
-    (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
-    'AN'
-  ) RETURNING * INTO v_successor;
-  RETURN pg_catalog.jsonb_build_object('entry', pg_catalog.to_jsonb(v_row), 'successor', pg_catalog.to_jsonb(v_successor));
-END;
-$$;
-
-
-ALTER FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) OWNER TO postgres;
-
---
 -- Name: check_account_setup_rate_limit(text, integer, integer, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -7763,11 +7919,15 @@ BEGIN
   END IF;
 
   -- Training and rating approvals delete their record before approving its request, and archive approval
-  -- locks its request before the Person. The purge takes records, then requests, then People.
+  -- locks its request before the Person. The purge takes records, then requests, then People. A scheme locks
+  -- before its Evaluations, the order a scheme type change takes.
   PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
     WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
-  PERFORM 1 FROM (SELECT record.id FROM public.rating_scheme_entries AS record
+  PERFORM 1 FROM (SELECT scheme.id FROM public.rating_schemes AS scheme
+    WHERE scheme.organization_id = p_org_id AND scheme.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY scheme.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT record.id FROM public.evaluations AS record
     WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
 
@@ -7780,7 +7940,7 @@ BEGIN
         WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
       WHEN 'personnel_training' THEN (SELECT record.personnel_id FROM public.personnel_trainings AS record
         WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
-      WHEN 'rating_scheme_entry' THEN (SELECT record.rated_person_id FROM public.rating_scheme_entries AS record
+      WHEN 'evaluation' THEN (SELECT record.rated_person_id FROM public.evaluations AS record
         WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
     END AS person_id) AS target
     WHERE request.organization_id = p_org_id AND request.status = 'pending'
@@ -12472,13 +12632,15 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
     ORDER BY pc.personnel_id, pc.ict_task_id, pc.completed_at DESC, pc.created_at DESC
   ),
   active_evaluations AS (
-    SELECT DISTINCT ON (r.rated_person_id)
-      r.rated_person_id, r.id, r.eval_type, r.report_type, r.rating_period_start, r.rating_period_end,
-      r.workflow_status
-    FROM public.rating_scheme_entries r
-    JOIN evaluation_cohort c ON c.id = r.rated_person_id
-    WHERE r.organization_id = p_organization_id AND r.archived_at IS NULL AND r.workflow_status IS DISTINCT FROM 'completed'
-    ORDER BY r.rated_person_id, r.rating_period_end DESC, r.id DESC
+    SELECT DISTINCT ON (e.rated_person_id)
+      e.rated_person_id, e.id, e.eval_type, e.report_type, e.rating_period_start, e.rating_period_end,
+      e.workflow_status
+    FROM public.evaluations e
+    JOIN public.rating_schemes s ON s.id = e.rating_scheme_id
+    JOIN evaluation_cohort c ON c.id = e.rated_person_id
+    WHERE e.organization_id = p_organization_id AND e.workflow_status IS DISTINCT FROM 'completed'
+      AND (s.archived_at IS NULL OR e.workflow_status IS NOT NULL)
+    ORDER BY e.rated_person_id, e.rating_period_end DESC, e.id DESC
   )
   SELECT jsonb_build_object(
     'availability', CASE WHEN 'availability' = ANY (p_sources) THEN jsonb_build_object(
@@ -13241,45 +13403,49 @@ $$;
 ALTER FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) OWNER TO postgres;
 
 --
--- Name: set_rating_scheme_entry_archived(uuid, uuid, boolean); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: set_rating_scheme_archived(uuid, uuid, boolean); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) RETURNS jsonb
+CREATE FUNCTION public.set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
-  v_row public.rating_scheme_entries;
+  v_row public.rating_schemes;
 BEGIN
   IF p_archived IS NULL THEN
-    RAISE EXCEPTION 'Choose whether to archive or restore the evaluation' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'Choose whether to archive or restore the rating scheme' USING ERRCODE = '22023';
   END IF;
 
-  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
-  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
+  SELECT * INTO v_row FROM public.rating_schemes AS s
+  WHERE s.organization_id = p_organization_id AND s.id = p_rating_scheme_id
   FOR UPDATE;
   IF NOT FOUND OR auth.uid() IS NULL
     OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Evaluation not found' USING ERRCODE = 'P0002';
+    RAISE EXCEPTION 'Rating scheme not found' USING ERRCODE = 'P0002';
   END IF;
   IF public.can_edit_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
-    RAISE EXCEPTION 'Archiving this evaluation needs Evals operation access for its scope' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'Archiving this rating scheme needs Evals operation access for its scope' USING ERRCODE = '42501';
   END IF;
 
   IF (v_row.archived_at IS NOT NULL) = p_archived THEN
-    RETURN pg_catalog.jsonb_build_object('changed', false, 'entry', pg_catalog.to_jsonb(v_row));
+    RETURN pg_catalog.jsonb_build_object('changed', false, 'ratingScheme', pg_catalog.to_jsonb(v_row) - 'archived_by');
   END IF;
 
-  UPDATE public.rating_scheme_entries
-  SET archived_at = CASE WHEN p_archived THEN pg_catalog.now() END
-  WHERE organization_id = p_organization_id AND id = p_entry_id
-  RETURNING * INTO v_row;
-  RETURN pg_catalog.jsonb_build_object('changed', true, 'entry', pg_catalog.to_jsonb(v_row));
+  BEGIN
+    UPDATE public.rating_schemes
+    SET archived_at = CASE WHEN p_archived THEN pg_catalog.now() END
+    WHERE organization_id = p_organization_id AND id = p_rating_scheme_id
+    RETURNING * INTO v_row;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'This person already has a rating scheme' USING ERRCODE = '23505';
+  END;
+  RETURN pg_catalog.jsonb_build_object('changed', true, 'ratingScheme', pg_catalog.to_jsonb(v_row) - 'archived_by');
 END;
 $$;
 
 
-ALTER FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) OWNER TO postgres;
+ALTER FUNCTION public.set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean) OWNER TO postgres;
 
 --
 -- Name: set_roster_excusals(uuid, uuid, date, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
@@ -14065,6 +14231,90 @@ $$;
 ALTER FUNCTION public.start_account_setup_attempt() OWNER TO postgres;
 
 --
+-- Name: start_evaluation(uuid, uuid, text, date, date, boolean, text, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean DEFAULT false, p_notes text DEFAULT NULL::text, p_next_rater_person_id uuid DEFAULT NULL::uuid, p_next_rater_name text DEFAULT NULL::text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_scheme public.rating_schemes;
+  v_row public.evaluations;
+  v_report_type text := NULLIF(pg_catalog.btrim(p_report_type), '');
+  v_next_rater_name text := NULLIF(pg_catalog.btrim(p_next_rater_name), '');
+BEGIN
+  IF p_rating_period_start IS NULL OR p_rating_period_end IS NULL OR p_rating_period_end < p_rating_period_start THEN
+    RAISE EXCEPTION 'Choose a rating period that ends on or after it starts' USING ERRCODE = '22023';
+  END IF;
+  IF p_completed IS NULL THEN
+    RAISE EXCEPTION 'Choose whether the evaluation is completed' USING ERRCODE = '22023';
+  END IF;
+  IF p_next_rater_person_id IS NOT NULL OR v_next_rater_name IS NOT NULL THEN
+    IF v_report_type IS DISTINCT FROM 'CR' OR p_completed THEN
+      RAISE EXCEPTION 'Only an open Change of Rater evaluation names a next rater' USING ERRCODE = '22023';
+    END IF;
+    IF p_next_rater_person_id IS NOT NULL AND v_next_rater_name IS NOT NULL THEN
+      RAISE EXCEPTION 'Choose one next rater' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  SELECT * INTO v_scheme FROM public.rating_schemes AS s
+  WHERE s.organization_id = p_organization_id AND s.id = p_rating_scheme_id
+  FOR UPDATE;
+  IF NOT FOUND OR auth.uid() IS NULL
+    OR public.can_view_rating_scheme_record(p_organization_id, v_scheme.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Rating scheme not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF public.can_edit_rating_scheme_record(p_organization_id, v_scheme.rated_person_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Starting an evaluation needs Evals operation access for its scope' USING ERRCODE = '42501';
+  END IF;
+  IF v_scheme.archived_at IS NOT NULL THEN
+    RAISE EXCEPTION 'The rating scheme is archived' USING ERRCODE = '55000';
+  END IF;
+
+  IF p_completed THEN
+    SELECT * INTO v_row FROM public.evaluations AS e
+    WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status = 'completed'
+      AND e.report_type IS NOT DISTINCT FROM v_report_type
+      AND e.rating_period_start = p_rating_period_start AND e.rating_period_end = p_rating_period_end
+    ORDER BY e.created_at, e.id
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN pg_catalog.jsonb_build_object('created', false, 'evaluation', pg_catalog.to_jsonb(v_row));
+    END IF;
+  ELSE
+    SELECT * INTO v_row FROM public.evaluations AS e
+    WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
+    ORDER BY e.created_at DESC, e.id
+    LIMIT 1;
+    IF FOUND THEN
+      IF v_row.report_type IS NOT DISTINCT FROM v_report_type
+        AND v_row.rating_period_start = p_rating_period_start AND v_row.rating_period_end = p_rating_period_end
+        AND (v_row.next_rater_person_id, v_row.next_rater_name)
+          IS NOT DISTINCT FROM (p_next_rater_person_id, v_next_rater_name) THEN
+        RETURN pg_catalog.jsonb_build_object('created', false, 'evaluation', pg_catalog.to_jsonb(v_row));
+      END IF;
+      RAISE EXCEPTION 'Another evaluation is already open on this rating scheme' USING ERRCODE = '55000';
+    END IF;
+  END IF;
+
+  INSERT INTO public.evaluations (
+    organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
+    rating_period_end, workflow_status, notes, next_rater_person_id, next_rater_name
+  ) VALUES (
+    p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type, v_report_type, p_rating_period_start,
+    p_rating_period_end, CASE WHEN p_completed THEN 'completed' ELSE 'drafting' END,
+    NULLIF(pg_catalog.btrim(p_notes), ''), p_next_rater_person_id, v_next_rater_name
+  ) RETURNING * INTO v_row;
+  RETURN pg_catalog.jsonb_build_object('created', true, 'evaluation', pg_catalog.to_jsonb(v_row));
+END;
+$$;
+
+
+ALTER FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean, p_notes text, p_next_rater_person_id uuid, p_next_rater_name text) OWNER TO postgres;
+
+--
 -- Name: start_onboarding_packet(uuid, uuid, uuid, date, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -14230,7 +14480,7 @@ BEGIN
   IF p_organization_id IS NULL OR p_requested_by IS NULL OR p_resource_id IS NULL
     OR p_requester_email IS NULL OR p_description IS NULL
     OR p_resource_type IS NULL OR p_resource_type NOT IN (
-      'personnel', 'training_type', 'personnel_training', 'rating_scheme_entry', 'counseling_record'
+      'personnel', 'training_type', 'personnel_training', 'evaluation', 'counseling_record'
     )
   THEN
     RAISE EXCEPTION 'Invalid deletion request submission' USING ERRCODE = '22023';
@@ -14614,10 +14864,10 @@ $$;
 ALTER FUNCTION public.transition_calendar_tasking(p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text) OWNER TO postgres;
 
 --
--- Name: transition_rating_scheme_entry(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: transition_evaluation(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text DEFAULT NULL::text, p_to text DEFAULT NULL::text) RETURNS jsonb
+CREATE FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text DEFAULT NULL::text, p_to text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -14625,15 +14875,27 @@ DECLARE
   v_steps CONSTANT text[] := ARRAY['drafting', 'command-review', 'with-rater', 'rater-signed', 'with-intermediate-rater',
     'ir-signed', 'with-senior-rater', 'sr-signed', 'with-reviewer', 'reviewer-signed', 'with-rated-soldier', 'sm-signed',
     'submitted-to-hrc', 'completed'];
-  v_row public.rating_scheme_entries;
+  v_row public.evaluations;
+  v_before public.evaluations;
+  v_scheme public.rating_schemes;
+  v_successor public.evaluations;
+  v_start date;
+  v_has_ir boolean;
+  v_has_reviewer boolean;
   v_absent text[] := '{}';
+  v_rater_change jsonb;
 BEGIN
   IF p_to IS NOT NULL AND NOT p_to = ANY (v_steps) THEN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
   END IF;
 
-  SELECT * INTO v_row FROM public.rating_scheme_entries AS r
-  WHERE r.organization_id = p_organization_id AND r.id = p_entry_id
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
+  SELECT * INTO v_row FROM public.evaluations AS e
+  WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
   IF NOT FOUND OR auth.uid() IS NULL
     OR public.can_view_rating_scheme_record(p_organization_id, v_row.rated_person_id) IS NOT TRUE THEN
@@ -14644,17 +14906,40 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN pg_catalog.jsonb_build_object('moved', false, 'entry', pg_catalog.to_jsonb(v_row));
+    IF p_to = 'completed' AND v_row.report_type = 'CR' AND v_row.rater_changed_at IS NOT NULL THEN
+      SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+      SELECT * INTO v_successor FROM public.evaluations AS e
+      WHERE e.rating_scheme_id = v_row.rating_scheme_id AND e.report_type = 'AN'
+        AND e.rating_period_start = v_row.rating_period_end + 1
+      ORDER BY e.created_at, e.id LIMIT 1;
+      v_rater_change := pg_catalog.jsonb_build_object('ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
+        'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
+    END IF;
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row),
+      'raterChange', v_rater_change);
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  IF v_row.intermediate_rater_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.intermediate_rater_name), '') IS NULL THEN
+  IF v_row.chain_snapshot_at IS NOT NULL
+    AND (v_row.workflow_status IS DISTINCT FROM 'completed' OR v_row.rater_changed_at IS NOT NULL) THEN
+    v_has_ir := v_row.snapshot_intermediate_rater_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_row.snapshot_intermediate_rater_name), '') IS NOT NULL;
+    v_has_reviewer := v_row.snapshot_reviewer_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_row.snapshot_reviewer_name), '') IS NOT NULL;
+  ELSE
+    SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+    v_has_ir := v_scheme.intermediate_rater_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_scheme.intermediate_rater_name), '') IS NOT NULL;
+    v_has_reviewer := v_scheme.reviewer_person_id IS NOT NULL
+      OR NULLIF(pg_catalog.btrim(v_scheme.reviewer_name), '') IS NOT NULL;
+  END IF;
+  IF NOT v_has_ir THEN
     v_absent := v_absent || ARRAY['with-intermediate-rater', 'ir-signed'];
   END IF;
-  IF v_row.reviewer_person_id IS NULL AND NULLIF(pg_catalog.btrim(v_row.reviewer_name), '') IS NULL THEN
+  IF NOT v_has_reviewer THEN
     v_absent := v_absent || ARRAY['with-reviewer', 'reviewer-signed'];
   END IF;
 
@@ -14665,15 +14950,38 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_to, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  UPDATE public.rating_scheme_entries SET workflow_status = p_to
-  WHERE organization_id = p_organization_id AND id = p_entry_id
+  v_before := v_row;
+  UPDATE public.evaluations SET workflow_status = p_to
+  WHERE organization_id = p_organization_id AND id = p_evaluation_id
   RETURNING * INTO v_row;
-  RETURN pg_catalog.jsonb_build_object('moved', true, 'entry', pg_catalog.to_jsonb(v_row));
+
+  IF p_to = 'completed' AND v_before.report_type = 'CR' AND v_before.rater_changed_at IS NULL THEN
+    UPDATE public.rating_schemes
+    SET rater_person_id = v_row.next_rater_person_id, rater_name = v_row.next_rater_name
+    WHERE id = v_row.rating_scheme_id
+    RETURNING * INTO v_scheme;
+    IF v_scheme.archived_at IS NULL THEN
+      v_start := v_row.rating_period_end + 1;
+      INSERT INTO public.evaluations (
+        organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
+        rating_period_end, workflow_status
+      ) VALUES (
+        p_organization_id, v_scheme.id, v_scheme.rated_person_id, v_scheme.eval_type, 'AN', v_start,
+        -- calculateThruDate's annual rule: a month past the end rolls over (29 Feb 2028 runs through 28 Feb 2029).
+        (pg_catalog.date_trunc('month', v_start) + interval '12 months')::date + (EXTRACT(DAY FROM v_start)::integer - 2),
+        'drafting'
+      ) RETURNING * INTO v_successor;
+    END IF;
+    v_rater_change := pg_catalog.jsonb_build_object('ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
+      'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
+  END IF;
+  RETURN pg_catalog.jsonb_build_object('moved', true, 'evaluation', pg_catalog.to_jsonb(v_row),
+    'raterChange', v_rater_change);
 END;
 $$;
 
 
-ALTER FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) OWNER TO postgres;
+ALTER FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text, p_to text) OWNER TO postgres;
 
 --
 -- Name: undo_roster_swap(uuid, uuid, date); Type: FUNCTION; Schema: public; Owner: postgres
@@ -15585,6 +15893,44 @@ CREATE TABLE public.durable_rate_limits (
 ALTER TABLE public.durable_rate_limits OWNER TO postgres;
 
 --
+-- Name: evaluations; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.evaluations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    rating_scheme_id uuid NOT NULL,
+    rated_person_id uuid NOT NULL,
+    eval_type text NOT NULL,
+    report_type text,
+    rating_period_start date NOT NULL,
+    rating_period_end date NOT NULL,
+    workflow_status text,
+    notes text,
+    chain_snapshot_at timestamp with time zone,
+    snapshot_rater_person_id uuid,
+    snapshot_rater_name text,
+    snapshot_intermediate_rater_person_id uuid,
+    snapshot_intermediate_rater_name text,
+    snapshot_senior_rater_person_id uuid,
+    snapshot_senior_rater_name text,
+    snapshot_reviewer_person_id uuid,
+    snapshot_reviewer_name text,
+    next_rater_person_id uuid,
+    next_rater_name text,
+    rater_changed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT evaluations_chain_snapshot_check CHECK (((chain_snapshot_at IS NOT NULL) OR ((snapshot_rater_person_id IS NULL) AND (snapshot_rater_name IS NULL) AND (snapshot_intermediate_rater_person_id IS NULL) AND (snapshot_intermediate_rater_name IS NULL) AND (snapshot_senior_rater_person_id IS NULL) AND (snapshot_senior_rater_name IS NULL) AND (snapshot_reviewer_person_id IS NULL) AND (snapshot_reviewer_name IS NULL)))),
+    CONSTRAINT evaluations_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text]))),
+    CONSTRAINT evaluations_next_rater_check CHECK (((num_nonnulls(next_rater_person_id, next_rater_name) = 0) OR ((NOT (report_type IS DISTINCT FROM 'CR'::text)) AND (num_nonnulls(next_rater_person_id, next_rater_name) = 1)))),
+    CONSTRAINT evaluations_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'command-review'::text, 'with-rater'::text, 'rater-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-hrc'::text, 'completed'::text]))))
+);
+
+
+ALTER TABLE public.evaluations OWNER TO postgres;
+
+--
 -- Name: feedback_replies; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -16228,6 +16574,34 @@ CREATE TABLE public.rating_scheme_entries (
 ALTER TABLE public.rating_scheme_entries OWNER TO postgres;
 
 --
+-- Name: rating_schemes; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.rating_schemes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    rated_person_id uuid NOT NULL,
+    eval_type text NOT NULL,
+    rater_person_id uuid,
+    rater_name text,
+    intermediate_rater_person_id uuid,
+    intermediate_rater_name text,
+    senior_rater_person_id uuid,
+    senior_rater_name text,
+    reviewer_person_id uuid,
+    reviewer_name text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    archived_at timestamp with time zone,
+    archived_by text,
+    CONSTRAINT rating_schemes_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text])))
+);
+
+
+ALTER TABLE public.rating_schemes OWNER TO postgres;
+
+--
 -- Name: roster_excusals; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -16840,6 +17214,14 @@ ALTER TABLE ONLY public.durable_rate_limits
 
 
 --
+-- Name: evaluations evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: feedback_replies feedback_replies_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -17165,6 +17547,22 @@ ALTER TABLE ONLY public.platform_operators
 
 ALTER TABLE ONLY public.rating_scheme_entries
     ADD CONSTRAINT rating_scheme_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rating_schemes rating_schemes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rating_schemes rating_schemes_rated_person_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_rated_person_key UNIQUE (id, organization_id, rated_person_id);
 
 
 --
@@ -17615,6 +18013,62 @@ CREATE INDEX data_exports_processing_created_at_idx ON public.data_exports USING
 --
 
 CREATE INDEX durable_rate_limits_reset_at_idx ON public.durable_rate_limits USING btree (reset_at);
+
+
+--
+-- Name: evaluations_next_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_next_rater_idx ON public.evaluations USING btree (next_rater_person_id) WHERE (next_rater_person_id IS NOT NULL);
+
+
+--
+-- Name: evaluations_org_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_org_idx ON public.evaluations USING btree (organization_id);
+
+
+--
+-- Name: evaluations_rated_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_rated_idx ON public.evaluations USING btree (rated_person_id);
+
+
+--
+-- Name: evaluations_scheme_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_scheme_idx ON public.evaluations USING btree (rating_scheme_id, organization_id, rated_person_id);
+
+
+--
+-- Name: evaluations_snapshot_intermediate_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_snapshot_intermediate_rater_idx ON public.evaluations USING btree (snapshot_intermediate_rater_person_id) WHERE (snapshot_intermediate_rater_person_id IS NOT NULL);
+
+
+--
+-- Name: evaluations_snapshot_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_snapshot_rater_idx ON public.evaluations USING btree (snapshot_rater_person_id) WHERE (snapshot_rater_person_id IS NOT NULL);
+
+
+--
+-- Name: evaluations_snapshot_reviewer_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_snapshot_reviewer_idx ON public.evaluations USING btree (snapshot_reviewer_person_id) WHERE (snapshot_reviewer_person_id IS NOT NULL);
+
+
+--
+-- Name: evaluations_snapshot_senior_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX evaluations_snapshot_senior_rater_idx ON public.evaluations USING btree (snapshot_senior_rater_person_id) WHERE (snapshot_senior_rater_person_id IS NOT NULL);
 
 
 --
@@ -18409,6 +18863,48 @@ CREATE INDEX rating_scheme_entries_senior_rater_idx ON public.rating_scheme_entr
 
 
 --
+-- Name: rating_schemes_intermediate_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_schemes_intermediate_rater_idx ON public.rating_schemes USING btree (intermediate_rater_person_id) WHERE (intermediate_rater_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_schemes_listed_person_key; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX rating_schemes_listed_person_key ON public.rating_schemes USING btree (organization_id, rated_person_id) WHERE (archived_at IS NULL);
+
+
+--
+-- Name: rating_schemes_rated_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_schemes_rated_idx ON public.rating_schemes USING btree (rated_person_id);
+
+
+--
+-- Name: rating_schemes_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_schemes_rater_idx ON public.rating_schemes USING btree (rater_person_id) WHERE (rater_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_schemes_reviewer_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_schemes_reviewer_idx ON public.rating_schemes USING btree (reviewer_person_id) WHERE (reviewer_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_schemes_senior_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_schemes_senior_rater_idx ON public.rating_schemes USING btree (senior_rater_person_id) WHERE (senior_rater_person_id IS NOT NULL);
+
+
+--
 -- Name: roster_excusals_one_open_per_person; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -18584,6 +19080,13 @@ CREATE TRIGGER audit_daily_assignment AFTER INSERT OR DELETE OR UPDATE ON public
 
 
 --
+-- Name: evaluations audit_evaluation; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_evaluation AFTER INSERT OR DELETE OR UPDATE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION audit_private.audit_evaluation();
+
+
+--
 -- Name: personnel_follow_ups audit_follow_up; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18675,10 +19178,10 @@ CREATE TRIGGER audit_pinned_group AFTER INSERT OR DELETE ON public.user_pinned_g
 
 
 --
--- Name: rating_scheme_entries audit_rating_scheme; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: rating_schemes audit_rating_scheme; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
-CREATE TRIGGER audit_rating_scheme AFTER INSERT OR DELETE OR UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION audit_private.audit_rating_scheme();
+CREATE TRIGGER audit_rating_scheme AFTER INSERT OR DELETE OR UPDATE ON public.rating_schemes FOR EACH ROW EXECUTE FUNCTION audit_private.audit_rating_scheme();
 
 
 --
@@ -18731,6 +19234,13 @@ CREATE TRIGGER check_availability_tasking BEFORE INSERT OR UPDATE OF set_for_tas
 
 
 --
+-- Name: evaluations clear_next_rater; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER clear_next_rater BEFORE UPDATE OF report_type ON public.evaluations FOR EACH ROW WHEN (((new.report_type IS DISTINCT FROM 'CR'::text) AND (NOT (old.report_type IS DISTINCT FROM 'CR'::text)))) EXECUTE FUNCTION organization_private.clear_next_rater();
+
+
+--
 -- Name: personnel_onboardings clear_onboarding_cancellation_reason; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18749,6 +19259,13 @@ CREATE TRIGGER daily_assignments_source BEFORE INSERT OR UPDATE ON public.daily_
 --
 
 CREATE TRIGGER dashboard_configs_updated_at BEFORE UPDATE ON public.dashboard_configs FOR EACH ROW EXECUTE FUNCTION public.touch_dashboard_config_updated_at();
+
+
+--
+-- Name: evaluations delete_frozen_rating_scheme_entry; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER delete_frozen_rating_scheme_entry AFTER DELETE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION organization_private.delete_frozen_rating_scheme_entry();
 
 
 --
@@ -18857,6 +19374,13 @@ CREATE TRIGGER flag_calendar_tasking_picks_on_change AFTER UPDATE OF responsible
 
 
 --
+-- Name: rating_schemes follow_scheme_eval_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER follow_scheme_eval_type AFTER UPDATE OF eval_type ON public.rating_schemes FOR EACH ROW WHEN ((new.eval_type IS DISTINCT FROM old.eval_type)) EXECUTE FUNCTION organization_private.follow_scheme_eval_type();
+
+
+--
 -- Name: personnel forget_deleted_personnel_undo; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18931,6 +19455,20 @@ CREATE TRIGGER keep_artifact_identity BEFORE UPDATE OF id ON public.counseling_r
 --
 
 CREATE TRIGGER keep_artifact_identity BEFORE UPDATE OF id ON public.personnel_documents FOR EACH ROW EXECUTE FUNCTION organization_private.keep_artifact_identity();
+
+
+--
+-- Name: evaluations keep_completed_report; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER keep_completed_report BEFORE UPDATE OF report_type, rating_period_start, rating_period_end, next_rater_person_id, next_rater_name ON public.evaluations FOR EACH ROW WHEN (((old.workflow_status = 'completed'::text) AND (new.workflow_status = 'completed'::text))) EXECUTE FUNCTION organization_private.keep_completed_report();
+
+
+--
+-- Name: evaluations keep_evaluation_chain_snapshot; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER keep_evaluation_chain_snapshot BEFORE INSERT OR UPDATE OF workflow_status ON public.evaluations FOR EACH ROW EXECUTE FUNCTION organization_private.keep_evaluation_chain_snapshot();
 
 
 --
@@ -19109,10 +19647,24 @@ CREATE TRIGGER require_onboarding_operation_rules BEFORE UPDATE ON public.person
 
 
 --
+-- Name: evaluations require_one_open_evaluation; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER require_one_open_evaluation BEFORE INSERT OR UPDATE OF workflow_status ON public.evaluations FOR EACH ROW EXECUTE FUNCTION organization_private.require_one_open_evaluation();
+
+
+--
 -- Name: personnel require_personnel_lifecycle_authority; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
 CREATE TRIGGER require_personnel_lifecycle_authority BEFORE UPDATE OF archived_at ON public.personnel FOR EACH ROW EXECUTE FUNCTION organization_private.require_personnel_lifecycle_authority();
+
+
+--
+-- Name: rating_schemes require_rater_change_report; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER require_rater_change_report BEFORE UPDATE OF rater_person_id, rater_name ON public.rating_schemes FOR EACH ROW EXECUTE FUNCTION organization_private.require_rater_change_report();
 
 
 --
@@ -19242,6 +19794,13 @@ CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.rating_scheme
 
 
 --
+-- Name: rating_schemes stamp_archived_by; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.rating_schemes FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+
+
+--
 -- Name: counseling_records stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -19368,6 +19927,13 @@ CREATE TRIGGER update_counseling_records_updated_at BEFORE UPDATE ON public.coun
 
 
 --
+-- Name: evaluations update_evaluations_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER update_evaluations_updated_at BEFORE UPDATE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: ict_tasks update_ict_tasks_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -19414,6 +19980,13 @@ CREATE TRIGGER update_personnel_ict_completions_updated_at BEFORE UPDATE ON publ
 --
 
 CREATE TRIGGER update_rating_scheme_entries_updated_at BEFORE UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: rating_schemes update_rating_schemes_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER update_rating_schemes_updated_at BEFORE UPDATE ON public.rating_schemes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -19875,6 +20448,94 @@ ALTER TABLE ONLY public.deletion_requests
 
 ALTER TABLE ONLY public.deletion_requests
     ADD CONSTRAINT deletion_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: evaluations evaluations_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: evaluations evaluations_organization_next_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_next_rater_fkey FOREIGN KEY (organization_id, next_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (next_rater_person_id);
+
+
+--
+-- Name: evaluations evaluations_organization_snapshot_intermediate_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_snapshot_intermediate_rater_fkey FOREIGN KEY (organization_id, snapshot_intermediate_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (snapshot_intermediate_rater_person_id) NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_organization_snapshot_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_snapshot_rater_fkey FOREIGN KEY (organization_id, snapshot_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (snapshot_rater_person_id) NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_organization_snapshot_reviewer_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_snapshot_reviewer_fkey FOREIGN KEY (organization_id, snapshot_reviewer_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (snapshot_reviewer_person_id) NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_organization_snapshot_senior_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_organization_snapshot_senior_rater_fkey FOREIGN KEY (organization_id, snapshot_senior_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (snapshot_senior_rater_person_id) NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_rating_scheme_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_rating_scheme_fkey FOREIGN KEY (rating_scheme_id, organization_id, rated_person_id) REFERENCES public.rating_schemes(id, organization_id, rated_person_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: evaluations evaluations_snapshot_intermediate_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_snapshot_intermediate_rater_person_id_fkey FOREIGN KEY (snapshot_intermediate_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_snapshot_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_snapshot_rater_person_id_fkey FOREIGN KEY (snapshot_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_snapshot_reviewer_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_snapshot_reviewer_person_id_fkey FOREIGN KEY (snapshot_reviewer_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+
+
+--
+-- Name: evaluations evaluations_snapshot_senior_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.evaluations
+    ADD CONSTRAINT evaluations_snapshot_senior_rater_person_id_fkey FOREIGN KEY (snapshot_senior_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
 
 
 --
@@ -20414,14 +21075,6 @@ ALTER TABLE ONLY public.platform_operators
 
 
 --
--- Name: rating_scheme_entries rating_scheme_entries_intermediate_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_intermediate_rater_person_id_fkey FOREIGN KEY (intermediate_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
-
-
---
 -- Name: rating_scheme_entries rating_scheme_entries_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -20470,27 +21123,83 @@ ALTER TABLE ONLY public.rating_scheme_entries
 
 
 --
--- Name: rating_scheme_entries rating_scheme_entries_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: rating_schemes rating_schemes_intermediate_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_rater_person_id_fkey FOREIGN KEY (rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
-
-
---
--- Name: rating_scheme_entries rating_scheme_entries_reviewer_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_reviewer_person_id_fkey FOREIGN KEY (reviewer_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_intermediate_rater_person_id_fkey FOREIGN KEY (intermediate_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
 
 
 --
--- Name: rating_scheme_entries rating_scheme_entries_senior_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: rating_schemes rating_schemes_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_senior_rater_person_id_fkey FOREIGN KEY (senior_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rating_schemes rating_schemes_organization_intermediate_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_organization_intermediate_rater_fkey FOREIGN KEY (organization_id, intermediate_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (intermediate_rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_organization_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_organization_rater_fkey FOREIGN KEY (organization_id, rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_organization_reviewer_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_organization_reviewer_fkey FOREIGN KEY (organization_id, reviewer_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (reviewer_person_id) NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_organization_senior_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_organization_senior_rater_fkey FOREIGN KEY (organization_id, senior_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (senior_rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_rated_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_rated_person_id_fkey FOREIGN KEY (rated_person_id) REFERENCES public.personnel(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rating_schemes rating_schemes_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_rater_person_id_fkey FOREIGN KEY (rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_reviewer_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_reviewer_person_id_fkey FOREIGN KEY (reviewer_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
+
+
+--
+-- Name: rating_schemes rating_schemes_senior_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_schemes
+    ADD CONSTRAINT rating_schemes_senior_rater_person_id_fkey FOREIGN KEY (senior_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
 
 
 --
@@ -20981,6 +21690,27 @@ CREATE POLICY "Critical Tasks configurators can update library records" ON publi
 
 
 --
+-- Name: evaluations Evaluations are changed within rating scheme scope; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Evaluations are changed within rating scheme scope" ON public.evaluations FOR UPDATE USING (public.can_edit_rating_scheme_record(organization_id, rated_person_id)) WITH CHECK (public.can_edit_rating_scheme_record(organization_id, rated_person_id));
+
+
+--
+-- Name: evaluations Evaluations are deleted by privileged members within rating sch; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Evaluations are deleted by privileged members within rating sch" ON public.evaluations FOR DELETE USING ((public.can_edit_rating_scheme_record(organization_id, rated_person_id) AND public.is_org_privileged(organization_id)));
+
+
+--
+-- Name: evaluations Evaluations are visible within rating scheme scope; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Evaluations are visible within rating scheme scope" ON public.evaluations FOR SELECT USING (public.can_view_rating_scheme_record(organization_id, rated_person_id));
+
+
+--
 -- Name: organization_invitations Governors can create invitations; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -21375,6 +22105,27 @@ CREATE POLICY "Platform admins can view access request organization invitation" 
 --
 
 CREATE POLICY "Privileged members can update their organizations" ON public.organizations FOR UPDATE TO authenticated USING (public.is_org_privileged(id)) WITH CHECK (public.is_org_privileged(id));
+
+
+--
+-- Name: rating_schemes Rating schemes are added within rating scheme scope; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Rating schemes are added within rating scheme scope" ON public.rating_schemes FOR INSERT WITH CHECK (public.can_edit_rating_scheme_record(organization_id, rated_person_id));
+
+
+--
+-- Name: rating_schemes Rating schemes are changed within rating scheme scope; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Rating schemes are changed within rating scheme scope" ON public.rating_schemes FOR UPDATE USING (public.can_edit_rating_scheme_record(organization_id, rated_person_id)) WITH CHECK (public.can_edit_rating_scheme_record(organization_id, rated_person_id));
+
+
+--
+-- Name: rating_schemes Rating schemes are visible within rating scheme scope; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Rating schemes are visible within rating scheme scope" ON public.rating_schemes FOR SELECT USING (public.can_view_rating_scheme_record(organization_id, rated_person_id));
 
 
 --
@@ -21985,6 +22736,12 @@ CREATE POLICY deletion_requests_select_own ON public.deletion_requests FOR SELEC
 ALTER TABLE public.durable_rate_limits ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: evaluations; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.evaluations ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: beta_feedback feedback_operator_read; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -22228,6 +22985,12 @@ ALTER TABLE public.platform_operators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rating_scheme_entries ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: rating_schemes; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.rating_schemes ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: roster_excusals; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
@@ -22430,6 +23193,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_calendar_tasking_equipment() FROM PUB
 --
 
 REVOKE ALL ON FUNCTION audit_private.audit_daily_assignment() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_evaluation(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_evaluation() FROM PUBLIC;
 
 
 --
@@ -22997,6 +23767,20 @@ REVOKE ALL ON FUNCTION organization_private.cascade_group_path() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION clear_next_rater(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.clear_next_rater() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION delete_frozen_rating_scheme_entry(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.delete_frozen_rating_scheme_entry() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION fence_inserted_artifact_files(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -23053,6 +23837,13 @@ REVOKE ALL ON FUNCTION organization_private.file_key_retired(p_bucket_id text, p
 
 
 --
+-- Name: FUNCTION follow_scheme_eval_type(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.follow_scheme_eval_type() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -23072,6 +23863,20 @@ REVOKE ALL ON FUNCTION organization_private.guard_sign_in_roster() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION organization_private.keep_artifact_identity() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION keep_completed_report(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.keep_completed_report() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION keep_evaluation_chain_snapshot(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.keep_evaluation_chain_snapshot() FROM PUBLIC;
 
 
 --
@@ -23196,10 +24001,24 @@ REVOKE ALL ON FUNCTION organization_private.require_onboarding_operation_rules()
 
 
 --
+-- Name: FUNCTION require_one_open_evaluation(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.require_one_open_evaluation() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION require_personnel_lifecycle_authority(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION organization_private.require_personnel_lifecycle_authority() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION require_rater_change_report(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.require_rater_change_report() FROM PUBLIC;
 
 
 --
@@ -23866,15 +24685,6 @@ GRANT ALL ON FUNCTION public.cancel_calendar_event(p_organization_id uuid, p_eve
 
 REVOKE ALL ON FUNCTION public.cancel_own_deletion_request(p_organization_id uuid, p_request_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.cancel_own_deletion_request(p_organization_id uuid, p_request_id uuid) TO authenticated;
-
-
---
--- Name: FUNCTION change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) TO authenticated;
-GRANT ALL ON FUNCTION public.change_rating_scheme_rater(p_organization_id uuid, p_entry_id uuid, p_change_date date, p_rater_person_id uuid, p_rater_name text) TO service_role;
 
 
 --
@@ -25150,12 +25960,12 @@ GRANT ALL ON FUNCTION public.set_organization_member_name(p_organization_id uuid
 
 
 --
--- Name: FUNCTION set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) TO authenticated;
-GRANT ALL ON FUNCTION public.set_rating_scheme_entry_archived(p_organization_id uuid, p_entry_id uuid, p_archived boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean) TO authenticated;
+GRANT ALL ON FUNCTION public.set_rating_scheme_archived(p_organization_id uuid, p_rating_scheme_id uuid, p_archived boolean) TO service_role;
 
 
 --
@@ -25259,6 +26069,15 @@ REVOKE ALL ON FUNCTION public.stamp_personnel_extended_info_saver() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.start_account_setup_attempt() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean, p_notes text, p_next_rater_person_id uuid, p_next_rater_name text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean, p_notes text, p_next_rater_person_id uuid, p_next_rater_name text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean, p_notes text, p_next_rater_person_id uuid, p_next_rater_name text) TO authenticated;
+GRANT ALL ON FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text, p_rating_period_start date, p_rating_period_end date, p_completed boolean, p_notes text, p_next_rater_person_id uuid, p_next_rater_name text) TO service_role;
 
 
 --
@@ -25380,12 +26199,12 @@ GRANT ALL ON FUNCTION public.transition_calendar_tasking(p_organization_id uuid,
 
 
 --
--- Name: FUNCTION transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text, p_to text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) TO authenticated;
-GRANT ALL ON FUNCTION public.transition_rating_scheme_entry(p_organization_id uuid, p_entry_id uuid, p_from text, p_to text) TO service_role;
+REVOKE ALL ON FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text, p_to text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text, p_to text) TO authenticated;
+GRANT ALL ON FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text, p_to text) TO service_role;
 
 
 --
@@ -26098,6 +26917,57 @@ GRANT ALL ON TABLE public.deletion_requests TO service_role;
 GRANT ALL ON TABLE public.durable_rate_limits TO anon;
 GRANT ALL ON TABLE public.durable_rate_limits TO authenticated;
 GRANT ALL ON TABLE public.durable_rate_limits TO service_role;
+
+
+--
+-- Name: TABLE evaluations; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,DELETE,MAINTAIN ON TABLE public.evaluations TO authenticated;
+GRANT ALL ON TABLE public.evaluations TO service_role;
+GRANT SELECT ON TABLE public.evaluations TO anon;
+
+
+--
+-- Name: COLUMN evaluations.report_type; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(report_type) ON TABLE public.evaluations TO authenticated;
+
+
+--
+-- Name: COLUMN evaluations.rating_period_start; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(rating_period_start) ON TABLE public.evaluations TO authenticated;
+
+
+--
+-- Name: COLUMN evaluations.rating_period_end; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(rating_period_end) ON TABLE public.evaluations TO authenticated;
+
+
+--
+-- Name: COLUMN evaluations.notes; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(notes) ON TABLE public.evaluations TO authenticated;
+
+
+--
+-- Name: COLUMN evaluations.next_rater_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(next_rater_person_id) ON TABLE public.evaluations TO authenticated;
+
+
+--
+-- Name: COLUMN evaluations.next_rater_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(next_rater_name) ON TABLE public.evaluations TO authenticated;
 
 
 --
@@ -26980,124 +27850,103 @@ GRANT SELECT ON TABLE public.platform_operators TO authenticated;
 
 
 --
--- Name: TABLE rating_scheme_entries; Type: ACL; Schema: public; Owner: postgres
+-- Name: TABLE rating_schemes; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,MAINTAIN ON TABLE public.rating_scheme_entries TO anon;
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.rating_scheme_entries TO authenticated;
-GRANT ALL ON TABLE public.rating_scheme_entries TO service_role;
-
-
---
--- Name: COLUMN rating_scheme_entries.id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT SELECT,MAINTAIN ON TABLE public.rating_schemes TO authenticated;
+GRANT ALL ON TABLE public.rating_schemes TO service_role;
+GRANT SELECT ON TABLE public.rating_schemes TO anon;
 
 
 --
--- Name: COLUMN rating_scheme_entries.organization_id; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.id; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(organization_id) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.rated_person_id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(rated_person_id),UPDATE(rated_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(id) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.eval_type; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.organization_id; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(eval_type),UPDATE(eval_type) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.rater_person_id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(rater_person_id),UPDATE(rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(organization_id) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.rater_name; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.rated_person_id; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(rater_name),UPDATE(rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.senior_rater_person_id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(senior_rater_person_id),UPDATE(senior_rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(rated_person_id),UPDATE(rated_person_id) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.senior_rater_name; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.eval_type; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(senior_rater_name),UPDATE(senior_rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.intermediate_rater_person_id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(intermediate_rater_person_id),UPDATE(intermediate_rater_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(eval_type),UPDATE(eval_type) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.intermediate_rater_name; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.rater_person_id; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(intermediate_rater_name),UPDATE(intermediate_rater_name) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.reviewer_person_id; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(reviewer_person_id),UPDATE(reviewer_person_id) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(rater_person_id),UPDATE(rater_person_id) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.reviewer_name; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.rater_name; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(reviewer_name),UPDATE(reviewer_name) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.rating_period_start; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(rating_period_start),UPDATE(rating_period_start) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(rater_name),UPDATE(rater_name) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.rating_period_end; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.intermediate_rater_person_id; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(rating_period_end),UPDATE(rating_period_end) ON TABLE public.rating_scheme_entries TO authenticated;
-
-
---
--- Name: COLUMN rating_scheme_entries.notes; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT INSERT(notes),UPDATE(notes) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(intermediate_rater_person_id),UPDATE(intermediate_rater_person_id) ON TABLE public.rating_schemes TO authenticated;
 
 
 --
--- Name: COLUMN rating_scheme_entries.report_type; Type: ACL; Schema: public; Owner: postgres
+-- Name: COLUMN rating_schemes.intermediate_rater_name; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT INSERT(report_type),UPDATE(report_type) ON TABLE public.rating_scheme_entries TO authenticated;
+GRANT INSERT(intermediate_rater_name),UPDATE(intermediate_rater_name) ON TABLE public.rating_schemes TO authenticated;
+
+
+--
+-- Name: COLUMN rating_schemes.senior_rater_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(senior_rater_person_id),UPDATE(senior_rater_person_id) ON TABLE public.rating_schemes TO authenticated;
+
+
+--
+-- Name: COLUMN rating_schemes.senior_rater_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(senior_rater_name),UPDATE(senior_rater_name) ON TABLE public.rating_schemes TO authenticated;
+
+
+--
+-- Name: COLUMN rating_schemes.reviewer_person_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(reviewer_person_id),UPDATE(reviewer_person_id) ON TABLE public.rating_schemes TO authenticated;
+
+
+--
+-- Name: COLUMN rating_schemes.reviewer_name; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(reviewer_name),UPDATE(reviewer_name) ON TABLE public.rating_schemes TO authenticated;
+
+
+--
+-- Name: COLUMN rating_schemes.notes; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE public.rating_schemes TO authenticated;
 
 
 --

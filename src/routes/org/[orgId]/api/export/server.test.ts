@@ -205,8 +205,8 @@ describe('POST /api/export', () => {
 		] as const) {
 			ctx.rawStore.seed(table, [row, { ...row, id: `foreign-${table}`, organization_id: 'other-org' }]);
 		}
-		const evaluation = {
-			id: 'own-eval',
+		const ratingScheme = {
+			id: 'own-scheme',
 			organization_id: ctx.auth.orgId,
 			rated_person_id: 'archived-person',
 			eval_type: 'OER',
@@ -218,18 +218,35 @@ describe('POST /api/export', () => {
 			intermediate_rater_name: null,
 			reviewer_person_id: 'saved-reviewer',
 			reviewer_name: null,
-			rating_period_start: '2025-09-30',
-			rating_period_end: '2026-09-29',
-			status: 'completed',
-			notes: 'Saved evaluation notes',
-			report_type: '02',
-			workflow_status: null,
+			notes: null,
+			archived_at: '2026-09-29T01:02:03.123456Z',
 			created_at: '2025-09-30T01:02:03.654321Z',
 			updated_at: '2026-09-29T01:02:03.123456Z'
 		};
-		ctx.rawStore.seed('rating_scheme_entries', [
+		const evaluation = {
+			id: 'own-eval',
+			organization_id: ctx.auth.orgId,
+			rating_scheme_id: 'own-scheme',
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			report_type: '02',
+			rating_period_start: '2025-09-30',
+			rating_period_end: '2026-09-29',
+			workflow_status: 'completed',
+			notes: 'Saved evaluation notes',
+			chain_snapshot_at: '2026-09-29T01:02:03.123456Z',
+			snapshot_rater_person_id: 'saved-rater',
+			snapshot_senior_rater_name: 'LTC External',
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		};
+		ctx.rawStore.seed('rating_schemes', [
+			ratingScheme,
+			{ ...ratingScheme, id: 'foreign-scheme', organization_id: 'other-org' }
+		]);
+		ctx.rawStore.seed('evaluations', [
 			evaluation,
-			{ ...evaluation, id: 'foreign-eval', organization_id: 'other-org' }
+			{ ...evaluation, id: 'foreign-eval', rating_scheme_id: 'foreign-scheme', organization_id: 'other-org' }
 		]);
 		const notification = {
 			id: 'own-notification',
@@ -277,11 +294,16 @@ describe('POST /api/export', () => {
 		expect(payload.deletionRequests).toEqual(history);
 		expect(payload.sections.deletionRequests).toEqual(history);
 		expect(payload.personnel.map((person: { id: string }) => person.id)).toEqual(['own-person']);
-		expect(payload.ratingSchemeEntries).toEqual([evaluation]);
-		expect(payload.sections.ratingSchemeEntries).toEqual([evaluation]);
-		expect(payload.sectionInventory).toContainEqual(
-			expect.objectContaining({ key: 'ratingSchemeEntries', table: 'rating_scheme_entries', rowCount: 1 })
-		);
+		expect(payload.ratingSchemes).toEqual([ratingScheme]);
+		expect(payload.sections.ratingSchemes).toEqual([ratingScheme]);
+		expect(payload.evaluations).toEqual([evaluation]);
+		expect(payload.sections.evaluations).toEqual([evaluation]);
+		for (const [key, table] of [
+			['ratingSchemes', 'rating_schemes'],
+			['evaluations', 'evaluations']
+		]) {
+			expect(payload.sectionInventory).toContainEqual(expect.objectContaining({ key, table, rowCount: 1 }));
+		}
 		expect(payload.trainingTypes).toEqual([trainingType]);
 		expect(payload.personnelTrainings).toEqual([training]);
 		expect(payload.trainingViews).toEqual([view]);

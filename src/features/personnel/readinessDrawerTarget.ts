@@ -33,7 +33,7 @@ export function attentionTargetHref(target: AttentionTarget, paths: { person: st
 		case 'readiness':
 			return `${paths.person}/readiness?${new URLSearchParams({ item: `${target.item.kind}:${target.item.id}` })}`;
 		case 'evals':
-			return `${paths.org}/evals?${new URLSearchParams({ entry: target.entryId })}`;
+			return `${paths.org}/evals?${new URLSearchParams({ entry: target.evaluationId })}`;
 		case 'data-sheet':
 			return `${paths.person}/data-sheet`;
 	}

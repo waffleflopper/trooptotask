@@ -1,141 +1,45 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ratingSchemeStore } from './ratingScheme.svelte';
-import type { RatingSchemeEntry } from '../rating-scheme.types';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+	evaluationStore,
+	ratingSchemeEntries,
+	ratingSchemeEntryFixture,
+	ratingSchemeStore,
+	splitRatingSchemeEntries
+} from '../ratingSchemeStore.test-support.svelte';
 
-const mockEntries: RatingSchemeEntry[] = [
-	{
-		id: '1',
-		ratedPersonId: 'p1',
-		evalType: 'NCOER',
-		raterPersonId: 'p2',
-		raterName: null,
-		seniorRaterPersonId: 'p3',
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
-		ratingPeriodStart: '2025-04-01',
-		ratingPeriodEnd: '2026-03-31',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'drafting',
-		archivedAt: null
-	},
-	{
-		id: '2',
-		ratedPersonId: 'p2',
-		evalType: 'OER',
-		raterPersonId: null,
-		raterName: 'COL Smith',
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
-		ratingPeriodStart: '2025-06-01',
-		ratingPeriodEnd: '2026-05-31',
-		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'completed',
-		archivedAt: null
-	}
-];
+const signed = ratingSchemeEntryFixture({
+	id: 'signed',
+	ratingSchemeId: 'scheme-a',
+	raterName: 'SSG Signed',
+	workflowStatus: 'completed',
+	chainSigned: true
+});
+const open = ratingSchemeEntryFixture({ id: 'open', ratingSchemeId: 'scheme-a', raterName: 'SSG Signed' });
 
-function stubFetch(response: unknown, status = 200) {
-	vi.stubGlobal(
-		'fetch',
-		vi.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(response) })
-	);
-}
-
-describe('ratingSchemeStore', () => {
+describe('ratingSchemeEntries', () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
-		ratingSchemeStore.load(structuredClone(mockEntries), 'org-1');
+		const { ratingSchemes, evaluations } = splitRatingSchemeEntries([signed, open]);
+		ratingSchemeStore.load(ratingSchemes, 'org-1');
+		evaluationStore.load(evaluations, 'org-1');
 	});
 
-	describe('items', () => {
-		it('returns loaded entries', () => {
-			expect(ratingSchemeStore.items).toHaveLength(2);
-		});
-
-		it('contains entries with correct data', () => {
-			const entry = ratingSchemeStore.items.find((e) => e.id === '1');
-			expect(entry?.evalType).toBe('NCOER');
-			expect(entry?.ratedPersonId).toBe('p1');
-		});
-
-		it('returns empty array when no items loaded', () => {
-			ratingSchemeStore.load([], 'org-2');
-			expect(ratingSchemeStore.items).toEqual([]);
-		});
+	it('lists each Evaluation with its scheme’s chain', () => {
+		expect(ratingSchemeEntries.items).toEqual([signed, open]);
 	});
 
-	describe('load', () => {
-		it('replaces existing items with new data', () => {
-			ratingSchemeStore.load([mockEntries[0]], 'org-2');
-			expect(ratingSchemeStore.items).toHaveLength(1);
-			expect(ratingSchemeStore.items[0].evalType).toBe('NCOER');
-		});
+	it('keeps the chain that signed a completed Evaluation when the scheme’s chain changes', () => {
+		const [scheme] = ratingSchemeStore.items;
+		ratingSchemeStore.load([{ ...scheme, raterName: 'SSG Next' }], 'org-1');
+
+		expect(ratingSchemeEntries.items.map(({ id, raterName }) => [id, raterName])).toEqual([
+			['signed', 'SSG Signed'],
+			['open', 'SSG Next']
+		]);
 	});
 
-	describe('add', () => {
-		it('adds entry and returns the server-created record', async () => {
-			const created = { ...mockEntries[0], id: 'new-1', ratedPersonId: 'p5' };
-			stubFetch(created);
+	it('leaves out an Evaluation whose scheme is not loaded', () => {
+		ratingSchemeStore.load([], 'org-1');
 
-			const result = await ratingSchemeStore.add({
-				ratedPersonId: 'p5',
-				evalType: 'NCOER',
-				raterPersonId: 'p2',
-				raterName: null,
-				seniorRaterPersonId: 'p3',
-				seniorRaterName: null,
-				intermediateRaterPersonId: null,
-				intermediateRaterName: null,
-				reviewerPersonId: null,
-				reviewerName: null,
-				ratingPeriodStart: '2025-04-01',
-				ratingPeriodEnd: '2026-03-31',
-				notes: null,
-				reportType: 'AN',
-				workflowStatus: 'drafting',
-				archivedAt: null
-			});
-
-			expect(result).not.toBeNull();
-			expect(result!.id).toBe('new-1');
-			expect(ratingSchemeStore.items.some((e) => e.id === 'new-1')).toBe(true);
-		});
-	});
-
-	describe('update', () => {
-		it('updates an existing entry and returns true', async () => {
-			stubFetch({ ...mockEntries[0], notes: 'Updated' });
-
-			const result = await ratingSchemeStore.update('1', { notes: 'Updated' });
-
-			expect(result).toBe(true);
-		});
-	});
-
-	describe('remove', () => {
-		it('returns DeleteResult on success', async () => {
-			stubFetch({});
-
-			const result = await ratingSchemeStore.remove('1');
-
-			expect(result).toBe('deleted');
-		});
-
-		it('returns DeleteResult type, not boolean', async () => {
-			stubFetch({});
-
-			const result = await ratingSchemeStore.remove('2');
-
-			expect(typeof result).toBe('string');
-		});
+		expect(ratingSchemeEntries.items).toEqual([]);
 	});
 });

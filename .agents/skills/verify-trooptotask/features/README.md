@@ -150,7 +150,7 @@ before the focus records nothing. Repeat with `fail-hard 1` in place of the hold
 
 ### Evals
 
-- [Rating Scheme and Evals](evals-rating-scheme.md): rating chain, due dates and workbooks.
+- [Rating Scheme and Evals](evals-rating-scheme.md): Rating Scheme tab, Eval Tracker, rating chain, due dates and workbooks.
 
 ### Critical Tasks
 

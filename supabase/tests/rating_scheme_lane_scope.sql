@@ -41,14 +41,28 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   ('a9000000-0000-4000-8000-000000000304', 'a9000000-0000-4000-8000-000000000101', NULL, 'PFC', 'Four', 'Unassigned', 'rating-unassigned-active', NULL),
   ('a9000000-0000-4000-8000-000000000305', 'a9000000-0000-4000-8000-000000000101', NULL, 'CPL', 'Five', 'Zed', 'rating-unassigned-archived', '2029-01-01'),
   ('a9000000-0000-4000-8000-000000000306', 'a9000000-0000-4000-8000-000000000102', NULL, 'SPC', 'Six', 'Foreign', 'rating-foreign-active', NULL);
-INSERT INTO public.rating_scheme_entries
-  (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, notes) VALUES
-  ('a9000000-0000-4000-8000-000000000401', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000301', 'NCOER', '2029-01-01', '2029-12-31', 'assigned'),
-  ('a9000000-0000-4000-8000-000000000402', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000302', 'NCOER', '2029-01-01', '2029-12-31', 'archived'),
-  ('a9000000-0000-4000-8000-000000000403', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000303', 'NCOER', '2029-01-01', '2029-12-31', 'other group'),
-  ('a9000000-0000-4000-8000-000000000404', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000304', 'NCOER', '2029-01-01', '2029-12-31', 'unassigned'),
-  ('a9000000-0000-4000-8000-000000000405', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000305', 'NCOER', '2029-01-01', '2029-12-31', 'unassigned archived'),
-  ('a9000000-0000-4000-8000-000000000406', 'a9000000-0000-4000-8000-000000000102', 'a9000000-0000-4000-8000-000000000306', 'NCOER', '2029-01-01', '2029-12-31', 'foreign');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type, notes) VALUES
+  ('a9000000-0000-4000-8000-000000000401', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000301', 'NCOER', 'assigned'),
+  ('a9000000-0000-4000-8000-000000000402', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000302', 'NCOER', 'archived'),
+  ('a9000000-0000-4000-8000-000000000403', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000303', 'NCOER', 'other group'),
+  ('a9000000-0000-4000-8000-000000000404', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000304', 'NCOER', 'unassigned'),
+  ('a9000000-0000-4000-8000-000000000405', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000305', 'NCOER', 'unassigned archived'),
+  ('a9000000-0000-4000-8000-000000000406', 'a9000000-0000-4000-8000-000000000102', 'a9000000-0000-4000-8000-000000000306', 'NCOER', 'foreign');
+INSERT INTO public.evaluations
+  (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end) VALUES
+  ('a9000000-0000-4000-8000-000000000411', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000401', 'a9000000-0000-4000-8000-000000000301', 'NCOER', '2029-01-01', '2029-12-31'),
+  ('a9000000-0000-4000-8000-000000000412', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000402', 'a9000000-0000-4000-8000-000000000302', 'NCOER', '2029-01-01', '2029-12-31'),
+  ('a9000000-0000-4000-8000-000000000413', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000403', 'a9000000-0000-4000-8000-000000000303', 'NCOER', '2029-01-01', '2029-12-31'),
+  ('a9000000-0000-4000-8000-000000000414', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000404', 'a9000000-0000-4000-8000-000000000304', 'NCOER', '2029-01-01', '2029-12-31'),
+  ('a9000000-0000-4000-8000-000000000415', 'a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000405', 'a9000000-0000-4000-8000-000000000305', 'NCOER', '2029-01-01', '2029-12-31'),
+  ('a9000000-0000-4000-8000-000000000416', 'a9000000-0000-4000-8000-000000000102', 'a9000000-0000-4000-8000-000000000406', 'a9000000-0000-4000-8000-000000000306', 'NCOER', '2029-01-01', '2029-12-31');
+
+-- Each person-scoped Rating Scheme table, as the signed-in member reads it.
+CREATE FUNCTION pg_temp.visible() RETURNS text LANGUAGE sql AS $$
+  SELECT coalesce((SELECT string_agg(right(id::text, 3), ',' ORDER BY id) FROM public.rating_schemes), '') || '|' ||
+    coalesce((SELECT string_agg(right(id::text, 3), ',' ORDER BY id) FROM public.evaluations), '');
+$$;
+GRANT EXECUTE ON FUNCTION pg_temp.visible() TO authenticated, anon;
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'a9000000-0000-4000-8000-000000000001', true);
@@ -58,33 +72,42 @@ SELECT is((SELECT string_agg(id::text, ',' ORDER BY last_name, first_name)
   'a9000000-0000-4000-8000-000000000301', 'Group lookup returns only active in-Group Person');
 SELECT is((SELECT count(*)::integer FROM public.list_rating_scheme_personnel_lookup('a9000000-0000-4000-8000-000000000102')),
   0, 'Group lookup excludes foreign Organization');
-SELECT is((SELECT string_agg(id::text, ',' ORDER BY id) FROM public.rating_scheme_entries),
-  'a9000000-0000-4000-8000-000000000401,a9000000-0000-4000-8000-000000000402',
-  'Group viewer reads only assigned active and archived Rating Scheme records');
+SELECT is(pg_temp.visible(), '401,402|411,412',
+  'Group viewer reads only the schemes and Evaluations of assigned active and archived people');
 SELECT ok(NOT public.can_view_rating_scheme_record('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000304'),
   'Group viewer cannot call record helper on unassigned Person');
 SELECT ok(NOT public.can_edit_rating_scheme_record('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000301'),
   'view capability cannot edit an in-Group record');
 
 SELECT set_config('request.jwt.claim.sub', 'a9000000-0000-4000-8000-000000000002', true);
-WITH changed AS (UPDATE public.rating_scheme_entries SET notes = 'edited archived'
+WITH changed AS (UPDATE public.rating_schemes SET notes = 'edited archived'
   WHERE id = 'a9000000-0000-4000-8000-000000000402' RETURNING id)
-SELECT is(count(*)::integer, 1, 'Group operator can update archived in-Group record') FROM changed;
-WITH changed AS (UPDATE public.rating_scheme_entries SET notes = 'denied'
+SELECT is(count(*)::integer, 1, 'Group operator can update an archived in-Group person''s scheme') FROM changed;
+WITH changed AS (UPDATE public.evaluations SET notes = 'edited archived'
+  WHERE id = 'a9000000-0000-4000-8000-000000000412' RETURNING id)
+SELECT is(count(*)::integer, 1, 'Group operator can update an archived in-Group person''s Evaluation') FROM changed;
+WITH changed AS (UPDATE public.rating_schemes SET notes = 'denied'
   WHERE id IN ('a9000000-0000-4000-8000-000000000403', 'a9000000-0000-4000-8000-000000000404', 'a9000000-0000-4000-8000-000000000405') RETURNING id)
-SELECT is(count(*)::integer, 0, 'Group operator cannot update other Group or unassigned records') FROM changed;
-SELECT throws_ok($$ INSERT INTO public.rating_scheme_entries
-  (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
-  VALUES ('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000304', 'NCOER', '2030-01-01', '2030-12-31') $$,
-  '42501', NULL, 'Group operator cannot create unassigned Rating Scheme record');
+SELECT is(count(*)::integer, 0, 'Group operator cannot update other Group or unassigned schemes') FROM changed;
+WITH changed AS (UPDATE public.evaluations SET notes = 'denied'
+  WHERE id IN ('a9000000-0000-4000-8000-000000000413', 'a9000000-0000-4000-8000-000000000414', 'a9000000-0000-4000-8000-000000000415') RETURNING id)
+SELECT is(count(*)::integer, 0, 'Group operator cannot update other Group or unassigned Evaluations') FROM changed;
+SELECT throws_ok($$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type)
+  VALUES ('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000304', 'NCOER') $$,
+  '42501', NULL, 'Group operator cannot create an unassigned person''s scheme');
+SELECT throws_ok($$ SELECT public.start_evaluation('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000404',
+  'AN', '2030-01-01', '2030-12-31') $$,
+  'P0002', 'Rating scheme not found', 'Group operator cannot start an Evaluation on an unassigned person''s scheme');
+SELECT throws_ok($$ SELECT public.start_evaluation('a9000000-0000-4000-8000-000000000102', 'a9000000-0000-4000-8000-000000000406',
+  'AN', '2030-01-01', '2030-12-31') $$,
+  'P0002', 'Rating scheme not found', 'Group operator cannot start an Evaluation in another Organization');
 SELECT ok(NOT public.can_edit_rating_scheme_record('a9000000-0000-4000-8000-000000000102', 'a9000000-0000-4000-8000-000000000306'),
   'record helper rejects foreign Organization');
 
 SELECT set_config('request.jwt.claim.sub', 'a9000000-0000-4000-8000-000000000003', true);
 SELECT is((SELECT count(*)::integer FROM public.list_rating_scheme_personnel_lookup('a9000000-0000-4000-8000-000000000101')),
   0, 'empty Group scope cannot look up unassigned Person');
-SELECT is((SELECT count(*)::integer FROM public.rating_scheme_entries),
-  0, 'empty Group scope cannot read saved unassigned records');
+SELECT is(pg_temp.visible(), '|', 'empty Group scope cannot read saved unassigned schemes or Evaluations');
 SELECT ok(NOT public.can_edit_rating_scheme_record('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000305'),
   'empty Group scope cannot edit archived unassigned record');
 
@@ -93,17 +116,16 @@ SELECT is((SELECT string_agg(id::text, ',' ORDER BY last_name, first_name)
            FROM public.list_rating_scheme_personnel_lookup('a9000000-0000-4000-8000-000000000101')),
   'a9000000-0000-4000-8000-000000000301,a9000000-0000-4000-8000-000000000303,a9000000-0000-4000-8000-000000000304',
   'Organization-wide lookup keeps active assigned and unassigned order');
-SELECT is((SELECT count(*)::integer FROM public.rating_scheme_entries), 5,
-  'Organization-wide operator sees saved active and archived records');
-WITH changed AS (UPDATE public.rating_scheme_entries SET notes = 'org edited'
+SELECT is(pg_temp.visible(), '401,402,403,404,405|411,412,413,414,415',
+  'Organization-wide operator sees the schemes and Evaluations of active and archived people');
+WITH changed AS (UPDATE public.rating_schemes SET notes = 'org edited'
   WHERE id = 'a9000000-0000-4000-8000-000000000405' RETURNING id)
 SELECT is(count(*)::integer, 1, 'Organization-wide operator can update archived unassigned record') FROM changed;
 
 SELECT set_config('request.jwt.claim.sub', 'a9000000-0000-4000-8000-000000000005', true);
 SELECT is((SELECT count(*)::integer FROM public.list_rating_scheme_personnel_lookup('a9000000-0000-4000-8000-000000000101')),
   0, 'Personnel lane does not grant Rating Scheme lookup');
-SELECT is((SELECT count(*)::integer FROM public.rating_scheme_entries), 0,
-  'Personnel lane does not grant Rating Scheme record access');
+SELECT is(pg_temp.visible(), '|', 'Personnel lane does not grant Rating Scheme record access');
 
 SELECT set_config('request.jwt.claim.sub', 'a9000000-0000-4000-8000-000000000006', true);
 SELECT ok(public.can_edit_rating_scheme_record('a9000000-0000-4000-8000-000000000101', 'a9000000-0000-4000-8000-000000000305'),
@@ -116,7 +138,7 @@ SELECT ok(public.can_edit_rating_scheme_record('a9000000-0000-4000-8000-00000000
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', true);
 SET LOCAL ROLE anon;
-SELECT is((SELECT count(*)::integer FROM public.rating_scheme_entries), 0, 'anonymous reads no records');
+SELECT is(pg_temp.visible(), '|', 'anonymous reads no schemes or Evaluations');
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

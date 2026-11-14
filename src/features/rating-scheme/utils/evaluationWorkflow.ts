@@ -68,11 +68,6 @@ function presentSteps(roles: WorkflowRoles): WorkflowStep[] {
 	return WORKFLOW_STEPS.filter((step) => isPresentStep(step, roles));
 }
 
-/** Where the Jump to step control can send an entry: every present step but the one it is on, in chain order. */
-export function workflowJumpTargets(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WorkflowStep[] {
-	return presentSteps(roles).filter((step) => step.value !== workflowStatus);
-}
-
 /**
  * The one-step buttons. Back and Next walk the present steps and skip the optional Command Review, which drafting
  * reaches with its own button. A step left by a removed role still moves to its present neighbours.
@@ -107,4 +102,32 @@ export function isWorkflowMoveAllowed(
 	if (from === to) return false;
 	if (to === null) return from === 'drafting' || from === 'completed';
 	return isPresentStep(STEP_BY_VALUE.get(to)!, roles);
+}
+
+/** Who an Evaluation is with: an evaluator, the rated Soldier, the command, or HRC. */
+export type WaitingRole = 'rater' | 'intermediateRater' | 'seniorRater' | 'reviewer' | 'rated' | 'command' | 'hrc';
+
+/** The step's holder. A signed step has none of its own and waits on whoever the next step hands it to. */
+const STEP_HOLDER: Partial<Record<WorkflowStatus, WaitingRole>> = {
+	drafting: 'rater',
+	'command-review': 'command',
+	'with-rater': 'rater',
+	'with-intermediate-rater': 'intermediateRater',
+	'with-senior-rater': 'seniorRater',
+	'with-reviewer': 'reviewer',
+	'with-rated-soldier': 'rated',
+	'submitted-to-hrc': 'hrc'
+};
+
+export function waitingOn(workflowStatus: WorkflowStatus | null, roles: WorkflowRoles): WaitingRole | null {
+	if (workflowStatus === null || workflowStatus === 'completed') return null;
+	const holder = STEP_HOLDER[workflowStatus];
+	if (holder) return holder;
+	const next = workflowMoves(workflowStatus, roles).find((move) => move.kind === 'next')?.to ?? null;
+	return waitingOn(next, roles);
+}
+
+/** The steps the chain an Evaluation shows makes possible, in chain order, for its step list. */
+export function workflowStepList(roles: WorkflowRoles): WorkflowStep[] {
+	return presentSteps(roles);
 }

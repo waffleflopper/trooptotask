@@ -708,15 +708,29 @@ describe('retained Organization export projection', () => {
 				}
 			},
 			{
-				key: 'ratingSchemeEntries',
-				table: 'rating_scheme_entries',
-				sheet: 'Raw - Rating Scheme Entries',
+				key: 'ratingSchemes',
+				table: 'rating_schemes',
+				sheet: 'Raw - Rating Schemes',
 				row: {
 					id: 'rating-saved',
 					organization_id: 'org-1',
-					personnel_id: 'person-1',
-					status: 'approved',
+					rated_person_id: 'person-1',
 					rater_name: 'Saved rater',
+					archived_at: null,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'evaluations',
+				table: 'evaluations',
+				sheet: 'Raw - Evaluations',
+				row: {
+					id: 'evaluation-saved',
+					organization_id: 'org-1',
+					rating_scheme_id: 'rating-saved',
+					rated_person_id: 'person-1',
+					workflow_status: 'completed',
+					snapshot_rater_name: 'Saved rater',
 					created_at: '2026-09-01T00:00:00.123456Z'
 				}
 			}

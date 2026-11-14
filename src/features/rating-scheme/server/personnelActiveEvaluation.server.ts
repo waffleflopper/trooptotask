@@ -2,6 +2,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import { parseDate } from '$lib/utils/dates';
 import type { RatingSchemePersistence } from '../contracts';
 import type { PersonnelActiveEvaluation, RatingSchemeEntry } from '../rating-scheme.types';
+import { isOnTracker, toRatingSchemeEntries } from '../utils/ratingSchemeEntries';
 import { evaluationPhase, isEvaluationCompleted } from '../utils/evaluationWorkflow';
 import { getDaysUntilDue, getRatingDueStatus, getReportTypeLabel } from '../utils/ratingScheme';
 
@@ -21,7 +22,7 @@ export type ActiveEvaluationProjection = Omit<
 export function projectActiveEvaluation(entry: ActiveEvaluationEntry, asOf: string): ActiveEvaluationProjection {
 	const today = parseDate(asOf);
 	return {
-		entryId: entry.id,
+		evaluationId: entry.id,
 		evalType: entry.evalType,
 		reportType: entry.reportType,
 		reportTypeLabel: entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : null,
@@ -34,7 +35,7 @@ export function projectActiveEvaluation(entry: ActiveEvaluationEntry, asOf: stri
 	};
 }
 
-/** Rating Scheme owns the active entry; delivery supplies the Person after Rating Scheme view admission and a readable-name lookup. */
+/** Rating Scheme owns the active Evaluation; delivery supplies the Person after Rating Scheme view admission and a readable-name lookup. */
 export async function loadPersonnelActiveEvaluation(input: {
 	ratingScheme: Pick<RatingSchemePersistence, 'listPersonReadiness'>;
 	asOf: string;
@@ -42,8 +43,9 @@ export async function loadPersonnelActiveEvaluation(input: {
 	findPersonNames: (ids: string[]) => Promise<Map<string, string>>;
 }): Promise<PersonnelActiveEvaluation | null> {
 	const person = await input.loadAuthorizedPerson();
-	const entry = (await input.ratingScheme.listPersonReadiness(person.id)).find(
-		(row) => row.archivedAt === null && !isEvaluationCompleted(row.workflowStatus)
+	const { ratingSchemes, evaluations } = await input.ratingScheme.listPersonReadiness(person.id);
+	const entry = toRatingSchemeEntries(ratingSchemes, evaluations).find(
+		(row) => isOnTracker(row) && !isEvaluationCompleted(row.workflowStatus)
 	);
 	if (!entry) return null;
 

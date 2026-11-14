@@ -103,14 +103,16 @@ VALUES (pg_temp.u(901), pg_temp.u(101), pg_temp.u(305), '2019-06-01', 'Subject',
 INSERT INTO public.training_types (id, organization_id, name) VALUES (pg_temp.u(601), pg_temp.u(101), 'CPR');
 INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id)
 VALUES (pg_temp.u(902), pg_temp.u(101), pg_temp.u(305), pg_temp.u(601));
-INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
-VALUES (pg_temp.u(903), pg_temp.u(101), pg_temp.u(305), 'NCOER', '2019-01-01', '2019-12-31');
+INSERT INTO public.rating_schemes (id, organization_id, rated_person_id, eval_type)
+VALUES (pg_temp.u(904), pg_temp.u(101), pg_temp.u(305), 'NCOER');
+INSERT INTO public.evaluations (id, organization_id, rating_scheme_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
+VALUES (pg_temp.u(903), pg_temp.u(101), pg_temp.u(904), pg_temp.u(305), 'NCOER', '2019-01-01', '2019-12-31');
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status)
 VALUES
   (pg_temp.u(1001), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'personnel', pg_temp.u(305), 'Person', 'pending'),
   (pg_temp.u(1002), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'counseling_record', pg_temp.u(901), 'Counseling', 'pending'),
   (pg_temp.u(1003), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'personnel_training', pg_temp.u(902), 'Training', 'pending'),
-  (pg_temp.u(1004), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'rating_scheme_entry', pg_temp.u(903), 'Rating', 'pending'),
+  (pg_temp.u(1004), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'evaluation', pg_temp.u(903), 'Rating', 'pending'),
   (pg_temp.u(1005), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'personnel', pg_temp.u(303), 'Active Person', 'pending'),
   (pg_temp.u(1006), pg_temp.u(101), pg_temp.u(1), 'owner@example.test', 'personnel', pg_temp.u(305), 'Denied before', 'denied');
 

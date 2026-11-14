@@ -1,6 +1,7 @@
 import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { jsPDF } from 'jspdf';
+import { evaluationSeedRows } from './evaluation-seed.mjs';
 
 const expiredAt = '2000-01-01T12:00:00.000Z';
 const checked = (result) => {
@@ -134,6 +135,25 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 		});
 	}
 	const ratingId = randomUUID();
+	const rating = await evaluationSeedRows(client, [
+		{
+			id: ratingId,
+			organization_id: fixture.ids.orgA,
+			rated_person_id: retained[1].id,
+			eval_type: 'NCOER',
+			rater_person_id: people[0].id,
+			senior_rater_person_id: people[0].id,
+			intermediate_rater_person_id: people[0].id,
+			reviewer_person_id: people[0].id,
+			rater_name: 'Retained synthetic rater',
+			senior_rater_name: 'Retained synthetic senior',
+			intermediate_rater_name: 'Retained synthetic intermediate',
+			reviewer_name: 'Retained synthetic reviewer',
+			rating_period_start: '2026-01-01',
+			rating_period_end: '2026-12-31',
+			notes: 'Retained evaluation ' + tag
+		}
+	]);
 	const batches = [
 		['personnel', [...people, ...retained]],
 		['personnel_documents', documents],
@@ -164,28 +184,8 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 				archived_at: null
 			}))
 		],
-		[
-			'rating_scheme_entries',
-			[
-				{
-					id: ratingId,
-					organization_id: fixture.ids.orgA,
-					rated_person_id: fixture.ids.personA,
-					eval_type: 'NCOER',
-					rater_person_id: people[0].id,
-					senior_rater_person_id: people[0].id,
-					intermediate_rater_person_id: people[0].id,
-					reviewer_person_id: people[0].id,
-					rater_name: 'Retained synthetic rater',
-					senior_rater_name: 'Retained synthetic senior',
-					intermediate_rater_name: 'Retained synthetic intermediate',
-					reviewer_name: 'Retained synthetic reviewer',
-					rating_period_start: '2026-01-01',
-					rating_period_end: '2026-12-31',
-					notes: 'Retained evaluation ' + tag
-				}
-			]
-		]
+		['rating_schemes', rating.schemes],
+		['evaluations', rating.evaluations]
 	];
 	for (const file of objects) file.uploadId = randomUUID();
 	const files = objects.map(({ uploadId, bucket, path, personnelId, rowId, size, sha256 }) => ({
@@ -229,6 +229,7 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 		people: selected.map(({ id, last_name, slug, organization_id }) => ({ id, last_name, slug, organization_id })),
 		retained,
 		ratingId,
+		ratingSchemeId: rating.evaluations[0].rating_scheme_id,
 		rows: batches.map(([table, rows]) => ({ table, ids: rows.map((row) => row.id) })),
 		files
 	};

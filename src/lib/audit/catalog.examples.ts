@@ -341,49 +341,56 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		sentence: 'Deleted critical task completion Apply a tourniquet for SPC Doe, Jane on 12 Mar'
 	},
 	'rating_scheme.created': {
+		entry: { recordLabel: 'NCOER', subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Added rating scheme NCOER for SPC Doe, Jane'
+	},
+	'rating_scheme.updated': {
+		entry: {
+			recordLabel: 'NCOER',
+			subjectLabel: 'SPC Doe, Jane',
+			details: { change: { evalType: { from: 'OER', to: 'NCOER' }, raters: true } }
+		},
+		sentence: 'Changed rating scheme NCOER for SPC Doe, Jane: type OER → NCOER, raters changed'
+	},
+	'rating_scheme.archived': {
+		entry: { recordLabel: 'NCOER', subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Archived rating scheme NCOER for SPC Doe, Jane'
+	},
+	'rating_scheme.restored': {
+		entry: { recordLabel: 'NCOER', subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Restored rating scheme NCOER for SPC Doe, Jane'
+	},
+	'rating_scheme.deleted': {
+		entry: { recordLabel: 'NCOER', subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Deleted rating scheme NCOER for SPC Doe, Jane'
+	},
+	'evaluation.created': {
 		entry: {
 			recordLabel: 'NCOER',
 			subjectLabel: 'SPC Doe, Jane',
 			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
 		},
-		sentence: 'Added rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
+		sentence: 'Added evaluation NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
 	},
-	'rating_scheme.updated': {
+	'evaluation.updated': {
 		entry: {
 			recordLabel: 'NCOER',
 			subjectLabel: 'SPC Doe, Jane',
 			details: {
 				periodStart: '2026-01-01',
 				periodEnd: '2026-12-31',
-				change: { status: { from: 'active', to: 'completed' }, raters: true }
+				change: { workflowStatus: { from: 'drafting', to: 'completed' }, notes: true }
 			}
 		},
-		sentence:
-			'Changed rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec: status active → completed, raters changed'
+		sentence: 'Changed evaluation NCOER for SPC Doe, Jane, 1 Jan–31 Dec: workflow drafting → completed, notes changed'
 	},
-	'rating_scheme.archived': {
+	'evaluation.deleted': {
 		entry: {
 			recordLabel: 'NCOER',
 			subjectLabel: 'SPC Doe, Jane',
 			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
 		},
-		sentence: 'Archived rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
-	},
-	'rating_scheme.restored': {
-		entry: {
-			recordLabel: 'NCOER',
-			subjectLabel: 'SPC Doe, Jane',
-			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
-		},
-		sentence: 'Restored rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
-	},
-	'rating_scheme.deleted': {
-		entry: {
-			recordLabel: 'NCOER',
-			subjectLabel: 'SPC Doe, Jane',
-			details: { periodStart: '2026-01-01', periodEnd: '2026-12-31' }
-		},
-		sentence: 'Deleted rating scheme entry NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
+		sentence: 'Deleted evaluation NCOER for SPC Doe, Jane, 1 Jan–31 Dec'
 	},
 	'onboarding_template.created': {
 		entry: { recordLabel: 'New Soldier', subjectLabel: null, details: {} },

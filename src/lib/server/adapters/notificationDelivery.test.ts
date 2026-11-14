@@ -121,8 +121,7 @@ describe('notification producers', () => {
 				session: null
 			};
 			if (kind === 'training') await createRequestTrainingTypeDeletionContext(request).notifyTrainingTypeDeleted();
-			else if (kind === 'rating')
-				await createRequestRatingSchemeDeletionContext(request).notifyRatingSchemeEntryDeleted();
+			else if (kind === 'rating') await createRequestRatingSchemeDeletionContext(request).notifyEvaluationDeleted();
 			else await createRequestPersonnelPermanentDeletionContext(request).notifyPersonnelDeleted('SGT Smith, Jamie');
 			expect(provider.stored).toEqual([
 				{
@@ -134,8 +133,8 @@ describe('notification producers', () => {
 						: kind === 'rating'
 							? {
 									type: 'config_type_deleted',
-									title: 'Rating Scheme Entry Deleted',
-									message: 'A rating scheme entry was deleted.'
+									title: 'Evaluation Deleted',
+									message: 'An evaluation was deleted.'
 								}
 							: {
 									type: 'personnel_permanently_deleted',

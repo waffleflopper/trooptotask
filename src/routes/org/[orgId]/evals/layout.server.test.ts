@@ -15,8 +15,8 @@ function httpFailure(status: number, message: string) {
 }
 
 const context = { locals: {} as App.Locals, cookies: {} as Cookies, orgId: 'requested-org' };
-const entry = {
-	id: 'entry-1',
+const ratingScheme = {
+	id: 'scheme-1',
 	ratedPersonId: 'person-1',
 	evalType: 'OER',
 	raterPersonId: null,
@@ -27,25 +27,38 @@ const entry = {
 	intermediateRaterName: null,
 	reviewerPersonId: null,
 	reviewerName: null,
+	notes: null,
+	archivedAt: null
+};
+const evaluation = {
+	id: 'evaluation-1',
+	ratingSchemeId: 'scheme-1',
+	ratedPersonId: 'person-1',
+	evalType: 'OER',
+	reportType: 'AN',
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
+	workflowStatus: null,
 	notes: 'Retained notes',
-	reportType: 'AN',
-	workflowStatus: null
+	signedChain: null
 };
 
 describe('Evals workspace delivery', () => {
 	beforeEach(() => vi.clearAllMocks());
-	it('streams authorized entries and hydrates the admitted Organization', async () => {
-		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemeEntries: [entry] });
+	it('streams authorized schemes and Evaluations and hydrates the admitted Organization', async () => {
+		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemes: [ratingScheme], evaluations: [evaluation] });
 		loadWithContext.mockImplementation((_locals, _cookies, _orgId, config) => ({
 			data: config.fn({ auth: { orgId: 'admitted-org' } })
 		}));
 		const route = await _streamRatingSchemeWorkspace(context);
 		await expect(route.ratingScheme.data).resolves.toMatchObject({
 			laneKey: 'ratingScheme',
-			data: { ratingSchemeEntries: [entry] },
-			hydration: { orgId: 'admitted-org', ratingSchemeEntries: { mode: 'replace', deferred: false, items: [entry] } }
+			data: { ratingSchemes: [ratingScheme], evaluations: [evaluation] },
+			hydration: {
+				orgId: 'admitted-org',
+				ratingSchemes: { mode: 'replace', deferred: false, items: [ratingScheme] },
+				evaluations: { mode: 'replace', deferred: false, items: [evaluation] }
+			}
 		});
 	});
 	it('settles explicit access denial without loading private workspace facts', async () => {

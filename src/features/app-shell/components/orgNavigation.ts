@@ -61,6 +61,9 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	},
 	personnel: {
 		import: 'Import'
+	},
+	'rating-scheme': {
+		'rating-scheme': 'Rating Scheme'
 	}
 };
 

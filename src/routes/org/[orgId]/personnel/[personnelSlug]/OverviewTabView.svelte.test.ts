@@ -38,7 +38,7 @@ const attention: PersonnelAttention = {
 			detail: 'Thru 30 Nov · rater SSG Alvarez · drafting',
 			dueDate: '2026-11-30',
 			daysUntilDue: 55,
-			target: { tab: 'evals', entryId: 'entry-1' }
+			target: { tab: 'evals', evaluationId: 'entry-1' }
 		}
 	],
 	readinessBadge: { count: 2, complete: false },
@@ -83,7 +83,7 @@ function completingFetch() {
 }
 
 const evaluation = {
-	entryId: 'entry-1',
+	evaluationId: 'entry-1',
 	evalType: 'NCOER',
 	rater: 'SSG Alvarez',
 	intermediateRater: null,

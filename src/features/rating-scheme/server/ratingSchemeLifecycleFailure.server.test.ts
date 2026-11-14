@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { lifecycleFailure } from './ratingSchemeLifecycleFailure.server';
+import { lifecycleFailure, NEXT_RATER_REFUSED } from './ratingSchemeLifecycleFailure.server';
 
 describe('lifecycleFailure', () => {
 	it.each([
 		['42501', 403],
 		['55000', 409],
 		['P0002', 404],
+		['23505', 409],
 		['23503', 400],
 		['22023', 400]
 	])('answers a %s refusal with %i', (code, status) => {
@@ -19,6 +20,24 @@ describe('lifecycleFailure', () => {
 		expect(() => lifecycleFailure({ code: '55000', message: 'internal step detail' })).toThrow(
 			expect.not.objectContaining({ message: 'internal step detail' })
 		);
+	});
+
+	it('names the rule a 55000 refusal broke when the user can act on it', () => {
+		expect(() =>
+			lifecycleFailure({ code: '55000', message: 'Another evaluation is already open on this rating scheme' })
+		).toThrow(expect.objectContaining({ message: 'Another evaluation is already open on this rating scheme' }));
+	});
+
+	it('explains a refused next rater and keeps other check failures private', () => {
+		expect(() =>
+			lifecycleFailure({
+				code: '23514',
+				message: 'new row for relation "evaluations" violates check constraint "evaluations_next_rater_check"'
+			})
+		).toThrow(expect.objectContaining({ status: 400, message: NEXT_RATER_REFUSED }));
+		expect(() =>
+			lifecycleFailure({ code: '23514', message: 'violates check constraint "evaluations_chain_snapshot_check"' })
+		).toThrow(expect.not.objectContaining({ status: expect.any(Number) }));
 	});
 
 	it('surfaces an unexpected provider failure as a server error', () => {

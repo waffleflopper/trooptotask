@@ -144,7 +144,7 @@ REVIEW_FAILURE_FILE = "deletion-review-failure.json"
 REVIEW_SOURCE_TABLES = {
     "personnel": "personnel", "training_type": "training_types",
     "personnel_training": "personnel_trainings", "counseling_record": "counseling_records",
-    "rating_scheme_entry": "rating_scheme_entries",
+    "evaluation": "evaluations",
 }
 
 

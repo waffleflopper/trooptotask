@@ -34,7 +34,7 @@ describe('attentionTargetHref', () => {
 	const paths = { person: '/org/o/personnel/sgt-okafor', org: '/org/o' };
 
 	it('opens the Evals entry for an evaluation and the Data sheet for a loss', () => {
-		expect(attentionTargetHref({ tab: 'evals', entryId: 'eval-1' }, paths)).toBe('/org/o/evals?entry=eval-1');
+		expect(attentionTargetHref({ tab: 'evals', evaluationId: 'eval-1' }, paths)).toBe('/org/o/evals?entry=eval-1');
 		expect(attentionTargetHref({ tab: 'data-sheet' }, paths)).toBe('/org/o/personnel/sgt-okafor/data-sheet');
 	});
 });

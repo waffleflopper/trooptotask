@@ -52,7 +52,7 @@ export function createSupabasePersonnelRatingSchemeRosterPort(
 				actor.orgId,
 				{ kind: 'organization' },
 				{
-					select: 'id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)',
+					select: 'id, rating_schemes!rating_schemes_rated_person_id_fkey!inner(id)',
 					status: 'archived'
 				}
 			);

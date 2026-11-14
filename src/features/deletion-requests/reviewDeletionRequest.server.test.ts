@@ -73,7 +73,7 @@ function effectsFor(
 			approvePersonnelArchiveRequest(ctx, requestId, id, reviewedAt),
 		approveTrainingType: transactionalApproval(ctx, 'training_types', 'training_type'),
 		approveTrainingRecord: transactionalApproval(ctx, 'personnel_trainings', 'personnel_training'),
-		approveRatingEntry: transactionalApproval(ctx, 'rating_scheme_entries', 'rating_scheme_entry'),
+		approveEvaluation: transactionalApproval(ctx, 'evaluations', 'evaluation'),
 		approveCounseling: async (requestId, id, reviewedAt) => {
 			await transactionalApproval(ctx, 'counseling_records', 'counseling_record')(requestId, id, reviewedAt);
 			return { fileCleanup: 'pending' };
@@ -656,7 +656,7 @@ describe('conditional review result', () => {
 		['counseling_record', 'counseling_records'],
 		['training_type', 'training_types'],
 		['personnel_training', 'personnel_trainings'],
-		['rating_scheme_entry', 'rating_scheme_entries']
+		['evaluation', 'evaluations']
 	])('does not write the status again after a %s approval acknowledges it', async (resourceType, table) => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, { resource_type: resourceType, resource_id: 'target-1' });

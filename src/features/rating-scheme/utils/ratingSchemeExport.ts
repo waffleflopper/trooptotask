@@ -4,6 +4,7 @@ import { formatToday } from '$lib/utils/dates';
 import type { RatingSchemeEntry, WorkflowStatus } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 import { isEvaluationCompleted, workflowStatusLabel } from './evaluationWorkflow';
+import { isOnTracker } from './ratingSchemeEntries';
 
 const RATING_SCHEME_COLUMNS = [
 	{ header: 'Eval Type', key: 'Eval Type', width: 10 },
@@ -33,7 +34,7 @@ function getPersonName(personnel: PersonnelLookup[], id: string | null, name: st
 }
 
 function getDueStatusLabel(entry: RatingSchemeEntry): string {
-	if (entry.archivedAt) return 'Archived';
+	if (!isOnTracker(entry)) return 'Archived';
 	const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.workflowStatus);
 	const days = getDaysUntilDue(entry.ratingPeriodEnd);
 	if (status === 'completed') return 'Completed';

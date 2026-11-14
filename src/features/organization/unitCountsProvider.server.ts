@@ -4,7 +4,7 @@ import type { OrganizationUnitCountsPort } from './unitCounts.server';
 export function createSupabaseOrganizationUnitCountsPort(
 	getClient: () => SupabaseClient,
 	orgId: string,
-	ratingScheme: { countEntries(): Promise<number> }
+	ratingScheme: { countRatingSchemes(): Promise<number> }
 ): OrganizationUnitCountsPort {
 	return {
 		async countRows({ table, archived }) {
@@ -15,6 +15,6 @@ export function createSupabaseOrganizationUnitCountsPort(
 			if (error) throw new Error(error.message);
 			return count ?? 0;
 		},
-		countRatingSchemeEntries: () => ratingScheme.countEntries()
+		countRatingSchemeEntries: () => ratingScheme.countRatingSchemes()
 	};
 }

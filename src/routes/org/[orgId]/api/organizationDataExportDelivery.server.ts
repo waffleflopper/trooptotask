@@ -78,6 +78,7 @@ export function createOrganizationDataExportReads(
 		onboardingTemplateSteps: () => archiveReaders.onboarding.listRows('onboarding_template_steps'),
 		personnelOnboardings: () => archiveReaders.onboarding.listRows('personnel_onboardings'),
 		onboardingStepProgress: () => archiveReaders.onboarding.listRows('onboarding_step_progress'),
-		ratingSchemeEntries: () => archiveReaders.ratingScheme.listRows()
+		ratingSchemes: () => archiveReaders.ratingScheme.listRatingSchemeRows(),
+		evaluations: () => archiveReaders.ratingScheme.listEvaluationRows()
 	};
 }

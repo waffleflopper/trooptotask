@@ -298,7 +298,7 @@ describe('governance unit counts', () => {
 				...Array.from({ length: 4 }, () => ({ organization_id: ORG_ID })),
 				...Array.from({ length: 6 }, () => ({ organization_id: OTHER_ORG_ID }))
 			],
-			rating_scheme_entries: [
+			rating_schemes: [
 				...Array.from({ length: 5 }, () => ({ organization_id: ORG_ID })),
 				...Array.from({ length: 2 }, () => ({ organization_id: OTHER_ORG_ID }))
 			]
@@ -347,7 +347,7 @@ describe('governance unit counts', () => {
 		expect(seen.sort((a, b) => a.table.localeCompare(b.table))).toEqual([
 			{ table: 'organization_memberships', exact: true, authorization: 'Bearer service-key' },
 			{ table: 'personnel_trainings', exact: true, authorization: 'Bearer service-key' },
-			{ table: 'rating_scheme_entries', exact: true, authorization: 'Bearer service-key' }
+			{ table: 'rating_schemes', exact: true, authorization: 'Bearer service-key' }
 		]);
 		expect(getAdminClient).toHaveBeenCalledTimes(1);
 	});

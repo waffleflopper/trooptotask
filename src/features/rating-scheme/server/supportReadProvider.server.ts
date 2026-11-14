@@ -12,7 +12,7 @@ export function createRatingSchemeSupportReader(client: SupabaseClient): RatingS
 			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
 			const { data, error } = await selectAllSupabaseRows<Row>(async (from, to) => {
 				const result = await client
-					.from('rating_scheme_entries')
+					.from('rating_schemes')
 					.select('id, organization_id')
 					.in('organization_id', ids)
 					.order('organization_id', { ascending: true })

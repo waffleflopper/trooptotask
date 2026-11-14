@@ -178,7 +178,7 @@ records do not add to the expired/orange attention count. Do not silently redefi
    settles at 100%. `clean-seeds` removes both journaled cohorts.
 
 8. **Independent server sources.** Before a visible Home navigation from Calendar, arm
-   `$V server-source arm TABLE hold 1 120000` for each of `personnel_onboardings`, `rating_scheme_entries`,
+   `$V server-source arm TABLE hold 1 120000` for each of `personnel_onboardings`, `evaluations`, `rating_schemes`,
    `personnel_trainings`, `availability_entries`, `special_days`, `daily_assignments`, `personnel_ict_completions`, and
    `organizations`. The last source matches only A's loss window reads: the Dashboard's policy read, which also carries
    the strength floor, and the scalar `loss_warning_window_days` read. Preserve `server-source state`, the pending
@@ -571,15 +571,15 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    `onboardingScoped` load no People, so their queue is empty.
 2. **Update status.** Focus `Update status` on `NCOER for SPC Able, Synthetic` and press Enter. The Evals entry editor
    opens on that entry with its Workflow section at Not tracked. Pointing at or focusing `Update status` starts
-   `GET api/rating-scheme?entry=ID`; the press reuses that read, so the pair sends one. If the read fails before the
+   `GET api/rating-scheme?evaluation=ID`; the press reuses that read, so the pair sends one. If the read fails before the
    press, the press sends it again. While it loads the button reads `aria-disabled="true"` and `aria-busy="true"`
    (`arm-hold PAGE rating-scheme` shows it until `release`). With `arm-fail PAGE rating-scheme` armed, the row shows
    the failure in a `role="alert"` line and stays. Arm
-   `$V network arm-fail PAGE rating-scheme/ID/workflow`, then press `Mark completed` in the editor. One
-   `POST api/rating-scheme/ID/workflow` returns 503, `The workflow did not move` shows in the editor and the row stays.
+   `$V network arm-fail PAGE evaluations/ID/workflow`, then press `Mark completed` in the editor. One
+   `POST api/evaluations/ID/workflow` returns 503, `The workflow did not move` shows in the editor and the row stays.
    After `network restore`, press `Mark completed` again: the POST returns 200, the row leaves, the count drops by one
    and focus moves to the next row's action. A second Evals page that moved the entry first makes the same refusal
-   real with a 409. `$V rows rating_scheme_entries orgA id ID` reads `completed`; after reload the row stays gone and Evals
+   real with a 409. `$V rows evaluations orgA id ID` reads `completed`; after reload the row stays gone and Evals
    shows the entry Completed. `Start tracking` or another step keeps the editor open with the row in place.
 3. **Record class.** Press `Record class` on Baker's Expired row. (A Due soon row opens the same dialog for the
    Soldiers inside that type's warning window, all checked; the saved row leaves the queue and stays gone after reload.) `Record class` lists the expired People the viewer may

@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
+import TrainingTypesRoute from './trainingTypesRoute.test.svelte';
 import { trainingTypesStore } from '$features/training';
 import { personnelRosterHydration } from '$features/personnel';
 import type { TrainingWorkspaceResult } from '$features/training/contracts';
@@ -194,5 +195,46 @@ describe('training types page', () => {
 
 		expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
+	});
+
+	it('never shows the old roster or types while the same Organization reloads under changed access', async () => {
+		const shellWith = (role: string) => ({
+			org: { id: 'org-1' },
+			user: { id: 'user-1' },
+			member: { role, capabilityMap: {}, scopeSet: { kind: 'organization' } }
+		});
+		const bootstrapWith = (key: string, items: <T>(resolved: T[]) => T[] | Promise<T[]>) => {
+			const bootstrap = makeDeferredBootstrap();
+			bootstrap.hydration.personnel = { mode: 'replace', snapshotKey: `personnel:${key}`, items: items(personnel) };
+			bootstrap.hydration.trainingTypes = {
+				mode: 'replace',
+				snapshotKey: `types:${key}`,
+				items: items([trainingType])
+			};
+			return bootstrap;
+		};
+		const view = render(TrainingTypesRoute, {
+			props: {
+				data: {
+					shell: shellWith('admin'),
+					training: { data: Promise.resolve(bootstrapWith('full', (resolved) => resolved)) }
+				} as never
+			}
+		});
+		await screen.findByRole('button', { name: 'CPR' });
+
+		await view.rerender({
+			data: {
+				shell: shellWith('member'),
+				training: { data: Promise.resolve(bootstrapWith('narrowed', () => new Promise(() => {}))) }
+			} as never
+		});
+
+		for (let turn = 0; turn < 5; turn++) {
+			expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
+			expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+		expect(trainingTypesStore.loading).toBe(true);
 	});
 });

@@ -3351,6 +3351,23 @@ $$;
 ALTER FUNCTION organization_private.clear_next_rater() OWNER TO postgres;
 
 --
+-- Name: delete_frozen_rating_scheme_entry(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.delete_frozen_rating_scheme_entry() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  DELETE FROM public.rating_scheme_entries WHERE id = OLD.id;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.delete_frozen_rating_scheme_entry() OWNER TO postgres;
+
+--
 -- Name: fence_inserted_artifact_files(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -16501,6 +16518,39 @@ CREATE TABLE public.platform_operators (
 ALTER TABLE public.platform_operators OWNER TO postgres;
 
 --
+-- Name: rating_scheme_entries; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.rating_scheme_entries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    rated_person_id uuid NOT NULL,
+    eval_type text NOT NULL,
+    rater_person_id uuid,
+    rater_name text,
+    senior_rater_person_id uuid,
+    senior_rater_name text,
+    intermediate_rater_person_id uuid,
+    intermediate_rater_name text,
+    reviewer_person_id uuid,
+    reviewer_name text,
+    rating_period_start date NOT NULL,
+    rating_period_end date NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    report_type text,
+    workflow_status text,
+    archived_at timestamp with time zone,
+    archived_by text,
+    CONSTRAINT rating_scheme_entries_eval_type_check CHECK ((eval_type = ANY (ARRAY['OER'::text, 'NCOER'::text, 'WOER'::text]))),
+    CONSTRAINT rating_scheme_entries_workflow_status_check CHECK (((workflow_status IS NULL) OR (workflow_status = ANY (ARRAY['drafting'::text, 'command-review'::text, 'with-rater'::text, 'rater-signed'::text, 'with-intermediate-rater'::text, 'ir-signed'::text, 'with-senior-rater'::text, 'sr-signed'::text, 'with-reviewer'::text, 'reviewer-signed'::text, 'with-rated-soldier'::text, 'sm-signed'::text, 'submitted-to-hrc'::text, 'completed'::text]))))
+);
+
+
+ALTER TABLE public.rating_scheme_entries OWNER TO postgres;
+
+--
 -- Name: rating_schemes; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -17466,6 +17516,14 @@ ALTER TABLE ONLY public.platform_error_occurrences
 
 ALTER TABLE ONLY public.platform_operators
     ADD CONSTRAINT platform_operators_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_pkey PRIMARY KEY (id);
 
 
 --
@@ -18740,6 +18798,48 @@ CREATE INDEX platform_error_occurrences_user_idx ON public.platform_error_occurr
 
 
 --
+-- Name: rating_scheme_entries_intermediate_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_intermediate_rater_idx ON public.rating_scheme_entries USING btree (intermediate_rater_person_id) WHERE (intermediate_rater_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_scheme_entries_org_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_org_idx ON public.rating_scheme_entries USING btree (organization_id);
+
+
+--
+-- Name: rating_scheme_entries_rated_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_rated_idx ON public.rating_scheme_entries USING btree (rated_person_id);
+
+
+--
+-- Name: rating_scheme_entries_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_rater_idx ON public.rating_scheme_entries USING btree (rater_person_id) WHERE (rater_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_scheme_entries_reviewer_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_reviewer_idx ON public.rating_scheme_entries USING btree (reviewer_person_id) WHERE (reviewer_person_id IS NOT NULL);
+
+
+--
+-- Name: rating_scheme_entries_senior_rater_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX rating_scheme_entries_senior_rater_idx ON public.rating_scheme_entries USING btree (senior_rater_person_id) WHERE (senior_rater_person_id IS NOT NULL);
+
+
+--
 -- Name: rating_schemes_intermediate_rater_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -19136,6 +19236,13 @@ CREATE TRIGGER daily_assignments_source BEFORE INSERT OR UPDATE ON public.daily_
 --
 
 CREATE TRIGGER dashboard_configs_updated_at BEFORE UPDATE ON public.dashboard_configs FOR EACH ROW EXECUTE FUNCTION public.touch_dashboard_config_updated_at();
+
+
+--
+-- Name: evaluations delete_frozen_rating_scheme_entry; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER delete_frozen_rating_scheme_entry AFTER DELETE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION organization_private.delete_frozen_rating_scheme_entry();
 
 
 --
@@ -19657,6 +19764,13 @@ CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_fol
 
 
 --
+-- Name: rating_scheme_entries stamp_archived_by; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+
+
+--
 -- Name: rating_schemes stamp_archived_by; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -19836,6 +19950,13 @@ CREATE TRIGGER update_personnel_follow_ups_updated_at BEFORE UPDATE ON public.pe
 --
 
 CREATE TRIGGER update_personnel_ict_completions_updated_at BEFORE UPDATE ON public.personnel_ict_completions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: rating_scheme_entries update_rating_scheme_entries_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER update_rating_scheme_entries_updated_at BEFORE UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -20928,6 +21049,54 @@ ALTER TABLE ONLY public.platform_error_occurrences
 
 ALTER TABLE ONLY public.platform_operators
     ADD CONSTRAINT platform_operators_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_organization_intermediate_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_organization_intermediate_rater_fkey FOREIGN KEY (organization_id, intermediate_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (intermediate_rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_organization_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_organization_rater_fkey FOREIGN KEY (organization_id, rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_organization_reviewer_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_organization_reviewer_fkey FOREIGN KEY (organization_id, reviewer_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (reviewer_person_id) NOT VALID;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_organization_senior_rater_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_organization_senior_rater_fkey FOREIGN KEY (organization_id, senior_rater_person_id) REFERENCES public.personnel(organization_id, id) ON DELETE SET NULL (senior_rater_person_id) NOT VALID;
+
+
+--
+-- Name: rating_scheme_entries rating_scheme_entries_rated_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rating_scheme_entries
+    ADD CONSTRAINT rating_scheme_entries_rated_person_id_fkey FOREIGN KEY (rated_person_id) REFERENCES public.personnel(id) ON DELETE CASCADE;
 
 
 --
@@ -22049,6 +22218,13 @@ CREATE POLICY "Users can delete personnel trainings if allowed by scoped train" 
 
 
 --
+-- Name: rating_scheme_entries Users can delete rating scheme entries if allowed by scoped rat; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Users can delete rating scheme entries if allowed by scoped rat" ON public.rating_scheme_entries FOR DELETE USING ((public.can_edit_rating_scheme_record(organization_id, rated_person_id) AND public.is_org_privileged(organization_id)));
+
+
+--
 -- Name: user_org_preferences Users can delete their own org preferences; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -22095,6 +22271,13 @@ CREATE POLICY "Users can insert personnel training history if allowed by scope" 
 --
 
 CREATE POLICY "Users can insert personnel trainings if allowed by scoped train" ON public.personnel_trainings FOR INSERT WITH CHECK (public.can_edit_personnel_training_record_with_type(organization_id, personnel_id, training_type_id));
+
+
+--
+-- Name: rating_scheme_entries Users can insert rating scheme entries if allowed by scoped rat; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Users can insert rating scheme entries if allowed by scoped rat" ON public.rating_scheme_entries FOR INSERT WITH CHECK (public.can_edit_rating_scheme_record(organization_id, rated_person_id));
 
 
 --
@@ -22193,6 +22376,13 @@ CREATE POLICY "Users can update personnel training history if allowed by scope" 
 --
 
 CREATE POLICY "Users can update personnel trainings if allowed by scoped train" ON public.personnel_trainings FOR UPDATE USING (public.can_edit_personnel_training_record(organization_id, personnel_id)) WITH CHECK (public.can_edit_personnel_training_record_with_type(organization_id, personnel_id, training_type_id));
+
+
+--
+-- Name: rating_scheme_entries Users can update rating scheme entries if allowed by scoped rat; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Users can update rating scheme entries if allowed by scoped rat" ON public.rating_scheme_entries FOR UPDATE USING (public.can_edit_rating_scheme_record(organization_id, rated_person_id)) WITH CHECK (public.can_edit_rating_scheme_record(organization_id, rated_person_id));
 
 
 --
@@ -22320,6 +22510,13 @@ CREATE POLICY "Users can view personnel training history if allowed by scoped " 
 CREATE POLICY "Users can view personnel trainings if allowed by scoped trainin" ON public.personnel_trainings FOR SELECT TO authenticated USING (((organization_id, personnel_id) IN ( SELECT v.organization_id,
     v.personnel_id
    FROM member_access_private.viewable_personnel('training'::text) v(organization_id, personnel_id))));
+
+
+--
+-- Name: rating_scheme_entries Users can view rating scheme entries if allowed by scoped ratin; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Users can view rating scheme entries if allowed by scoped ratin" ON public.rating_scheme_entries FOR SELECT USING (public.can_view_rating_scheme_record(organization_id, rated_person_id));
 
 
 --
@@ -22757,6 +22954,12 @@ ALTER TABLE public.platform_error_occurrences ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.platform_operators ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: rating_scheme_entries; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.rating_scheme_entries ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: rating_schemes; Type: ROW SECURITY; Schema: public; Owner: postgres
@@ -23545,6 +23748,13 @@ REVOKE ALL ON FUNCTION organization_private.cascade_group_path() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION organization_private.clear_next_rater() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION delete_frozen_rating_scheme_entry(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.delete_frozen_rating_scheme_entry() FROM PUBLIC;
 
 
 --

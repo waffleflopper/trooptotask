@@ -18,6 +18,8 @@
 --   * Audit history. Rows recorded since the split, including evaluation.* rows and rating_scheme.* rows that name a
 --     scheme's id, stay as written. The rebuild itself records nothing.
 --   * Updated times. Each entry keeps its Evaluation's updated_at; a later edit to its scheme alone does not move it.
+--   * Change of Rater handoff. An Evaluation's next rater and rater_changed_at have no column in an entry and go. A
+--     completed handoff already moved its scheme's rater, which the scheme's own chain keeps.
 BEGIN;
 
 DO $$
@@ -168,13 +170,13 @@ UPDATE public.deletion_requests SET resource_type = 'rating_scheme_entry' WHERE 
 DROP TABLE public.evaluations;
 DROP TABLE public.rating_schemes;
 DROP FUNCTION public.transition_evaluation(uuid, uuid, text, text);
-DROP FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text);
-DROP FUNCTION IF EXISTS public.change_evaluation_rater(uuid, uuid, date, uuid, text);
+DROP FUNCTION public.start_evaluation(uuid, uuid, text, date, date, boolean, text, uuid, text);
 DROP FUNCTION public.set_rating_scheme_archived(uuid, uuid, boolean);
 DROP FUNCTION audit_private.audit_evaluation();
 DROP FUNCTION organization_private.require_one_open_evaluation();
 DROP FUNCTION organization_private.keep_evaluation_chain_snapshot();
 DROP FUNCTION organization_private.keep_completed_report();
+DROP FUNCTION organization_private.clear_next_rater();
 DROP FUNCTION organization_private.follow_scheme_eval_type();
 DROP FUNCTION organization_private.require_rater_change_report();
 DROP FUNCTION organization_private.delete_frozen_rating_scheme_entry();

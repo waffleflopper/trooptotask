@@ -25,7 +25,8 @@ const preferences = {
 		showEventLanes: true,
 		showAssignmentLanes: true,
 		groupFilter: null,
-		lastStatusTypeId: null
+		lastStatusTypeId: null,
+		viewMode: null
 	},
 	training: {
 		selectedGroupId: null,

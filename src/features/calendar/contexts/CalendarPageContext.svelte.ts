@@ -27,6 +27,8 @@ import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEv
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { initialCalendarView, rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
+import { historyBack } from '$lib/utils/historyBack';
+import { writeAddress } from '$lib/utils/addressWriter';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
@@ -64,7 +66,9 @@ export type CalendarPopover =
 
 export type AvailabilityEditorRequest =
 	| { readonly kind: 'create'; readonly person: Personnel; readonly startDate: string; readonly endDate: string }
-	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry };
+	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry }
+	/** No one chosen yet. Holds only people the actor may manage, never empty. */
+	| { readonly kind: 'pick'; readonly date: string; readonly people: readonly [Personnel, ...Personnel[]] };
 
 export interface TodayAvailability {
 	readonly date: Date;
@@ -82,6 +86,8 @@ export interface CalendarDisplayPreferences {
 	/** A top-level Group id or an outside-tree band value; null is All. */
 	groupFilter: string | null;
 	lastStatusTypeId: string | null;
+	/** The view the person last chose; null until they choose one, when the screen width decides. */
+	viewMode: CalendarViewMode | null;
 }
 
 export interface CalendarPageAccess {
@@ -123,11 +129,13 @@ export class CalendarPageContext {
 	}
 
 	popover = $state.raw<CalendarPopover | null>(null);
-	editor = $state.raw<AvailabilityEditorRequest | null>(null);
+	#request = $state.raw<AvailabilityEditorRequest | null>(null);
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	viewMode = $state<CalendarViewMode>(initialCalendarView());
+	/** Read once per context, so a resize or a preference re-sync never switches the view under the reader. */
+	readonly #openingView: CalendarViewMode = initialCalendarView();
+	#chosenView = $state<CalendarViewMode | null>(null);
 
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
@@ -140,6 +148,18 @@ export class CalendarPageContext {
 	calendarPersonnelSearch = $state('');
 	/** Bumped by each Today press, so the grid reveals today even when the month does not change. */
 	todayRequests = $state(0);
+
+	/** Visible only while this page's history entry for it is current, so browser Back closes it. */
+	get editor(): AvailabilityEditorRequest | null {
+		return page.state.calendarEditor ? this.#request : null;
+	}
+
+	/** The saved view, or null until the reader chooses one. */
+	get chosenView(): CalendarViewMode | null {
+		return this.#chosenView;
+	}
+
+	readonly viewMode: CalendarViewMode = $derived(this.#chosenView ?? this.#openingView);
 
 	get #workspaceData() {
 		return this.#data.calendar?.data;
@@ -193,6 +213,13 @@ export class CalendarPageContext {
 			POLICY_ACTION_CATALOG.calendar.manageAvailability,
 			CALENDAR_WORKSPACE_RESOURCE
 		).allowed;
+	}
+
+	/** The DA 6 read needs Calendar view across the Organization, so a Group-scoped reader is not offered it. */
+	get canReadDa6(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability, {
+			kind: 'organization'
+		}).allowed;
 	}
 
 	get canManageAssignments(): boolean {
@@ -345,14 +372,17 @@ export class CalendarPageContext {
 		this.showAssignmentLanes = preferences.showAssignmentLanes;
 		this.#groupFilter = preferences.groupFilter;
 		this.#lastStatusTypeId = preferences.lastStatusTypeId;
+		this.#chosenView = preferences.viewMode;
 	}
 
 	setViewMode(view: CalendarViewMode): void {
-		this.viewMode = view;
+		if (view === this.#chosenView) return;
+		this.#chosenView = view;
+		this.#savePreferences({ viewMode: view });
 	}
 
 	navigateToMonth(date: Date): void {
-		this.viewMode = 'month';
+		this.setViewMode('month');
 		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
 	}
 
@@ -420,13 +450,34 @@ export class CalendarPageContext {
 	}
 
 	openEditor(request: AvailabilityEditorRequest): void {
-		if (!this.canManageAvailabilityFor(request.person)) return;
+		if (request.kind !== 'pick' && !this.canManageAvailabilityFor(request.person)) return;
 		this.popover = null;
-		this.editor = request;
+		this.#request = request;
+		if (!page.state.calendarEditor) void writeAddress({ push: true, state: { ...page.state, calendarEditor: true } });
 	}
 
 	closeEditor(): void {
-		this.editor = null;
+		const visible = this.editor !== null;
+		this.#request = null;
+		if (visible) historyBack();
+	}
+
+	/** Everyone in the reader's scope the actor may mark out. The picker has its own search, so the Group filter does not apply. */
+	readonly #statusPickPeople = $derived.by(() => {
+		const allowedInGroup: Record<string, boolean> = {};
+		return this.allPersonnelFlat.filter((person) => {
+			const groupId = person.groupId ?? '';
+			return (allowedInGroup[groupId] ??= this.canManageAvailabilityFor(person));
+		});
+	});
+
+	get canAddStatus(): boolean {
+		return this.#statusPickPeople.length > 0;
+	}
+
+	openAddStatus(date: Date): void {
+		const [first, ...rest] = this.#statusPickPeople;
+		if (first) this.openEditor({ kind: 'pick', date: formatDate(date), people: [first, ...rest] });
 	}
 
 	openQuickAdd(person: Personnel, startDate: string, endDate: string, anchor: HTMLElement): void {

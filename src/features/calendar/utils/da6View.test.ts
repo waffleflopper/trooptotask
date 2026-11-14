@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { da6Segment, simulateRoster } from '../roster/rosterEngine';
 import { assigned, status, storedR4, swapExample, R4_STARTING } from '../roster/rosterFixtures.test-support';
-import { defaultDay, remarkText, workedExample, type Da6Sheet } from './da6View';
+import { calendarDa6Href, da6BackLink, defaultDay, remarkText, workedExample, type Da6Sheet } from './da6View';
 
 const r4 = da6Segment(simulateRoster(storedR4()), '2026-10')!;
 const column = (date: string) => r4.columns.findIndex((candidate) => candidate.date === date);
@@ -165,5 +165,46 @@ describe('the default day', () => {
 	it('falls back to the last served day when today has no column', () => {
 		expect(defaultDay(sheets, '2026-10-31')).toEqual({ sheet: 0, column: 23 });
 		expect(defaultDay(sheets, '2026-09-30')).toEqual({ sheet: 0, column: 0 });
+	});
+});
+
+describe('the DA 6 from the Calendar', () => {
+	const type = (
+		id: string,
+		sortOrder: number,
+		overrides: { assignTo?: 'personnel' | 'group'; archivedAt?: string } = {}
+	) => ({
+		id,
+		sortOrder,
+		assignTo: 'personnel' as const,
+		archivedAt: null,
+		...overrides
+	});
+
+	it('opens the first person-assigned, unarchived duty type in the month of the day shown', () => {
+		const types = [
+			type('archived', 0, { archivedAt: '2026-01-01' }),
+			type('group', 1, { assignTo: 'group' }),
+			type('cq', 3),
+			type('sd', 2)
+		];
+
+		expect(calendarDa6Href('c-co', types, new Date(2026, 10, 30))).toBe('/org/c-co/calendar/rosters/sd?month=2026-11');
+	});
+
+	it('has nowhere to go without a person-assigned, unarchived duty type', () => {
+		expect(
+			calendarDa6Href(
+				'c-co',
+				[type('group', 0, { assignTo: 'group' }), type('old', 1, { archivedAt: 'x' })],
+				new Date()
+			)
+		).toBeNull();
+		expect(calendarDa6Href('c-co', [], new Date())).toBeNull();
+	});
+
+	it('sends a reader who cannot manage assignments back to the Calendar, which the planner would refuse', () => {
+		expect(da6BackLink('c-co', true).href).toBe('/org/c-co/calendar/assignments');
+		expect(da6BackLink('c-co', false).href).toBe('/org/c-co/calendar');
 	});
 });

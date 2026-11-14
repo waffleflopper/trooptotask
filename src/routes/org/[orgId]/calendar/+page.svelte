@@ -111,7 +111,7 @@
 {#if held.current.status === 'failed'}
 	<!-- The Calendar layout observes this same source and shows WorkspaceLoadError. -->
 {:else if held.current.status === 'pending'}
-	<CalendarWorkspaceSkeleton shape="grid" />
+	<CalendarWorkspaceSkeleton shape="grid" view={ctx.chosenView} />
 {:else}
 	<CalendarPageView
 		{ctx}

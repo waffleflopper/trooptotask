@@ -160,7 +160,7 @@ INSERT INTO leap (entry) SELECT pg_temp.new_entry('none', '2027-03-01', '2028-03
 INSERT INTO fixture VALUES ('retained', pg_temp.new_entry('none')), ('narrowed', pg_temp.new_entry('both')),
   ('stamped', pg_temp.new_entry('none'));
 UPDATE public.evaluations SET eval_type = 'WOER' WHERE id = pg_temp.f('stamped');
-UPDATE public.evaluations SET chain_snapshot_at = now(), snapshot_rater_person_id = pg_temp.id('302'),
+UPDATE public.evaluations SET chain_snapshot_at = '2025-02-01Z', snapshot_rater_person_id = pg_temp.id('302'),
   snapshot_senior_rater_name = 'COL Senior',
   snapshot_intermediate_rater_name = CASE WHEN id = pg_temp.f('retained') THEN 'MSG Retained' END
 WHERE id IN (pg_temp.f('retained'), pg_temp.f('narrowed'));
@@ -335,6 +335,12 @@ SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('retained'), NULL, 'with-intermediate-rater');
 SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = pg_temp.f('retained')), 'with-intermediate-rater',
   'a kept chain''s intermediate rater is a step even when the scheme has none');
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('retained'), 'with-intermediate-rater', 'completed');
+SELECT results_eq(
+  $$ SELECT chain_snapshot_at, snapshot_rater_person_id, snapshot_intermediate_rater_name, snapshot_senior_rater_name
+     FROM public.evaluations WHERE id = pg_temp.f('retained') $$,
+  $$ VALUES (now(), pg_temp.id('302'), 'MSG Retained'::text, 'COL Senior'::text) $$,
+  'completing an Evaluation with a kept chain keeps that chain and stamps when it completed');
 SELECT throws_ok(format($$ SELECT public.transition_evaluation(%L, %L, NULL, 'with-intermediate-rater') $$,
     pg_temp.id('101'), pg_temp.f('narrowed')),
   '55000', 'An evaluation at not tracked cannot move to with-intermediate-rater',
@@ -398,6 +404,11 @@ WHERE id = (SELECT entry FROM changed);
 INSERT INTO returned SELECT 'change', public.transition_evaluation(pg_temp.id('101'), entry, 'with-rater', 'completed')
 FROM changed;
 UPDATE changed SET successor = (SELECT (result #>> '{raterChange,successor,id}')::uuid FROM returned WHERE label = 'change');
+INSERT INTO returned SELECT 'change repeated', public.transition_evaluation(pg_temp.id('101'), entry, 'with-rater', 'completed')
+FROM changed;
+SELECT is((SELECT result FROM returned WHERE label = 'change repeated'),
+  (SELECT jsonb_set(result, '{moved}', 'false') FROM returned WHERE label = 'change'),
+  'repeating a Change of Rater completion returns the same handoff, in case the first response was lost');
 SELECT is((SELECT result FROM returned WHERE label = 'change'),
   jsonb_build_object('moved', true, 'evaluation', pg_temp.row((SELECT entry FROM changed)),
     'raterChange', jsonb_build_object(

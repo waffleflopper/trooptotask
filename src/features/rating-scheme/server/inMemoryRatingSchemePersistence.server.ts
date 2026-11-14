@@ -263,7 +263,20 @@ export function createInMemoryRatingSchemePersistence(
 		},
 		async transitionEvaluation(id, { from, to }) {
 			const evaluation = await requireEvaluation(id);
-			if (evaluation.workflowStatus === to) return { evaluation, moved: false, raterChange: null };
+			if (evaluation.workflowStatus === to) {
+				if (!isEvaluationCompleted(to) || evaluation.reportType !== 'CR' || evaluation.raterChangedAt === null) {
+					return { evaluation, moved: false, raterChange: null };
+				}
+				const start = dayAfter(evaluation.ratingPeriodEnd);
+				const successor = (await schemeEvaluations(evaluation.ratingSchemeId)).find(
+					(row) => row.reportType === 'AN' && row.ratingPeriodStart === start
+				);
+				return {
+					evaluation,
+					moved: false,
+					raterChange: { ratingScheme: await requireScheme(evaluation.ratingSchemeId), successor: successor ?? null }
+				};
+			}
 			const scheme = await requireScheme(evaluation.ratingSchemeId);
 			const chain = evaluation.signedChain ?? scheme;
 			if (evaluation.workflowStatus !== from || !isWorkflowMoveAllowed(from, to, workflowRoles(chain))) {

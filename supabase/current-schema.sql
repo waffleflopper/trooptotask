@@ -3672,6 +3672,8 @@ BEGIN
         NEW.snapshot_senior_rater_person_id, NEW.snapshot_senior_rater_name, NEW.snapshot_reviewer_person_id,
         NEW.snapshot_reviewer_name
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      NEW.chain_snapshot_at := pg_catalog.now();
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
     -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
@@ -14894,7 +14896,17 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row), 'raterChange', NULL);
+    IF p_to = 'completed' AND v_row.report_type = 'CR' AND v_row.rater_changed_at IS NOT NULL THEN
+      SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+      SELECT * INTO v_successor FROM public.evaluations AS e
+      WHERE e.rating_scheme_id = v_row.rating_scheme_id AND e.report_type = 'AN'
+        AND e.rating_period_start = v_row.rating_period_end + 1
+      ORDER BY e.created_at, e.id LIMIT 1;
+      v_rater_change := pg_catalog.jsonb_build_object('ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
+        'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
+    END IF;
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row),
+      'raterChange', v_rater_change);
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',

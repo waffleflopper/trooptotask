@@ -4,7 +4,7 @@
 		CalendarPageContext,
 		calendarViewCoverage,
 		calendarStore,
-		CalendarAgendaSkeleton,
+		CalendarViewSkeleton,
 		type CalendarPageData,
 		type CalendarWorkspaceResult
 	} from '$features/calendar';
@@ -149,13 +149,7 @@
 			<Skeleton class="h-3 w-22" />
 		</div>
 		<Skeleton class="h-24 w-full rounded-lg" />
-		<!-- The page opens on Agenda below 641px and on Month from there up, so only CSS can pick the shape. -->
-		<div class="min-[641px]:hidden"><CalendarAgendaSkeleton /></div>
-		<div class="grid grid-cols-7 gap-1 max-[641px]:hidden">
-			{#each { length: 49 }, index (index)}
-				<Skeleton class="h-20 rounded-md" />
-			{/each}
-		</div>
+		<CalendarViewSkeleton view={ctx.chosenView} />
 	</section>
 {:else}
 	<CalendarPageView

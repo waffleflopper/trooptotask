@@ -71,7 +71,8 @@ const syncedPreferences: CalendarDisplayPreferences = {
 	showEventLanes: true,
 	showAssignmentLanes: true,
 	groupFilter: null,
-	lastStatusTypeId: null
+	lastStatusTypeId: null,
+	viewMode: null
 };
 
 const mockPersonnel: Personnel[] = [
@@ -249,7 +250,8 @@ describe('CalendarPageContext', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			});
 
 			expect(ctx.showStatusText).toBe(true);
@@ -267,7 +269,8 @@ describe('CalendarPageContext', () => {
 				showEventLanes: true,
 				showAssignmentLanes: false,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			});
 
 			expect([ctx.showDaysLane, ctx.showEventLanes, ctx.showAssignmentLanes]).toEqual([false, true, false]);
@@ -313,14 +316,41 @@ describe('CalendarPageContext', () => {
 			expect(opened.viewMode).toBe('agenda');
 		});
 
-		it('setViewMode shows the chosen view', () => {
+		it('setViewMode shows the chosen view and saves it once', () => {
 			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
+			ctx.setViewMode('3-month');
 			ctx.setViewMode('month');
 			expect(ctx.viewMode).toBe('month');
+
+			expect(savePreferences.mock.calls).toEqual([[{ viewMode: '3-month' }], [{ viewMode: 'month' }]]);
 		});
 
-		it('navigateToMonth switches to month view and navigates calendarStore', () => {
+		it('shows the saved view over the width’s view', () => {
+			vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) });
+			const opened = makeContext(mockData, org);
+
+			opened.syncUserPreferences({ ...syncedPreferences, viewMode: 'week' });
+
+			expect(opened.viewMode).toBe('week');
+			expect(opened.chosenView).toBe('week');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('keeps the width’s opening view while no view is saved, across a re-sync and a resize', () => {
+			const phone = { matches: true };
+			vi.stubGlobal('window', { matchMedia: () => phone });
+			const opened = makeContext(mockData, org);
+
+			opened.syncUserPreferences(syncedPreferences);
+			phone.matches = false;
+			opened.syncUserPreferences({ ...syncedPreferences, showStatusText: true });
+
+			expect(opened.viewMode).toBe('agenda');
+			expect(opened.chosenView).toBeNull();
+		});
+
+		it('navigateToMonth switches to month view, saves it and navigates calendarStore', () => {
 			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
 
@@ -328,6 +358,7 @@ describe('CalendarPageContext', () => {
 			ctx.navigateToMonth(targetDate);
 
 			expect(ctx.viewMode).toBe('month');
+			expect(savePreferences).toHaveBeenLastCalledWith({ viewMode: 'month' });
 			expect(calendarStore.month).toBe(5);
 			expect(calendarStore.year).toBe(2026);
 		});
@@ -568,7 +599,8 @@ describe('CalendarPageContext', () => {
 			showEventLanes: true,
 			showAssignmentLanes: true,
 			groupFilter: null,
-			lastStatusTypeId
+			lastStatusTypeId,
+			viewMode: null
 		});
 
 		beforeEach(() => {

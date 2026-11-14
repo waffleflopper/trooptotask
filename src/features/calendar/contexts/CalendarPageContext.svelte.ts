@@ -82,6 +82,8 @@ export interface CalendarDisplayPreferences {
 	/** A top-level Group id or an outside-tree band value; null is All. */
 	groupFilter: string | null;
 	lastStatusTypeId: string | null;
+	/** The view the person last chose; null until they choose one, when the screen width decides. */
+	viewMode: CalendarViewMode | null;
 }
 
 export interface CalendarPageAccess {
@@ -127,7 +129,9 @@ export class CalendarPageContext {
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	viewMode = $state<CalendarViewMode>(initialCalendarView());
+	/** Read once per context, so a resize or a preference re-sync never switches the view under the reader. */
+	readonly #openingView: CalendarViewMode = initialCalendarView();
+	#chosenView = $state<CalendarViewMode | null>(null);
 
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
@@ -140,6 +144,13 @@ export class CalendarPageContext {
 	calendarPersonnelSearch = $state('');
 	/** Bumped by each Today press, so the grid reveals today even when the month does not change. */
 	todayRequests = $state(0);
+
+	/** The saved view, or null until the reader chooses one. */
+	get chosenView(): CalendarViewMode | null {
+		return this.#chosenView;
+	}
+
+	readonly viewMode: CalendarViewMode = $derived(this.#chosenView ?? this.#openingView);
 
 	get #workspaceData() {
 		return this.#data.calendar?.data;
@@ -345,14 +356,17 @@ export class CalendarPageContext {
 		this.showAssignmentLanes = preferences.showAssignmentLanes;
 		this.#groupFilter = preferences.groupFilter;
 		this.#lastStatusTypeId = preferences.lastStatusTypeId;
+		this.#chosenView = preferences.viewMode;
 	}
 
 	setViewMode(view: CalendarViewMode): void {
-		this.viewMode = view;
+		if (view === this.#chosenView) return;
+		this.#chosenView = view;
+		this.#savePreferences({ viewMode: view });
 	}
 
 	navigateToMonth(date: Date): void {
-		this.viewMode = 'month';
+		this.setViewMode('month');
 		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
 	}
 

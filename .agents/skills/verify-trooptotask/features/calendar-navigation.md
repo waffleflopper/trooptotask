@@ -57,6 +57,10 @@ month and long-range views.
   and `Agenda` cover the Monday to Sunday shown and the whole focus month, because Export writes that month: a week
   inside the loaded months sends no request, a week in an unloaded month requests that month once, and one that
   straddles the loaded edge requests only its missing days.
+- `calendar-first-load`: the first load shows a skeleton shaped like the page: the title row and toolbar at their loaded
+  heights, then a week of day cards below 641px and a seven-column grid from there up.
+- `calendar-refresh`: a refresh of the same Organization keeps the grid, an open status dialog and its typed note; see
+  [workspace refresh](README.md#workspace-refresh).
 - `calendar-reload-anchor`: a reload opens the month the page last showed, the month the server bootstrapped, with no
   range read.
 - `calendar-markers`: Events, Suspenses and picked execution dates on the Month and 3-Month views behind the
@@ -161,12 +165,19 @@ filters and request controls between cases.
 9. For streamed workspace readiness, start `calendarOperate` on Personnel and arm
    `$V server-source arm availability_entries hold 1 120000` before choosing Calendar. Confirm `server-source state`
    reports the real bootstrap read held. Capture `Loading Calendar data`, absent workspace controls and no new
-   `calendar-range` request while the source is held. Release with `$V server-source release`, wait for the workspace
+   `calendar-range` request while the source is held. At 1280 the skeleton is a seven-column grid and at 390 a list of
+   day cards; at both, its toolbar bar sits where `Calendar controls` lands after release (compare the two
+   `getBoundingClientRect().top` values) and the page has no horizontal overflow. Release with `$V server-source release`, wait for the workspace
    controls, then choose `3-Month` and capture the completed additional-range response. Switch back to month view,
    select September 2026 and confirm the saved Able, Baker and Unassigned statuses and closure from step 5, with a
    second visible read. Restore with `$V server-source restore`. This controls response order in the owned app; it does
    not simulate a production outage. Delivery tests gate each delayed stream and cover cancellation after denial;
    Calendar range tests cover authoritative replacement and empty results.
+   **Refresh.** On the settled page click a Person's day cell, choose a status type and type a `Note`. Run the
+   [workspace refresh](README.md#workspace-refresh) drive with `availability_entries`: `Set Personnel Status` stays open
+   with the note, the grid stays behind it and no `Loading Calendar data` shows, held and released. With `fail-hard 1`
+   the alert reads `Calendar could not be refreshed` with `Retry Calendar` above the title row, and the dialog, note and
+   grid stay.
 
 10. **Grid appearance.** As `calendarOperate` on a settled `/calendar`, use `resize_page` for 1280x800 and the visible
     **Toggle theme** for light. Choose September 2026 and capture: the title row (eyebrow, month/year, `Previous month`,

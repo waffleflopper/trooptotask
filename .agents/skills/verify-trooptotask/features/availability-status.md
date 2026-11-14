@@ -8,6 +8,9 @@ with the result visible again after reload.
 - `status-view`: open a status bar and inspect its status, dates and note in the bar popover.
 - `status-edit`: open `Edit details` from the popover, edit the status and save or cancel.
 - `status-add`: add a new status through the visible form opened from an empty day.
+- `status-agenda-add`: in `Agenda`, each day card ends with `Add status` for a member who can manage availability. It
+  opens `Set Personnel Status` for that day with a `Person` picker listing everyone in scope the member may mark out.
+  The fields stay disabled until a person is picked.
 - `status-quick-add`: drag across empty days in a person's month row and pick a status by click or number key.
 - `status-touch-add`: on a touch screen, tap a start day then an end day in one person's month row and pick a status
   from the same quick-add popover.
@@ -193,6 +196,16 @@ restore any temporarily narrowed grant.
     toasts, so capture the warning with a screenshot) and the edited row unchanged in `rows`. A remove whose same
     status was added again over those dates reports the same warning. Repeat Add and Remove at 390x844 with the toast
     clear of the dialog buttons.
+17. **Add from Agenda.** As `calendarOperate` at 390x844 on `/calendar` in `Agenda`, each day card ends with a row
+    button named `Add status for <D Mon>`. Click today's: `Set Personnel Status` opens with the description
+    `Choose a person · <weekday, month D, YYYY>`, the focused `Person` combobox and disabled Status Type, dates, Note,
+    `Add Status` and `Save and close`. Press native `back`: the dialog closes on `/calendar` in `Agenda` and focus
+    returns to that day's `Add status`. Open it again, type `Able` into the picker's search and press `Enter` (the
+    options can be missing from the accessibility snapshot; a screenshot shows them). The description becomes
+    `SPC Able, Synthetic · <date>` and the fields enable. Enter a unique note and `Save and close`: Able's row appears
+    on that day with the status, `$V rows availability_entries orgA note "$NOTE"` returns one row for that date, and a
+    reload shows it again. Remove it through the bar popover and read zero rows back. As `calendarView`, no day card
+    has `Add status`.
 
 ## Gotchas
 

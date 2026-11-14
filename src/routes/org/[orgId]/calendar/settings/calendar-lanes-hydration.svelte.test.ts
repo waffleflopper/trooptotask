@@ -240,8 +240,9 @@ async function returnToCalendar(
 ) {
 	held.outer.resolve();
 	await packet;
+	const hydrate = vi.spyOn(calendarWorkspaceHydrator, 'hydrate');
 	const returning = renderCalendarSettings(packet);
-	await waitFor(() => expect(dailyAssignmentsStore.loading).toBe(true));
+	await waitFor(() => expect(hydrate).toHaveBeenCalled());
 	server.events.push('outer observed');
 	expect(screen.queryByRole('heading', { name: 'Calendar Settings' })).toBeNull();
 	return returning;

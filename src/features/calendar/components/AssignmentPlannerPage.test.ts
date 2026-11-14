@@ -810,7 +810,9 @@ describe('planner visible-month loading', () => {
 		);
 		renderPage(staleBootstrap);
 		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Charge of Quarters column actions' }).disabled).toBe(
+			true
+		);
 		await waitFor(() => expect(pending).toHaveLength(1));
 		expect(pending[0].url).toBe(
 			'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability%2Cassignments'
@@ -855,7 +857,9 @@ describe('planner visible-month loading', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await waitFor(() => expect(pending).toHaveLength(1));
-		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Charge of Quarters column actions' }).disabled).toBe(
+			true
+		);
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await waitFor(() => expect(pending).toHaveLength(3));
 		for (const { url, resolve } of pending.slice(1)) {

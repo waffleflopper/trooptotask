@@ -12,9 +12,12 @@ import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
+	reconcileOnLoad,
+	type FeatureLaneHydrationOptions,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
+import type { StoreRead } from '$lib/stores/core';
 import type {
 	OnboardingTemplatesWorkspaceHydrationTarget,
 	OnboardingWorkspaceHydration,
@@ -27,6 +30,7 @@ export interface OnboardingHydrationLoadable<T> {
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
+	beginRead?(since?: number): StoreRead<T & { id: string }>;
 }
 
 export interface OnboardingTemplatesHydrationLoadable {
@@ -44,7 +48,11 @@ export interface OnboardingHydrationStores {
 }
 
 export interface OnboardingWorkspaceHydrator {
-	hydrate(hydration?: OnboardingWorkspaceHydration, stores?: OnboardingHydrationStores): Promise<void>;
+	hydrate(
+		hydration?: OnboardingWorkspaceHydration,
+		stores?: OnboardingHydrationStores,
+		options?: FeatureLaneHydrationOptions
+	): Promise<void>;
 	reset(): void;
 }
 
@@ -108,12 +116,19 @@ export function createOnboardingWorkspaceHydrator(): OnboardingWorkspaceHydrator
 
 		async hydrate(
 			hydration?: OnboardingWorkspaceHydration,
-			stores: OnboardingHydrationStores = defaultOnboardingHydrationStores
+			stores: OnboardingHydrationStores = defaultOnboardingHydrationStores,
+			options?: FeatureLaneHydrationOptions
 		): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
 			const descriptors = [
-				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
+				// Add Person in Start onboarding writes the shared roster while this page stays up.
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
+					stores.personnelStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
 				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				createTemplatesTargetDescriptor(
@@ -122,10 +137,15 @@ export function createOnboardingWorkspaceHydrator(): OnboardingWorkspaceHydrator
 					orgId,
 					'onboardingTemplates'
 				),
-				createTargetDescriptor(hydration.onboardings, stores.onboardingStore, orgId, 'onboardings')
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.onboardings, stores.onboardingStore, orgId, 'onboardings'),
+					stores.onboardingStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				)
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await hydrationTargets.applyDescriptors(orgId, descriptors);
+			await hydrationTargets.applyDescriptors(orgId, descriptors, options);
 		}
 	};
 }

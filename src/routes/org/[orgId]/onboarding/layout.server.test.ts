@@ -47,7 +47,10 @@ describe('Onboarding layout', () => {
 		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
 		const { event, depends } = eventFor('view');
 		Object.assign(event, {
-			cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) }
+			cookies: {
+				get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined),
+				getAll: () => [{ name: 't2t-confirmed-tab-1', value: '4' }]
+			}
 		});
 
 		const result = await _createOnboardingLayoutLoad()(event);
@@ -55,7 +58,8 @@ describe('Onboarding layout', () => {
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data', 'app:viewer-day');
 		await expect((result as { onboarding: { data: Promise<unknown> } }).onboarding.data).resolves.toEqual({
 			mode: 'active',
-			today: '2026-10-14'
+			today: '2026-10-14',
+			confirmedChangesByTab: { 'tab-1': 4 }
 		});
 	});
 });

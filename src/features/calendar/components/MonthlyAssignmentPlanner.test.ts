@@ -316,6 +316,25 @@ describe('MonthlyAssignmentPlanner table', () => {
 
 		expect(onRetry).toHaveBeenCalledTimes(1);
 	});
+
+	it('keeps the table on screen while another month loads, with nothing to assign until it has', async () => {
+		const { rerender } = renderPlanner();
+		const table = screen.getByRole('table');
+		expect(screen.getAllByRole('button', { name: /^Assign / }).length).toBeGreaterThan(0);
+
+		await rerender({ rangeStatus: 'loading' });
+
+		expect(screen.getByRole('table')).toBe(table);
+		expect(table.getAttribute('aria-busy')).toBe('true');
+		expect(screen.getByRole('status').textContent).toContain('Loading assignments');
+		expect(screen.queryByRole('button', { name: /^Assign / })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled();
+
+		await rerender({ rangeStatus: 'ready' });
+
+		expect(screen.getByRole('table')).toBe(table);
+		expect(screen.getAllByRole('button', { name: /^Assign / }).length).toBeGreaterThan(0);
+	});
 });
 
 describe('MonthlyAssignmentPlanner roster counts', () => {

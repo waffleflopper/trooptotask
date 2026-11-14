@@ -300,7 +300,24 @@ personnel_ict_completions orgA id <ID>` shows Baker's `personnel_id` on the same
       - Screen and control: Workspace loading
       - How to reach it: On Home, `server-source arm ict_tasks hold 1 120000`, then choose `ICTLs`
       - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region)
-        shows until release. Release with `server-source restore`
+        shows until release, shaped like the page: a toolbar bar, the legend strip and a bordered matrix with a tall
+        header row and one wide Soldier column, at 1280 and 390. The matrix viewport lands where the skeleton's
+        bordered grid was. Release with `server-source restore`
+
+    - ID: M3a
+      - Screen and control: Workspace refresh
+      - How to reach it: Open `Record Completion`, type `Notes (optional)`, then run the
+        [workspace refresh](README.md#workspace-refresh) drive with `ict_tasks`, held and with `fail-hard 1`
+      - Expected: `Log ICT Completion` stays open with the note and the matrix cells stay behind it; no
+        `Loading Critical Tasks`. The failed refresh adds `Critical Tasks could not be refreshed` with
+        `Retry Critical Tasks` above the toolbar and keeps the rest
+
+    - ID: M3b
+      - Screen and control: Save during a workspace refresh
+      - How to reach it: Fill `Record Completion` for a person and task with no completion, run the
+        [workspace refresh](README.md#workspace-refresh) drive with `ict_tasks` held, and press `Save` during the hold
+      - Expected: The dialog closes and the person's cell shows the new expiry while the refresh is held. After
+        `server-source release` the cell still shows it. A cell that returns to `No completion` is a FAIL
 
     - ID: M4
       - Screen and control: Workspace error (`critical-tasks/(workspace)/+layout`; Reports through

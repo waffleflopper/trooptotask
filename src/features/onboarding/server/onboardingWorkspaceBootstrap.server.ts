@@ -1,3 +1,4 @@
+import type { ConfirmedChangesByTab } from '$lib/stores/core';
 import { fetchOnboardingBootstrap } from './onboardingQuery.server';
 import {
 	ONBOARDING_WORKSPACE_LANE_KEY,
@@ -12,6 +13,7 @@ import {
 export interface OnboardingWorkspaceBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
 	today?: string;
+	confirmedChangesByTab?: ConfirmedChangesByTab;
 }
 
 function createHydrationTarget<T>(items: T[]): OnboardingWorkspaceHydrationTarget<T> {
@@ -32,10 +34,12 @@ function createTemplatesHydrationTarget(data: OnboardingWorkspaceData): Onboardi
 
 function createOnboardingWorkspaceHydration(
 	orgId: string,
-	data: OnboardingWorkspaceData
+	data: OnboardingWorkspaceData,
+	confirmedChangesByTab?: ConfirmedChangesByTab
 ): OnboardingWorkspaceHydration {
 	return {
 		orgId,
+		confirmedChangesByTab,
 		personnel: createHydrationTarget(data.personnel),
 		groups: createHydrationTarget(data.groups),
 		trainingTypes: createHydrationTarget(data.trainingTypes),
@@ -52,6 +56,6 @@ export async function fetchOnboardingWorkspace(
 	return {
 		laneKey: ONBOARDING_WORKSPACE_LANE_KEY,
 		data,
-		hydration: createOnboardingWorkspaceHydration(ctx.auth.orgId, data)
+		hydration: createOnboardingWorkspaceHydration(ctx.auth.orgId, data, options.confirmedChangesByTab)
 	};
 }

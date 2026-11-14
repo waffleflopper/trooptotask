@@ -2,6 +2,7 @@ import { createRequestCriticalTasksReadContext } from '$lib/server/adapters/feat
 import type { Cookies } from '@sveltejs/kit';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 import {
 	createWorkspaceHydrationTarget,
 	settleWorkspaceDenial,
@@ -34,10 +35,12 @@ function createCriticalTasksHydrationTarget<T>(items: HydrationItems<T>): Critic
 
 function createCriticalTasksWorkspaceHydration(
 	orgId: string,
-	data: CriticalTasksWorkspaceData
+	data: CriticalTasksWorkspaceData,
+	confirmedChangesByTab: ConfirmedChangesByTab
 ): CriticalTasksWorkspaceHydration {
 	return {
 		orgId,
+		confirmedChangesByTab,
 		personnel: createCriticalTasksHydrationTarget(data.personnel),
 		groups: createCriticalTasksHydrationTarget(data.groups),
 		pinnedGroups: createCriticalTasksHydrationTarget(data.pinnedGroups),
@@ -68,7 +71,11 @@ export async function streamCriticalTasksWorkspaceBootstrap(
 			return {
 				laneKey: CRITICAL_TASKS_WORKSPACE_LANE_KEY,
 				data,
-				hydration: createCriticalTasksWorkspaceHydration(ctx.auth.orgId, data)
+				hydration: createCriticalTasksWorkspaceHydration(
+					ctx.auth.orgId,
+					data,
+					readConfirmedChangeCookies(context.cookies.getAll())
+				)
 			} satisfies CriticalTasksWorkspaceResult;
 		}
 	});

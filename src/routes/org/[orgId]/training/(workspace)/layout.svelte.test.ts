@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const { hydrateMock, restrictMock } = vi.hoisted(() => ({ hydrateMock: vi.fn(), restrictMock: vi.fn() }));
 vi.mock('$features/training', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/training')>()),
-	trainingWorkspaceHydrator: { hydrate: hydrateMock, restrict: restrictMock }
+	trainingWorkspaceHydrator: { hydrate: hydrateMock, restrict: restrictMock, reset: vi.fn() }
 }));
 
 import Layout from './+layout.svelte';
@@ -57,4 +57,21 @@ it('replaces the workspace with a load error and a working retry when the stream
 	await fireEvent.click(screen.getByRole('button', { name: 'Retry Training' }));
 	expect(reload).toHaveBeenCalledTimes(1);
 	vi.unstubAllGlobals();
+});
+
+it('keeps the workspace on screen and reports the failure when a refresh rejects', async () => {
+	const children = createRawSnippet(() => ({ render: () => '<input aria-label="Unsaved notes" />' }));
+	const shell = { org: { id: 'org-1' } };
+	const view = render(Layout, {
+		props: { children, data: { shell, training: { data: Promise.resolve({ laneKey: 'training', hydration: {} }) } } }
+	});
+	await waitFor(() => expect(hydrateMock).toHaveBeenCalled());
+	await fireEvent.input(screen.getByLabelText('Unsaved notes'), { target: { value: 'Keep this draft' } });
+	const rejected = Promise.reject(new Error('personnel_trainings failed'));
+	rejected.catch(() => {});
+
+	await view.rerender({ children, data: { shell, training: { data: rejected } } });
+
+	expect((await screen.findByRole('alert')).textContent).toContain('could not be refreshed');
+	expect((screen.getByLabelText('Unsaved notes') as HTMLInputElement).value).toBe('Keep this draft');
 });

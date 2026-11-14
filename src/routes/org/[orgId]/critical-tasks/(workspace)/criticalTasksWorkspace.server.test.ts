@@ -116,7 +116,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 
 		const routeData = await streamCriticalTasksWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		let workspace: ReturnType<typeof granted<Awaited<typeof routeData.criticalTasks.data>>> | undefined;
@@ -175,7 +175,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 
 		const routeData = await streamCriticalTasksWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.criticalTasks.data);

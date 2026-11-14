@@ -716,6 +716,29 @@ describe('Evaluation — change of rater', () => {
 		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(2);
 	});
 
+	it('reopens a completed Change of Rater on the chain it kept, and any other completed Evaluation on its scheme', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, changeOfRater, { reviewer_name: 'COL Reviewer' });
+		seedEvaluation(ctx, {
+			id: FOREIGN,
+			workflow_status: 'with-reviewer',
+			rating_period_start: '2025-01-01',
+			rating_period_end: '2025-12-31'
+		});
+		await transitionEvaluation(ctx, FOREIGN, { from: 'with-reviewer', to: 'completed' });
+		const { raterChange } = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+		await transitionEvaluation(ctx, raterChange!.successor!.id, { from: 'drafting', to: null });
+		await updateRatingScheme(ctx, { id: SCHEME, reviewerName: null });
+
+		await expect(
+			transitionEvaluation(ctx, EVALUATION, { from: 'completed', to: 'with-reviewer' })
+		).resolves.toMatchObject({ moved: true, evaluation: { workflowStatus: 'with-reviewer' } });
+		await transitionEvaluation(ctx, EVALUATION, { from: 'with-reviewer', to: 'completed' });
+		await expect(transitionEvaluation(ctx, FOREIGN, { from: 'completed', to: 'with-reviewer' })).rejects.toMatchObject({
+			status: 409
+		});
+	});
+
 	it('moves the rater of an archived scheme and opens no Annual', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, changeOfRater, { archived_at: '2026-05-01T00:00:00.000Z' });
@@ -723,6 +746,18 @@ describe('Evaluation — change of rater', () => {
 		const { raterChange } = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
 
 		expect(raterChange).toMatchObject({ ratingScheme: { raterName: 'SSG New' }, successor: null });
+		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(1);
+	});
+
+	it('returns the recorded Evaluation when the same completed one is recorded again', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		seedScheme(ctx);
+		const first = await startEvaluation(ctx, SCHEME, { ...period, reportType: 'AN', completed: true });
+
+		const again = await startEvaluation(ctx, SCHEME, { ...period, reportType: 'AN', completed: true });
+
+		expect(again).toEqual({ ...first, created: false });
 		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(1);
 	});
 

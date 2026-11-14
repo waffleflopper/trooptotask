@@ -533,8 +533,8 @@ CREATE TRIGGER audit_evaluation AFTER INSERT OR DELETE OR UPDATE ON public.evalu
   FOR EACH ROW EXECUTE FUNCTION audit_private.audit_evaluation();
 
 -- Moves an Evaluation one step, or jumps to any step its chain has, as 20261112120000 did for entries. Its chain is
--- the one it shows: an unfinished Evaluation's kept chain when it has one, else its scheme's, which a reopened
--- Evaluation follows again. The triggers above keep one open Evaluation per scheme and the snapshot of a completed
+-- its kept chain while it is unfinished or once it settled a Change of Rater, which reopens on that chain. Any other
+-- Evaluation follows its scheme's chain, which a reopened one reads again. The triggers above keep one open Evaluation per scheme and the snapshot of a completed
 -- one. A move works whether or not the scheme is archived.
 --
 -- Completing a Change of Rater report for the first time hands the scheme to its next rater, or to no rater when it
@@ -596,7 +596,8 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  IF v_row.chain_snapshot_at IS NOT NULL AND v_row.workflow_status IS DISTINCT FROM 'completed' THEN
+  IF v_row.chain_snapshot_at IS NOT NULL
+    AND (v_row.workflow_status IS DISTINCT FROM 'completed' OR v_row.rater_changed_at IS NOT NULL) THEN
     v_has_ir := v_row.snapshot_intermediate_rater_person_id IS NOT NULL
       OR NULLIF(pg_catalog.btrim(v_row.snapshot_intermediate_rater_name), '') IS NOT NULL;
     v_has_reviewer := v_row.snapshot_reviewer_person_id IS NOT NULL
@@ -656,8 +657,9 @@ GRANT EXECUTE ON FUNCTION public.transition_evaluation(uuid, uuid, text, text) T
 
 -- Opens an Evaluation on a listed scheme at drafting with the scheme's eval type, or records a completed one, which
 -- snapshots the scheme's current chain. An open Change of Rater report may name its next rater; a completed one is
--- history and names none. Opening is refused while another Evaluation is open; a replay of the same opening, sent
--- again after its response was lost, returns the Evaluation it opened.
+-- history and names none. Opening is refused while another Evaluation is open. A replay of the same opening or
+-- recording, sent again after its response was lost, returns the Evaluation it made: the open one, or the completed
+-- one with the same report and period.
 CREATE FUNCTION public.start_evaluation(p_organization_id uuid, p_rating_scheme_id uuid, p_report_type text,
   p_rating_period_start date, p_rating_period_end date, p_completed boolean DEFAULT false, p_notes text DEFAULT NULL,
   p_next_rater_person_id uuid DEFAULT NULL, p_next_rater_name text DEFAULT NULL)
@@ -697,7 +699,17 @@ BEGIN
     RAISE EXCEPTION 'The rating scheme is archived' USING ERRCODE = '55000';
   END IF;
 
-  IF NOT p_completed THEN
+  IF p_completed THEN
+    SELECT * INTO v_row FROM public.evaluations AS e
+    WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status = 'completed'
+      AND e.report_type IS NOT DISTINCT FROM v_report_type
+      AND e.rating_period_start = p_rating_period_start AND e.rating_period_end = p_rating_period_end
+    ORDER BY e.created_at, e.id
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN pg_catalog.jsonb_build_object('created', false, 'evaluation', pg_catalog.to_jsonb(v_row));
+    END IF;
+  ELSE
     SELECT * INTO v_row FROM public.evaluations AS e
     WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
     ORDER BY e.created_at DESC, e.id

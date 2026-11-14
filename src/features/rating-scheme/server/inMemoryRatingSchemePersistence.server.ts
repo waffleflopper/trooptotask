@@ -1,7 +1,7 @@
 import { fail } from '$lib/errors';
 import type { Evaluation, EvaluatorChain, RatingScheme, RatingSchemePersistence } from '../contracts';
 import { isEvaluationCompleted, isWorkflowMoveAllowed, workflowRoles } from '../utils/evaluationWorkflow';
-import { isEvaluationOpen } from '../utils/ratingSchemeEntries';
+import { followedChain, isEvaluationOpen } from '../utils/ratingSchemeEntries';
 import { calculateThruDate } from '../utils/ratingScheme';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import {
@@ -208,7 +208,16 @@ export function createInMemoryRatingSchemePersistence(
 			}
 			const scheme = await requireScheme(ratingSchemeId);
 			if (scheme.archivedAt !== null) fail(409, 'The rating scheme is archived');
-			if (!start.completed) {
+			if (start.completed) {
+				const recorded = (await schemeEvaluations(ratingSchemeId)).find(
+					(row) =>
+						isEvaluationCompleted(row.workflowStatus) &&
+						row.reportType === start.reportType &&
+						row.ratingPeriodStart === start.ratingPeriodStart &&
+						row.ratingPeriodEnd === start.ratingPeriodEnd
+				);
+				if (recorded) return { evaluation: recorded, created: false };
+			} else {
 				const open = (await schemeEvaluations(ratingSchemeId)).find((row) => isEvaluationOpen(row.workflowStatus));
 				if (open) {
 					const replay =
@@ -278,8 +287,10 @@ export function createInMemoryRatingSchemePersistence(
 				};
 			}
 			const scheme = await requireScheme(evaluation.ratingSchemeId);
-			const chain = evaluation.signedChain ?? scheme;
-			if (evaluation.workflowStatus !== from || !isWorkflowMoveAllowed(from, to, workflowRoles(chain))) {
+			if (
+				evaluation.workflowStatus !== from ||
+				!isWorkflowMoveAllowed(from, to, workflowRoles(followedChain(scheme, evaluation)))
+			) {
 				return fail(409, EVALUATION_MOVED);
 			}
 			const others = (await schemeEvaluations(scheme.id)).filter((row) => row.id !== id);

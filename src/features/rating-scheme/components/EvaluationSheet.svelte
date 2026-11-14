@@ -21,7 +21,7 @@
 	import { getDaysUntilDue, getRatingDueStatus, getReportTypeLabel } from '../utils/ratingScheme';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import { evaluatorDraft, evaluatorValues } from '../utils/evaluatorDraft';
-	import { toRatingSchemeEntry } from '../utils/ratingSchemeEntries';
+	import { followedChain, toRatingSchemeEntry } from '../utils/ratingSchemeEntries';
 	import { reportPeriodProblem, type ReportPeriodDraft } from '../utils/reportPeriodDraft';
 	import EvaluatorChainRows from './EvaluatorChainRows.svelte';
 	import NextRaterField from './NextRaterField.svelte';
@@ -76,7 +76,7 @@
 	const isCurrent = () => !disposed && isCurrentWorkspace();
 
 	const entry = $derived(toRatingSchemeEntry(scheme, evaluation));
-	const roles = $derived(workflowRoles(entry));
+	const roles = $derived(workflowRoles(followedChain(scheme, evaluation)));
 	const status = $derived(evaluation.workflowStatus);
 	const completed = $derived(isEvaluationCompleted(status));
 	const phase = $derived(evaluationPhase(status));

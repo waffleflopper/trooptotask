@@ -40,6 +40,16 @@ export function isOnTracker(entry: Pick<RatingSchemeEntry, 'archivedAt' | 'workf
 	return entry.archivedAt === null || isEvaluationOpen(entry.workflowStatus);
 }
 
+/**
+ * The chain an Evaluation's moves follow. An unfinished one follows its kept chain when it has one, and so does a
+ * completed Change of Rater, whose scheme has moved to the next rater. Any other completed one reopens on its scheme.
+ */
+export function followedChain(scheme: RatingScheme, evaluation: Evaluation): EvaluatorChain {
+	const { signedChain, workflowStatus, raterChangedAt } = evaluation;
+	if (signedChain && (workflowStatus !== 'completed' || raterChangedAt !== null)) return signedChain;
+	return scheme;
+}
+
 /** The Evaluation as the Evals page lists it: the chain and type it was signed on, else its scheme's current ones. */
 export function toRatingSchemeEntry(scheme: RatingScheme, evaluation: Evaluation): RatingSchemeEntry {
 	return {

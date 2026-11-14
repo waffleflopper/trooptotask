@@ -218,7 +218,7 @@ export function createInMemoryRatingSchemePersistence(
 			const values = evaluationPatchValues(patch);
 			const reportKeys = ['report_type', 'rating_period_start', 'rating_period_end'] as const;
 			if (
-				isEvaluationCompleted(row.workflow_status) &&
+				isEvaluationCompleted(mapEvaluation(row).workflowStatus) &&
 				reportKeys.some((key) => key in values && values[key] !== row[key])
 			) {
 				fail(409, COMPLETED_REPORT_KEPT);

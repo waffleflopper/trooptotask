@@ -465,6 +465,11 @@ BEGIN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
@@ -600,6 +605,11 @@ BEGIN
     RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;

@@ -12,6 +12,7 @@ import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
+	startLoadingUnlessHeld,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
@@ -72,7 +73,7 @@ function createTargetDescriptor<T>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		startLoading: startLoadingUnlessHeld(store, orgId),
 		apply: (items) => store.load(items as T[], orgId)
 	};
 }

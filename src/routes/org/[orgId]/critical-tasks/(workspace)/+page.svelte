@@ -2,7 +2,6 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -16,6 +15,7 @@
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
+	import CriticalTasksMatrixSkeleton from '$features/critical-tasks/components/CriticalTasksMatrixSkeleton.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import {
 		ictTasksStore,
@@ -316,19 +316,7 @@
 			{/if}
 
 			{#if loading}
-				<div
-					class="h-full overflow-auto"
-					role="status"
-					aria-live="polite"
-					aria-label="Loading Critical Tasks"
-					data-testid="critical-tasks-loading"
-				>
-					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
-						{#each Array(24) as _, index (index)}
-							<Skeleton class="h-[38px] w-[100px]" />
-						{/each}
-					</div>
-				</div>
+				<CriticalTasksMatrixSkeleton />
 			{:else if activeTasks.length === 0}
 				<Empty.Root>
 					<Empty.Header>

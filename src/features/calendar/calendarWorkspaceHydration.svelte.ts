@@ -11,6 +11,7 @@ import { confirmedBeforeRequest, type StoreRead } from '$lib/stores/core';
 import { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 import {
 	createFeatureLaneWorkspaceHydrator,
+	startLoadingUnlessHeld,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
@@ -94,7 +95,7 @@ function createTargetDescriptor<T>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		startLoading: startLoadingUnlessHeld(store, orgId),
 		apply: (items) => store.load(items as T[], orgId)
 	};
 }
@@ -118,7 +119,7 @@ function createReconciledTargetDescriptor<T extends { id: string }>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		startLoading: startLoadingUnlessHeld(store, orgId),
 		apply: (items) => store.load(store.orgId === orgId ? read.reconcile(items as T[], covers) : (items as T[]), orgId),
 		settle: () => read.close()
 	};
@@ -140,7 +141,7 @@ function createCalendarAssignmentsDescriptor(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		startLoading: startLoadingUnlessHeld(store, orgId),
 		apply: (items) => {
 			const { types, assignments } = items as CalendarAssignmentsHydrationItems;
 			store.load(

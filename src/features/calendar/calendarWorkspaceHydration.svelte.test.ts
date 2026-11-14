@@ -250,6 +250,38 @@ describe('Calendar workspace hydration adapter', () => {
 		expect(stores.pinnedGroupsStore.loadCount).toBe(0);
 	});
 
+	it('keeps rows on screen while a refresh streams for the Organization a store already shows', async () => {
+		const stores = createStores();
+		const shown = {
+			id: 'shown',
+			personnelId: 'p1',
+			startDate: '2026-05-02',
+			endDate: '2026-05-02'
+		} as AvailabilityEntry;
+		const refreshed = { ...shown, id: 'refreshed' };
+		stores.availabilityEntriesStore.load([shown], 'org-1');
+		let resolveEntries!: (entries: AvailabilityEntry[]) => void;
+		const entries = new Promise<AvailabilityEntry[]>((resolve) => {
+			resolveEntries = resolve;
+		});
+		const streaming = (orgId: string) =>
+			preserveClientHydration({
+				orgId,
+				availabilityEntries: { mode: 'range', snapshotKey: `availability:${orgId}`, items: entries, range: MAY }
+			});
+
+		const refresh = createCalendarWorkspaceHydrator().hydrate(streaming('org-1'), stores);
+		expect(stores.availabilityEntriesStore.loading).toBe(false);
+		expect(stores.availabilityEntriesStore.items).toEqual([shown]);
+
+		const otherOrganization = createCalendarWorkspaceHydrator().hydrate(streaming('org-2'), stores);
+		expect(stores.availabilityEntriesStore.loading).toBe(true);
+
+		resolveEntries([refreshed]);
+		await Promise.all([refresh, otherOrganization]);
+		expect(stores.availabilityEntriesStore.loading).toBe(false);
+	});
+
 	it('clears prior Calendar data and cancels pending hydration when access is revoked', async () => {
 		const stores = createStores();
 		const oldEntry = { id: 'old', personnelId: 'p1' } as AvailabilityEntry;
@@ -268,7 +300,6 @@ describe('Calendar workspace hydration adapter', () => {
 			}),
 			stores
 		);
-		expect(stores.availabilityEntriesStore.loading).toBe(true);
 
 		hydrator.restrict(stores);
 		resolveEntries([lateEntry]);

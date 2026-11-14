@@ -157,4 +157,42 @@ describe('training types page', () => {
 		expect(await screen.findByRole('button', { name: 'CPR' })).toBeTruthy();
 		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
 	});
+
+	it('keeps the same page on screen while a refresh of the same Organization streams', async () => {
+		personnelRosterHydration.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+		const shell = { org: { id: 'org-1' } };
+		const view = render(Page, {
+			props: { data: { shell, training: { data: Promise.resolve(makeDeferredBootstrap()) } } as never }
+		});
+		const shown = await screen.findByRole('button', { name: 'CPR' });
+
+		await view.rerender({
+			data: { shell, training: { data: new Promise<TrainingWorkspaceResult>(() => {}) } } as never
+		});
+
+		expect(screen.getByRole('button', { name: 'CPR' })).toBe(shown);
+		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
+	});
+
+	it('returns to loading at once when the Organization changes', async () => {
+		personnelRosterHydration.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+		const view = render(Page, {
+			props: {
+				data: { shell: { org: { id: 'org-1' } }, training: { data: Promise.resolve(makeDeferredBootstrap()) } } as never
+			}
+		});
+		await screen.findByRole('button', { name: 'CPR' });
+
+		await view.rerender({
+			data: {
+				shell: { org: { id: 'org-2' } },
+				training: { data: new Promise<TrainingWorkspaceResult>(() => {}) }
+			} as never
+		});
+
+		expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
+	});
 });

@@ -10,18 +10,16 @@
 		personnelIctCompletionsStore,
 		resetCriticalTasksWorkspaceStatus
 	} from '$features/critical-tasks';
+	import CriticalTasksMatrixSkeleton from '$features/critical-tasks/components/CriticalTasksMatrixSkeleton.svelte';
 	import type {
 		CriticalTasksWorkspaceRestricted,
 		CriticalTasksWorkspaceResult
 	} from '$features/critical-tasks/contracts';
-	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import { HeldWorkspace, workspaceScope } from '$lib/utils/heldWorkspace.svelte';
 	import WorkspaceAccessRestricted from '../../WorkspaceAccessRestricted.svelte';
 	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
-	let hydrationError = $state<Error | null>(null);
-	let workspacePending = $state(false);
-	let accessRestricted = $state(false);
 	const holdsWhilePending = $derived(page.route.id?.endsWith('/import') ?? false);
 	const orgId = $derived.by(() => {
 		if (typeof data.orgId === 'string') {
@@ -38,45 +36,37 @@
 		void invalidate('app:critical-tasks-data');
 	});
 
-	$effect(() => {
-		hydrationError = null;
-		accessRestricted = false;
-
-		return hydrateStreamedWorkspace<CriticalTasksWorkspaceResult | CriticalTasksWorkspaceRestricted>({
-			streamedWorkspace: data.criticalTasks,
-			fallbackMessage: 'Failed to hydrate Critical Tasks workspace',
-			onPending: () => {
-				workspacePending = true;
-				personnelIctCompletionsStore.invalidateImports();
-				markCriticalTasksWorkspacePending(orgId);
-			},
-			onResolved: (criticalTasks) => {
-				workspacePending = false;
-				if ('access' in criticalTasks) {
-					accessRestricted = true;
-					resetCriticalTasksWorkspaceStatus();
-					if (orgId) criticalTasksWorkspaceHydrator.restrict();
-					return;
-				}
-				markCriticalTasksWorkspaceResolved(criticalTasks);
-			},
-			hydrate: (criticalTasks) => {
-				if ('access' in criticalTasks) return;
-				return criticalTasksWorkspaceHydrator.hydrate(criticalTasks.hydration);
-			},
-			onReject: (error) => {
-				workspacePending = false;
-				hydrationError = error;
-				markCriticalTasksWorkspaceRejected(error, orgId);
+	const held = new HeldWorkspace<CriticalTasksWorkspaceResult | CriticalTasksWorkspaceRestricted>({
+		source: () => data.criticalTasks?.data,
+		scope: () => `${orgId} ${workspaceScope(data.shell)}`,
+		fallbackMessage: 'Failed to hydrate Critical Tasks workspace',
+		onPending: () => {
+			personnelIctCompletionsStore.invalidateImports();
+			markCriticalTasksWorkspacePending(orgId);
+		},
+		hydrate: (criticalTasks) => {
+			if ('access' in criticalTasks) {
+				resetCriticalTasksWorkspaceStatus();
+				if (orgId) criticalTasksWorkspaceHydrator.restrict();
+				return;
 			}
-		});
+			markCriticalTasksWorkspaceResolved(criticalTasks);
+			return criticalTasksWorkspaceHydrator.hydrate(criticalTasks.hydration);
+		},
+		onReject: (error) => markCriticalTasksWorkspaceRejected(error, orgId)
 	});
+	const workspace = $derived(held.current);
 </script>
 
-{#if hydrationError}
+{#if workspace.status === 'failed'}
 	<WorkspaceLoadError subject="Critical Tasks" />
-{:else if accessRestricted}
+{:else if workspace.status === 'ready' && 'access' in workspace.value}
 	<WorkspaceAccessRestricted lane="criticalTasks" level="view" />
-{:else if !workspacePending || holdsWhilePending}
+{:else if workspace.status !== 'pending' || holdsWhilePending}
+	{#if workspace.status === 'ready' && workspace.refresh === 'failed'}
+		<WorkspaceLoadError subject="Critical Tasks" stale />
+	{/if}
 	{@render children()}
+{:else}
+	<CriticalTasksMatrixSkeleton toolbar />
 {/if}

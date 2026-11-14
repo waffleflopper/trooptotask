@@ -96,4 +96,36 @@ describe('Critical Tasks workspace hydration adapter', () => {
 		expect(stores.personnelIctCompletionsStore.orgId).toBe('org-1');
 		expect(stores.personnelIctCompletionsStore.loading).toBe(false);
 	});
+
+	it('keeps the completions on screen while a refresh streams for the Organization already shown', async () => {
+		const stores = createStores();
+		const hydrator = createCriticalTasksWorkspaceHydrator();
+		const shown = { id: 'completion1', personnelId: 'p1', ictTaskId: 'task1' } as PersonnelIctCompletion;
+		const refreshed = { ...shown, id: 'completion2' };
+		const hydrationWith = (
+			orgId: string,
+			snapshotKey: string,
+			items: PersonnelIctCompletion[] | Promise<PersonnelIctCompletion[]>
+		): CriticalTasksWorkspaceHydration => ({
+			orgId,
+			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pins:1', items: [] },
+			ictTasks: { mode: 'replace', snapshotKey: 'tasks:1', items: [] },
+			personnelIctCompletions: { mode: 'replace', deferred: true, snapshotKey, items }
+		});
+		await hydrator.hydrate(hydrationWith('org-1', 'completions:1', [shown]), stores);
+
+		const refresh = deferred<PersonnelIctCompletion[]>();
+		const pending = hydrator.hydrate(hydrationWith('org-1', 'completions:2', refresh.promise), stores);
+		expect(stores.personnelIctCompletionsStore.loading).toBe(false);
+		expect(stores.personnelIctCompletionsStore.items).toEqual([shown]);
+
+		refresh.resolve([refreshed]);
+		await pending;
+		expect(stores.personnelIctCompletionsStore.items).toEqual([refreshed]);
+
+		void hydrator.hydrate(hydrationWith('org-2', 'completions:1', new Promise(() => {})), stores);
+		expect(stores.personnelIctCompletionsStore.loading).toBe(true);
+	});
 });

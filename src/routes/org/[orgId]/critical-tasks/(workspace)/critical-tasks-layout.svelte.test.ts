@@ -254,6 +254,7 @@ describe('critical tasks layout client hydration', () => {
 		});
 
 		expect(screen.queryByTestId('critical-tasks-child')).toBeNull();
+		expect(screen.getByRole('status', { name: 'Loading Critical Tasks' })).toBeTruthy();
 		expect(criticalTasksWorkspaceStatus.pending).toBe(true);
 		expect(criticalTasksWorkspaceStatus.orgId).toBe('org-1');
 
@@ -262,5 +263,72 @@ describe('critical tasks layout client hydration', () => {
 		await waitFor(() => expect(screen.getByTestId('critical-tasks-child')).toBeTruthy());
 		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
 		expect(criticalTasksWorkspaceStatus.settings).toEqual(workspace.data.settings);
+	});
+
+	const draftChild = () => createRawSnippet(() => ({ render: () => '<input aria-label="Unsaved notes" />' }));
+	const draft = () => screen.getByLabelText('Unsaved notes') as HTMLInputElement;
+
+	async function typedDraft() {
+		const workspace = createWorkspace();
+		const children = draftChild();
+		const view = render(Layout, {
+			props: { children, data: { orgId: 'org-1', criticalTasks: { data: Promise.resolve(workspace) } } }
+		});
+		await waitFor(() => expect(draft()).toBeTruthy());
+		await fireEvent.input(draft(), { target: { value: 'Keep this draft' } });
+		return { children, workspace, ...view };
+	}
+
+	it('keeps the workspace, its unsaved state and its settings while a refresh of the same Organization loads', async () => {
+		const { children, workspace, rerender } = await typedDraft();
+		const refresh = deferred<CriticalTasksWorkspaceResult>();
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: refresh.promise } } });
+		expect(draft().value).toBe('Keep this draft');
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(criticalTasksWorkspaceStatus.settings).toEqual(workspace.data.settings);
+
+		const refreshed = createWorkspace();
+		refreshed.data.settings = { defaultExpirationMonths: 12, expiringSoonWarningDays: 30 };
+		refresh.resolve(refreshed);
+		await waitFor(() => expect(criticalTasksWorkspaceStatus.settings).toEqual(refreshed.data.settings));
+		expect(draft().value).toBe('Keep this draft');
+	});
+
+	it('keeps the workspace and reports the failure when a refresh rejects', async () => {
+		const { children, rerender } = await typedDraft();
+		const rejected = Promise.reject(new Error('personnel_ict_completions failed'));
+		rejected.catch(() => {});
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: rejected } } });
+		expect((await screen.findByRole('alert')).textContent).toContain('could not be refreshed');
+		expect(draft().value).toBe('Keep this draft');
+	});
+
+	it('removes the workspace at once when the Organization changes, and ignores its late refresh', async () => {
+		const { children, rerender } = await typedDraft();
+		const lateRefresh = deferred<CriticalTasksWorkspaceResult>();
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: lateRefresh.promise } } });
+		const next = deferred<CriticalTasksWorkspaceResult>();
+		await rerender({ children, data: { orgId: 'org-2', criticalTasks: { data: next.promise } } });
+		expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
+		expect(screen.getByRole('status', { name: 'Loading Critical Tasks' })).toBeTruthy();
+
+		lateRefresh.resolve(createWorkspace());
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
+		expect(criticalTasksWorkspaceStatus.orgId).toBe('org-2');
+		expect(criticalTasksWorkspaceStatus.pending).toBe(true);
+	});
+
+	it('replaces the workspace when a refresh comes back access restricted', async () => {
+		const { children, rerender } = await typedDraft();
+		await rerender({
+			children,
+			data: {
+				orgId: 'org-1',
+				criticalTasks: { data: Promise.resolve({ laneKey: 'critical-tasks', access: 'restricted' } as const) }
+			}
+		});
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
+		expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
 	});
 });

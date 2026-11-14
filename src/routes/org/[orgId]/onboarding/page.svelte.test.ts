@@ -129,7 +129,7 @@ describe('onboarding page', () => {
 		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
 	});
 
-	it('lists only in-progress onboardings when mixed data is seeded', () => {
+	it('lists only in-progress onboardings when mixed data is seeded', async () => {
 		personnelRosterHydration.load(
 			[
 				{
@@ -220,10 +220,44 @@ describe('onboarding page', () => {
 			}
 		});
 
-		expect(screen.getByText('1 Soldier in processing')).toBeTruthy();
+		expect(await screen.findByText('1 Soldier in processing')).toBeTruthy();
 		expect(screen.getByText('SGT Active, Riley')).toBeTruthy();
 		expect(screen.queryByText('SSG Complete, Casey')).toBeNull();
 		expect(screen.queryByText('CPL Cancelled, Drew')).toBeNull();
+	});
+
+	it('keeps the page on screen while a refresh of the same Organization streams, and after it rejects', async () => {
+		const shell = { org: { id: 'org-1' } };
+		const view = render(Page, {
+			props: { data: { shell, session: null, onboarding: { data: Promise.resolve(makeBootstrap()) } } as never }
+		});
+		await screen.findByRole('heading', { name: 'Onboarding' });
+
+		const refresh = createDeferred<OnboardingWorkspaceResult>();
+		await view.rerender({ data: { shell, session: null, onboarding: { data: refresh.promise } } as never });
+		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Loading onboarding' })).toBeNull();
+
+		refresh.reject(new Error('onboarding failed'));
+		await refresh.promise.catch(() => {});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
+	});
+
+	it('drops the page to its loading shell at once when the Organization changes', async () => {
+		const view = render(Page, {
+			props: {
+				data: { shell: { org: { id: 'org-1' } }, session: null, onboarding: { data: makeBootstrap() } } as never
+			}
+		});
+		await screen.findByRole('heading', { name: 'Onboarding' });
+
+		const next = createDeferred<OnboardingWorkspaceResult>();
+		await view.rerender({
+			data: { shell: { org: { id: 'org-2' } }, session: null, onboarding: { data: next.promise } } as never
+		});
+		expect(screen.getByRole('status', { name: 'Loading onboarding' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
 	});
 
 	it('shows the Onboarding load error with Retry and never a stuck loading status when the source rejects', async () => {

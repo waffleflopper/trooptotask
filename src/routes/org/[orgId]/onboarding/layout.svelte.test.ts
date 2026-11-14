@@ -102,3 +102,16 @@ it('replaces the workspace with a load error and a working retry when the stream
 	await fireEvent.click(screen.getByRole('button', { name: 'Retry Onboarding' }));
 	expect(reload).toHaveBeenCalledTimes(1);
 });
+
+it('keeps the workspace on screen and reports the failure when a refresh rejects', async () => {
+	const view = render(Layout, { props: { children, data: { shell: shell(), onboarding: { data: workspace } } } });
+	await waitFor(() => expect(onboardingStore.items).toEqual([packet]));
+	const rejected = Promise.reject(new Error('onboardings failed'));
+	rejected.catch(() => {});
+
+	await view.rerender({ children, data: { shell: shell(), onboarding: { data: rejected } } });
+
+	expect((await screen.findByRole('alert')).textContent).toContain('could not be refreshed');
+	expect(screen.getByText('Onboarding workspace')).toBeTruthy();
+	expect(onboardingStore.items).toEqual([packet]);
+});

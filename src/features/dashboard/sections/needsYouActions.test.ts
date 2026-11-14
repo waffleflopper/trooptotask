@@ -71,21 +71,25 @@ describe('Update status', () => {
 	it('reads the entry and its people when it opens', async () => {
 		const action = updateStatusAction(inputs, 'e1');
 		if (action.mode !== 'dialog') throw new Error('Update status opens a dialog');
-		const editor = { entry: { id: 'e1', ratedPersonId: 'p-patel' }, personnelLookup: [{ id: 'p-patel' }] };
+		const editor = {
+			ratingScheme: { id: 's1', ratedPersonId: 'p-patel' },
+			evaluation: { id: 'e1', ratingSchemeId: 's1', ratedPersonId: 'p-patel' },
+			personnelLookup: [{ id: 'p-patel' }]
+		};
 		fetchMock.mockReturnValueOnce(respond(editor));
 
 		const panel = await action.open();
 
-		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/org/org-1/api/rating-scheme?entry=e1']);
+		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/org/org-1/api/rating-scheme?evaluation=e1']);
 		expect(panel.props).toMatchObject({ orgId: 'org-1', editor });
 	});
 
 	it('does not open when the entry cannot be read', async () => {
 		const action = updateStatusAction(inputs, 'e1');
 		if (action.mode !== 'dialog') throw new Error('Update status opens a dialog');
-		fetchMock.mockReturnValueOnce(respond({ message: 'Rating Scheme entry not found' }, 404));
+		fetchMock.mockReturnValueOnce(respond({ message: 'Evaluation not found' }, 404));
 
-		await expect(action.open()).rejects.toThrow('Rating Scheme entry not found');
+		await expect(action.open()).rejects.toThrow('Evaluation not found');
 	});
 });
 

@@ -6,6 +6,7 @@ describe('lifecycleFailure', () => {
 		['42501', 403],
 		['55000', 409],
 		['P0002', 404],
+		['23505', 409],
 		['23503', 400],
 		['22023', 400]
 	])('answers a %s refusal with %i', (code, status) => {
@@ -19,6 +20,12 @@ describe('lifecycleFailure', () => {
 		expect(() => lifecycleFailure({ code: '55000', message: 'internal step detail' })).toThrow(
 			expect.not.objectContaining({ message: 'internal step detail' })
 		);
+	});
+
+	it('names the rule a 55000 refusal broke when the user can act on it', () => {
+		expect(() =>
+			lifecycleFailure({ code: '55000', message: 'Another evaluation is already open on this rating scheme' })
+		).toThrow(expect.objectContaining({ message: 'Another evaluation is already open on this rating scheme' }));
 	});
 
 	it('surfaces an unexpected provider failure as a server error', () => {

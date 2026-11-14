@@ -117,9 +117,9 @@ SELECT dblink_exec('first', 'COMMIT');
 SELECT dblink_exec('first', 'SET ROLE service_role');
 SELECT is(pg_temp.run('first', pg_temp.submit_sql(101, 'personnel', 302)), '{"outcome": "duplicate"}', 'saved duplicate pendings report a duplicate');
 SELECT is(pg_temp.run('first', pg_temp.submit_sql(101, 'personnel', 303))::jsonb ->> 'outcome', 'created', 'terminal history does not block a new request');
-SELECT is((pg_temp.run('first', pg_temp.submit_sql(101, 'rating_scheme_entry', 307))::jsonb -> 'request') - 'id' - 'created_at',
+SELECT is((pg_temp.run('first', pg_temp.submit_sql(101, 'evaluation', 307))::jsonb -> 'request') - 'id' - 'created_at',
   jsonb_build_object('organization_id', pg_temp.u(101), 'requested_by', pg_temp.u(2), 'requested_by_email', 'requester@example.test',
-    'resource_type', 'rating_scheme_entry', 'resource_id', pg_temp.u(307), 'resource_description', 'Remove it', 'resource_url', '/target',
+    'resource_type', 'evaluation', 'resource_id', pg_temp.u(307), 'resource_description', 'Remove it', 'resource_url', '/target',
     'status', 'pending', 'reviewed_by', NULL, 'reviewed_at', NULL, 'denial_reason', NULL),
   'a created request is returned with every saved field');
 SELECT results_eq($$ SELECT * FROM dblink('fixture', $q$ SELECT id, to_jsonb(r) FROM public.deletion_requests r

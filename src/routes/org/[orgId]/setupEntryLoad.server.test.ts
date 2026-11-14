@@ -45,7 +45,7 @@ function fixture(
 				if (method === 'HEAD')
 					return new Response(null, {
 						headers: {
-							'Content-Range': `*/${path === 'rating_scheme_entries' || path === 'organization_memberships' ? 1 : 0}`
+							'Content-Range': `*/${path === 'rating_schemes' || path === 'organization_memberships' ? 1 : 0}`
 						}
 					});
 				return Response.json([]);
@@ -144,7 +144,7 @@ describe('Dashboard invitation progress', () => {
 				.filter((request) => request.method === 'HEAD')
 				.map((request) => request.path)
 				.sort()
-		).toEqual(['calendar_events', 'calendar_taskings', 'organization_memberships', 'rating_scheme_entries']);
+		).toEqual(['calendar_events', 'calendar_taskings', 'organization_memberships', 'rating_schemes']);
 		expect(
 			event.requests.filter((request) => request.method === 'GET' && request.path === 'organization_invitations')
 		).toHaveLength(1);
@@ -201,7 +201,7 @@ describe('Dashboard invitation progress', () => {
 
 	it('reports a missing fact without failing the other completed steps', async () => {
 		const event = fixture('owner');
-		event.failures.add('rating_scheme_entries');
+		event.failures.add('rating_schemes');
 		const request = await buildLayoutRequest(event.locals, ORG);
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		try {

@@ -78,9 +78,9 @@ SELECT throws_ok(
      VALUES (pg_temp.id('101'), pg_temp.id('302'), pg_temp.id('501'), '2030-03-01', 'Demonstration') $$,
   '42501', 'Reference belongs to another Organization', 'a task completion cannot name a person of another unit');
 SELECT throws_ok(
-  $$ INSERT INTO public.rating_scheme_entries (organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end)
-     VALUES (pg_temp.id('101'), pg_temp.id('302'), 'NCOER', '2030-01-01', '2030-12-31') $$,
-  '42501', 'Reference belongs to another Organization', 'a rating scheme entry cannot rate a person of another unit');
+  $$ INSERT INTO public.rating_schemes (organization_id, rated_person_id, eval_type)
+     VALUES (pg_temp.id('101'), pg_temp.id('302'), 'NCOER') $$,
+  '42501', 'Reference belongs to another Organization', 'a rating scheme cannot rate a person of another unit');
 SELECT throws_ok(
   $$ INSERT INTO public.onboarding_template_steps (organization_id, template_id, name, step_type, sort_order)
      VALUES (pg_temp.id('101'), pg_temp.id('602'), 'Hijack', 'checkbox', 0) $$,

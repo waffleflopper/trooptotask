@@ -4,8 +4,9 @@ import { WORKFLOW_STEPS, type WorkflowStatus } from '../rating-scheme.types';
 import {
 	isWorkflowMoveAllowed,
 	parseWorkflowStatus,
-	workflowJumpTargets,
+	waitingOn,
 	workflowMoves,
+	workflowStepList,
 	workflowRoles,
 	type WorkflowRoles
 } from './evaluationWorkflow';
@@ -120,8 +121,8 @@ describe('evaluation workflow moves', () => {
 		]);
 	});
 
-	it('lists every present step but the current one as a jump target, in chain order', () => {
-		expect(workflowJumpTargets('sm-signed', ROLES.none).map((target) => target.value)).toEqual([
+	it('lists the steps the chain makes possible, in chain order', () => {
+		expect(workflowStepList(ROLES.none).map((step) => step.value)).toEqual([
 			'drafting',
 			'command-review',
 			'with-rater',
@@ -129,12 +130,13 @@ describe('evaluation workflow moves', () => {
 			'with-senior-rater',
 			'sr-signed',
 			'with-rated-soldier',
+			'sm-signed',
 			'submitted-to-hrc',
 			'completed'
 		]);
-		expect(workflowJumpTargets(null, ROLES.reviewer).map((target) => target.label)).toContain('With Reviewer');
-		expect(workflowJumpTargets(null, ROLES.reviewer).map((target) => target.label)).not.toContain('IR Signed');
-		expect(workflowJumpTargets('command-review', ROLES.both)).toHaveLength(13);
+		expect(workflowStepList(ROLES.reviewer).map((step) => step.label)).toContain('With Reviewer');
+		expect(workflowStepList(ROLES.reviewer).map((step) => step.label)).not.toContain('IR Signed');
+		expect(workflowStepList(ROLES.both)).toHaveLength(14);
 	});
 
 	it('counts an evaluator the way the database does', () => {
@@ -162,5 +164,27 @@ describe('evaluation workflow moves', () => {
 		expect(parseWorkflowStatus('sr-signed')).toBe('sr-signed');
 		expect(() => parseWorkflowStatus('active')).toThrow();
 		expect(() => parseWorkflowStatus('submitted-to-s1')).toThrow();
+	});
+});
+
+describe('who an Evaluation waits on', () => {
+	it.each([
+		['drafting', 'none', 'rater'],
+		['command-review', 'none', 'command'],
+		['rater-signed', 'none', 'seniorRater'],
+		['rater-signed', 'both', 'intermediateRater'],
+		['ir-signed', 'both', 'seniorRater'],
+		['sr-signed', 'none', 'rated'],
+		['sr-signed', 'reviewer', 'reviewer'],
+		['reviewer-signed', 'reviewer', 'rated'],
+		['sm-signed', 'none', 'hrc'],
+		['submitted-to-hrc', 'none', 'hrc']
+	] as const)('%s with %s roles waits on the %s', (status, roles, role) => {
+		expect(waitingOn(status, ROLES[roles])).toBe(role);
+	});
+
+	it('waits on no one before tracking starts or once completed', () => {
+		expect(waitingOn(null, ROLES.none)).toBeNull();
+		expect(waitingOn('completed', ROLES.none)).toBeNull();
 	});
 });

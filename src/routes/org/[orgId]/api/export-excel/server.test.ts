@@ -171,8 +171,8 @@ describe('POST /api/export-excel', () => {
 			{ id: 'own-person', organization_id: ctx.auth.orgId, first_name: 'Local', last_name: 'Person', rank: 'SGT' },
 			{ id: 'foreign-person', organization_id: 'other-org', first_name: 'Private', last_name: 'Foreign', rank: 'SGT' }
 		]);
-		const evaluation = {
-			id: 'own-eval',
+		const ratingScheme = {
+			id: 'own-scheme',
 			organization_id: ctx.auth.orgId,
 			rated_person_id: 'archived-person',
 			eval_type: 'OER',
@@ -184,18 +184,35 @@ describe('POST /api/export-excel', () => {
 			intermediate_rater_name: null,
 			reviewer_person_id: 'saved-reviewer',
 			reviewer_name: null,
-			rating_period_start: '2025-09-30',
-			rating_period_end: '2026-09-29',
-			status: 'completed',
-			notes: 'Saved evaluation notes',
-			report_type: '02',
-			workflow_status: null,
+			notes: null,
+			archived_at: '2026-09-29T01:02:03.123456Z',
 			created_at: '2025-09-30T01:02:03.654321Z',
 			updated_at: '2026-09-29T01:02:03.123456Z'
 		};
-		ctx.rawStore.seed('rating_scheme_entries', [
+		const evaluation = {
+			id: 'own-eval',
+			organization_id: ctx.auth.orgId,
+			rating_scheme_id: 'own-scheme',
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			report_type: '02',
+			rating_period_start: '2025-09-30',
+			rating_period_end: '2026-09-29',
+			workflow_status: 'completed',
+			notes: 'Saved evaluation notes',
+			chain_snapshot_at: '2026-09-29T01:02:03.123456Z',
+			snapshot_rater_person_id: 'saved-rater',
+			snapshot_senior_rater_name: 'LTC External',
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		};
+		ctx.rawStore.seed('rating_schemes', [
+			ratingScheme,
+			{ ...ratingScheme, id: 'foreign-scheme', organization_id: 'other-org' }
+		]);
+		ctx.rawStore.seed('evaluations', [
 			evaluation,
-			{ ...evaluation, id: 'foreign-eval', organization_id: 'other-org' }
+			{ ...evaluation, id: 'foreign-eval', rating_scheme_id: 'foreign-scheme', organization_id: 'other-org' }
 		]);
 		const notification = {
 			id: 'own-notification',
@@ -279,34 +296,35 @@ describe('POST /api/export-excel', () => {
 			)
 		);
 		expect(savedRequests).toEqual(history);
-		const rawRating = workbook.getWorksheet('Raw - Rating Scheme Entries')!;
-		const headers = rawRating.getRow(1).values as string[];
-		const savedCells = Object.fromEntries(
-			headers.slice(1).map((header, index) => [header, rawRating.getRow(2).getCell(index + 1).value ?? null])
-		);
-		expect(savedCells).toEqual({
-			Id: 'own-eval',
+		const savedRow = (name: string) => {
+			const sheet = workbook.getWorksheet(name)!;
+			expect(sheet.rowCount).toBe(2);
+			const headers = (sheet.getRow(1).values as string[]).slice(1);
+			return Object.fromEntries(
+				headers.map((header, index) => [header, sheet.getRow(2).getCell(index + 1).value ?? null])
+			);
+		};
+		expect(savedRow('Raw - Rating Schemes')).toMatchObject({
+			Id: 'own-scheme',
 			'Organization Id': ctx.auth.orgId,
 			'Rated Person Id': 'archived-person',
-			'Eval Type': 'OER',
 			'Rater Person Id': 'saved-rater',
-			'Rater Name': null,
-			'Senior Rater Person Id': null,
 			'Senior Rater Name': 'LTC External',
-			'Intermediate Rater Person Id': null,
-			'Intermediate Rater Name': null,
 			'Reviewer Person Id': 'saved-reviewer',
-			'Reviewer Name': null,
+			'Archived At': '2026-09-29T01:02:03.123456Z'
+		});
+		expect(savedRow('Raw - Evaluations')).toMatchObject({
+			Id: 'own-eval',
+			'Rating Scheme Id': 'own-scheme',
+			'Rated Person Id': 'archived-person',
 			'Rating Period Start': '2025-09-30',
 			'Rating Period End': '2026-09-29',
-			Status: 'completed',
+			'Workflow Status': 'completed',
 			Notes: 'Saved evaluation notes',
 			'Report Type': '02',
-			'Workflow Status': null,
-			'Created At': '2025-09-30T01:02:03.654321Z',
-			'Updated At': '2026-09-29T01:02:03.123456Z'
+			'Snapshot Senior Rater Name': 'LTC External',
+			'Created At': '2025-09-30T01:02:03.654321Z'
 		});
-		expect(rawRating.rowCount).toBe(2);
 		const rowsInWorkbook = workbook.getWorksheet('Raw - Personnel')!.getSheetValues().flat(2);
 		expect(rowsInWorkbook).toContain('own-person');
 		expect(rowsInWorkbook).not.toContain('foreign-person');

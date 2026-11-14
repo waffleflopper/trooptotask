@@ -1288,6 +1288,152 @@ export type Database = {
         }
         Relationships: []
       }
+      evaluations: {
+        Row: {
+          chain_snapshot_at: string | null
+          created_at: string
+          eval_type: string
+          id: string
+          notes: string | null
+          organization_id: string
+          rated_person_id: string
+          rating_period_end: string
+          rating_period_start: string
+          rating_scheme_id: string
+          report_type: string | null
+          snapshot_intermediate_rater_name: string | null
+          snapshot_intermediate_rater_person_id: string | null
+          snapshot_rater_name: string | null
+          snapshot_rater_person_id: string | null
+          snapshot_reviewer_name: string | null
+          snapshot_reviewer_person_id: string | null
+          snapshot_senior_rater_name: string | null
+          snapshot_senior_rater_person_id: string | null
+          updated_at: string
+          workflow_status: string | null
+        }
+        Insert: {
+          chain_snapshot_at?: string | null
+          created_at?: string
+          eval_type: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          rated_person_id: string
+          rating_period_end: string
+          rating_period_start: string
+          rating_scheme_id: string
+          report_type?: string | null
+          snapshot_intermediate_rater_name?: string | null
+          snapshot_intermediate_rater_person_id?: string | null
+          snapshot_rater_name?: string | null
+          snapshot_rater_person_id?: string | null
+          snapshot_reviewer_name?: string | null
+          snapshot_reviewer_person_id?: string | null
+          snapshot_senior_rater_name?: string | null
+          snapshot_senior_rater_person_id?: string | null
+          updated_at?: string
+          workflow_status?: string | null
+        }
+        Update: {
+          chain_snapshot_at?: string | null
+          created_at?: string
+          eval_type?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          rated_person_id?: string
+          rating_period_end?: string
+          rating_period_start?: string
+          rating_scheme_id?: string
+          report_type?: string | null
+          snapshot_intermediate_rater_name?: string | null
+          snapshot_intermediate_rater_person_id?: string | null
+          snapshot_rater_name?: string | null
+          snapshot_rater_person_id?: string | null
+          snapshot_reviewer_name?: string | null
+          snapshot_reviewer_person_id?: string | null
+          snapshot_senior_rater_name?: string | null
+          snapshot_senior_rater_person_id?: string | null
+          updated_at?: string
+          workflow_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_organization_snapshot_intermediate_rater_fkey"
+            columns: [
+              "organization_id",
+              "snapshot_intermediate_rater_person_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "evaluations_organization_snapshot_rater_fkey"
+            columns: ["organization_id", "snapshot_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "evaluations_organization_snapshot_reviewer_fkey"
+            columns: ["organization_id", "snapshot_reviewer_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "evaluations_organization_snapshot_senior_rater_fkey"
+            columns: ["organization_id", "snapshot_senior_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "evaluations_rating_scheme_fkey"
+            columns: ["rating_scheme_id", "organization_id", "rated_person_id"]
+            isOneToOne: false
+            referencedRelation: "rating_schemes"
+            referencedColumns: ["id", "organization_id", "rated_person_id"]
+          },
+          {
+            foreignKeyName: "evaluations_snapshot_intermediate_rater_person_id_fkey"
+            columns: ["snapshot_intermediate_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_snapshot_rater_person_id_fkey"
+            columns: ["snapshot_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_snapshot_reviewer_person_id_fkey"
+            columns: ["snapshot_reviewer_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_snapshot_senior_rater_person_id_fkey"
+            columns: ["snapshot_senior_rater_person_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_replies: {
         Row: {
           author: string
@@ -2926,7 +3072,7 @@ export type Database = {
         }
         Relationships: []
       }
-      rating_scheme_entries: {
+      rating_schemes: {
         Row: {
           archived_at: string | null
           archived_by: string | null
@@ -2940,15 +3086,11 @@ export type Database = {
           rated_person_id: string
           rater_name: string | null
           rater_person_id: string | null
-          rating_period_end: string
-          rating_period_start: string
-          report_type: string | null
           reviewer_name: string | null
           reviewer_person_id: string | null
           senior_rater_name: string | null
           senior_rater_person_id: string | null
           updated_at: string
-          workflow_status: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -2963,15 +3105,11 @@ export type Database = {
           rated_person_id: string
           rater_name?: string | null
           rater_person_id?: string | null
-          rating_period_end: string
-          rating_period_start: string
-          report_type?: string | null
           reviewer_name?: string | null
           reviewer_person_id?: string | null
           senior_rater_name?: string | null
           senior_rater_person_id?: string | null
           updated_at?: string
-          workflow_status?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -2986,82 +3124,78 @@ export type Database = {
           rated_person_id?: string
           rater_name?: string | null
           rater_person_id?: string | null
-          rating_period_end?: string
-          rating_period_start?: string
-          report_type?: string | null
           reviewer_name?: string | null
           reviewer_person_id?: string | null
           senior_rater_name?: string | null
           senior_rater_person_id?: string | null
           updated_at?: string
-          workflow_status?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "rating_scheme_entries_intermediate_rater_person_id_fkey"
+            foreignKeyName: "rating_schemes_intermediate_rater_person_id_fkey"
             columns: ["intermediate_rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_organization_id_fkey"
+            foreignKeyName: "rating_schemes_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_organization_intermediate_rater_fkey"
+            foreignKeyName: "rating_schemes_organization_intermediate_rater_fkey"
             columns: ["organization_id", "intermediate_rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["organization_id", "id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_organization_rater_fkey"
+            foreignKeyName: "rating_schemes_organization_rater_fkey"
             columns: ["organization_id", "rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["organization_id", "id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_organization_reviewer_fkey"
+            foreignKeyName: "rating_schemes_organization_reviewer_fkey"
             columns: ["organization_id", "reviewer_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["organization_id", "id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_organization_senior_rater_fkey"
+            foreignKeyName: "rating_schemes_organization_senior_rater_fkey"
             columns: ["organization_id", "senior_rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["organization_id", "id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_rated_person_id_fkey"
+            foreignKeyName: "rating_schemes_rated_person_id_fkey"
             columns: ["rated_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_rater_person_id_fkey"
+            foreignKeyName: "rating_schemes_rater_person_id_fkey"
             columns: ["rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_reviewer_person_id_fkey"
+            foreignKeyName: "rating_schemes_reviewer_person_id_fkey"
             columns: ["reviewer_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rating_scheme_entries_senior_rater_person_id_fkey"
+            foreignKeyName: "rating_schemes_senior_rater_person_id_fkey"
             columns: ["senior_rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
@@ -4084,10 +4218,10 @@ export type Database = {
         Args: { p_organization_id: string; p_request_id: string }
         Returns: boolean
       }
-      change_rating_scheme_rater: {
+      change_evaluation_rater: {
         Args: {
           p_change_date: string
-          p_entry_id: string
+          p_evaluation_id: string
           p_organization_id: string
           p_rater_name?: string
           p_rater_person_id?: string
@@ -5208,11 +5342,11 @@ export type Database = {
           saved_rank: string
         }[]
       }
-      set_rating_scheme_entry_archived: {
+      set_rating_scheme_archived: {
         Args: {
           p_archived: boolean
-          p_entry_id: string
           p_organization_id: string
+          p_rating_scheme_id: string
         }
         Returns: Json
       }
@@ -5312,6 +5446,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      start_evaluation: {
+        Args: {
+          p_completed?: boolean
+          p_notes?: string
+          p_organization_id: string
+          p_rating_period_end: string
+          p_rating_period_start: string
+          p_rating_scheme_id: string
+          p_report_type: string
+        }
+        Returns: Json
+      }
       start_onboarding_packet: {
         Args: {
           p_organization_id: string
@@ -5383,9 +5529,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      transition_rating_scheme_entry: {
+      transition_evaluation: {
         Args: {
-          p_entry_id: string
+          p_evaluation_id: string
           p_from?: string
           p_organization_id: string
           p_to?: string

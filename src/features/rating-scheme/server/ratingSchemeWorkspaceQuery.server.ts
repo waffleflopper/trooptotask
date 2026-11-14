@@ -9,7 +9,7 @@ import type { RatingSchemeEntryEditorData, RatingSchemePersistence, RatingScheme
 interface RatingSchemeWorkspaceContext {
 	auth: OrganizationAccessGrant;
 	audit?: PolicyAuditSink;
-	readonly ratingScheme: Pick<RatingSchemePersistence, 'listWorkspace'>;
+	readonly ratingScheme: Pick<RatingSchemePersistence, 'listRatingSchemes' | 'listEvaluations'>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
 		'listActiveReferences' | 'listArchivedRatedPersonIds'
@@ -26,24 +26,28 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 	);
 	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster port is required');
 
-	const [personnelLookup, archivedIds, ratingSchemeEntries] = await Promise.all([
+	const [personnelLookup, archivedIds, ratingSchemes, evaluations] = await Promise.all([
 		ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth),
 		ctx.personnelRatingSchemeRoster.listArchivedRatedPersonIds(ctx.auth),
-		ctx.ratingScheme.listWorkspace()
+		ctx.ratingScheme.listRatingSchemes(),
+		ctx.ratingScheme.listEvaluations()
 	]);
 	const archived = toArchivedPersonIds(archivedIds);
+	const isListedPerson = (row: { ratedPersonId: string }) => !isArchivedPerson(archived, row.ratedPersonId);
 	return {
 		personnelLookup,
-		ratingSchemeEntries: ratingSchemeEntries.filter((entry) => !isArchivedPerson(archived, entry.ratedPersonId))
+		ratingSchemes: ratingSchemes.filter(isListedPerson),
+		evaluations: evaluations.filter(isListedPerson)
 	};
 }
 
-/** One entry for an editor opened outside the Evals page; null when it is missing or its rated Person is archived. */
+/** One Evaluation and its scheme for an editor opened outside the Evals page; null when missing or its rated Person is archived. */
 export async function loadRatingSchemeEntryEditor(
 	ctx: RatingSchemeWorkspaceContext,
-	id: string
+	evaluationId: string
 ): Promise<RatingSchemeEntryEditorData | null> {
-	const { personnelLookup, ratingSchemeEntries } = await loadRatingSchemeWorkspace(ctx);
-	const entry = ratingSchemeEntries.find((candidate) => candidate.id === id);
-	return entry ? { entry, personnelLookup } : null;
+	const { personnelLookup, ratingSchemes, evaluations } = await loadRatingSchemeWorkspace(ctx);
+	const evaluation = evaluations.find((candidate) => candidate.id === evaluationId);
+	const ratingScheme = evaluation && ratingSchemes.find((candidate) => candidate.id === evaluation.ratingSchemeId);
+	return evaluation && ratingScheme ? { ratingScheme, evaluation, personnelLookup } : null;
 }

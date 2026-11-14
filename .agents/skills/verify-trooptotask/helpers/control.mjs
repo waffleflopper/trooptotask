@@ -24,6 +24,7 @@ import { installNetworkControl, ratingEntryNetworkTarget } from './network-contr
 import { installBusyControl } from './busy-control.mjs';
 import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
+import { evaluationSeedRows } from './evaluation-seed.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
@@ -139,7 +140,8 @@ const tableColumns = {
 	deletion_requests: 'organization_id',
 	ict_tasks: 'organization_id',
 	personnel_ict_completions: 'organization_id',
-	rating_scheme_entries: 'organization_id'
+	rating_schemes: 'organization_id',
+	evaluations: 'organization_id'
 };
 const tableSelect = {
 	organizations:
@@ -164,8 +166,10 @@ const tableSelect = {
 		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,progress_changed_at,updated_at',
 	deletion_requests:
 		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
-	rating_scheme_entries:
-		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,notes,report_type,workflow_status,archived_at,archived_by,created_at,updated_at',
+	rating_schemes:
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,notes,archived_at,archived_by,created_at,updated_at',
+	evaluations:
+		'id,organization_id,rating_scheme_id,rated_person_id,eval_type,report_type,rating_period_start,rating_period_end,workflow_status,notes,chain_snapshot_at,snapshot_rater_person_id,snapshot_rater_name,snapshot_senior_rater_person_id,snapshot_senior_rater_name,snapshot_intermediate_rater_person_id,snapshot_intermediate_rater_name,snapshot_reviewer_person_id,snapshot_reviewer_name,created_at,updated_at',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -203,6 +207,7 @@ const filters = new Set([
 	'onboarding_id',
 	'template_step_id',
 	'rated_person_id',
+	'rating_scheme_id',
 	'resource_id',
 	'requested_by',
 	'event_id',
@@ -1010,7 +1015,7 @@ async function main() {
 																		? ['Create Organization', 'Confirm your email first']
 																		: [
 																				'Calendar',
-																				'Evaluation controls',
+																				'Eval Tracker controls',
 																				'Training',
 																				'Able, Synthetic',
 																				'Foreign, Synthetic',
@@ -2284,33 +2289,39 @@ async function main() {
 				['archivedEntry', 'orgA', ids.archived, 'NCOER', -2, null],
 				['foreign', 'orgB', fixture.ids.personForeign, 'NCOER', 18, null]
 			];
-			const entries = examples.map(([key, orgKey, personId, evalType, offset, workflowStatus]) => ({
-				id: ids[key],
-				organization_id: org(orgKey),
-				rated_person_id: personId,
-				eval_type: evalType,
-				rater_person_id: key === 'due60' ? fixture.ids.personA : null,
-				rater_name: key === 'due60' ? null : `External Rater ${key}`,
-				senior_rater_name: 'External Senior Rater',
-				intermediate_rater_name: key === 'current' ? 'External Intermediate Rater' : null,
-				reviewer_name: key === 'current' ? 'External Reviewer' : null,
-				rating_period_start: date(-365),
-				rating_period_end: date(offset),
-				report_type: key === 'changed' ? 'CR' : 'AN',
-				workflow_status: workflowStatus,
-				archived_at: key === 'changed' ? new Date(`${date(-1)}T12:00:00Z`).toISOString() : null,
-				notes: `Synthetic Evals ${key} ${tag}`
-			}));
+			const { schemes, evaluations } = await evaluationSeedRows(
+				client,
+				examples.map(([key, orgKey, personId, evalType, offset, workflowStatus]) => ({
+					id: ids[key],
+					organization_id: org(orgKey),
+					rated_person_id: personId,
+					eval_type: evalType,
+					rater_person_id: key === 'due60' ? fixture.ids.personA : null,
+					rater_name: key === 'due60' ? null : `External Rater ${key}`,
+					senior_rater_name: 'External Senior Rater',
+					intermediate_rater_name: key === 'current' ? 'External Intermediate Rater' : null,
+					reviewer_name: key === 'current' ? 'External Reviewer' : null,
+					rating_period_start: date(-365),
+					rating_period_end: date(offset),
+					report_type: key === 'changed' ? 'CR' : 'AN',
+					workflow_status: workflowStatus,
+					notes: `Synthetic Evals ${key} ${tag}`,
+					scheme_notes: `Synthetic rating scheme ${tag}`
+				}))
+			);
+			const inOrg = (rows, orgKey) => rows.filter((row) => row.organization_id === org(orgKey));
 			const batches = [
 				['personnel', 'orgA', people],
-				['rating_scheme_entries', 'orgA', entries.filter((row) => row.organization_id === org('orgA'))],
-				['rating_scheme_entries', 'orgB', entries.filter((row) => row.organization_id === org('orgB'))]
-			];
+				['rating_schemes', 'orgA', inOrg(schemes, 'orgA')],
+				['rating_schemes', 'orgB', inOrg(schemes, 'orgB')],
+				['evaluations', 'orgA', inOrg(evaluations, 'orgA')],
+				['evaluations', 'orgB', inOrg(evaluations, 'orgB')]
+			].filter(([, , records]) => records.length);
 			for (const [table, organization, records] of batches)
 				ownedState.seeded.push({ kind, table, organization, ids: records.map((row) => row.id), tag });
 			await save(ownedState);
 			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
-			note({ kind, tag, ids, today: fixture.dates.ui, people, examples: entries });
+			note({ kind, tag, ids, today: fixture.dates.ui, people, ratingSchemes: schemes, examples: evaluations });
 			return;
 		}
 		if (kind === 'communications') {
@@ -2775,6 +2786,7 @@ async function main() {
 					'notifications',
 					'organization/settings',
 					'rating-scheme',
+					'evaluations',
 					'feedback',
 					'announcements/dismiss',
 					'access-requests',

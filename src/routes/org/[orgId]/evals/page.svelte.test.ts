@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
-vi.mock('$features/rating-scheme/components/RatingSchemePageView.svelte', () => ({
-	default: VisibleStub
+vi.mock('$features/rating-scheme/components/EvalTrackerView.svelte', async () => ({
+	default: (await import('./ViewStateProbe.svelte')).default
 }));
 
-vi.mock('$features/rating-scheme/components/RatingSchemeModals.svelte', () => ({
+vi.mock('$features/rating-scheme/components/EvalTrackerModals.svelte', () => ({
 	default: VisibleStub
 }));
 
@@ -68,15 +68,13 @@ function makeBootstrap(): RatingSchemeWorkspaceResult {
 		laneKey: 'ratingScheme',
 		data: {
 			personnelLookup: [],
-			ratingSchemeEntries: []
+			ratingSchemes: [],
+			evaluations: []
 		},
 		hydration: {
 			orgId: 'org-1',
-			ratingSchemeEntries: {
-				mode: 'replace',
-				snapshotKey: 'rating-scheme:1',
-				items: []
-			}
+			ratingSchemes: { mode: 'replace', snapshotKey: 'rating-scheme:1', items: [] },
+			evaluations: { mode: 'replace', snapshotKey: 'rating-scheme:1', items: [] }
 		}
 	};
 }
@@ -158,6 +156,15 @@ describe('evals page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry Evals' }));
 		expect(reload).toHaveBeenCalledTimes(1);
 		vi.unstubAllGlobals();
+	});
+
+	it('keeps the search when the page data reloads for the same Organization', async () => {
+		const { rerender } = render(Page, { props: { data: makeRouteData(makeBootstrap()) } });
+		await fireEvent.input(await screen.findByLabelText('Probe search'), { target: { value: 'Park' } });
+
+		await rerender({ data: makeRouteData(makeBootstrap()) });
+
+		expect((screen.getByLabelText('Probe search') as HTMLInputElement).value).toBe('Park');
 	});
 
 	it.each(['immediate', 'deferred'])(

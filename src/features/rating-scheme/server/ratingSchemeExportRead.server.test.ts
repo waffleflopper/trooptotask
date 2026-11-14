@@ -6,7 +6,8 @@ type Row = Record<string, unknown>;
 const ORG = 'org-a';
 const cases = [
 	{
-		table: 'rating_scheme_entries',
+		table: 'rating_schemes',
+		read: 'listRatingSchemeRows',
 		saved: {
 			rated_person_id: 'archived-person',
 			eval_type: 'OER',
@@ -18,11 +19,25 @@ const cases = [
 			intermediate_rater_name: null,
 			reviewer_person_id: 'removed-reviewer',
 			reviewer_name: null,
+			notes: 17,
+			archived_at: null,
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		}
+	},
+	{
+		table: 'evaluations',
+		read: 'listEvaluationRows',
+		saved: {
+			rating_scheme_id: 'scheme-a',
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			report_type: '02',
 			rating_period_start: '2025-09-30',
 			rating_period_end: '2026-09-29',
-			notes: 17,
-			report_type: '02',
 			workflow_status: null,
+			notes: 17,
+			chain_snapshot_at: null,
 			created_at: '2025-09-30T01:02:03.654321Z',
 			updated_at: '2026-09-29T01:02:03.123456Z'
 		}
@@ -36,7 +51,7 @@ function provider(table: string, saved: Row) {
 		organization_id: ORG,
 		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] }
 	}));
-	owned[1000] = { ...owned[1000], workflow_status: 'with-rater' };
+	owned[1000] = { ...owned[1000], notes: 'Last page' };
 	const rows: Row[] = [{ ...owned[0], id: 'foreign-row', organization_id: 'org-b' }, ...owned.toReversed()];
 
 	const state = { failFrom: null as number | null, nullData: false };
@@ -90,20 +105,20 @@ function provider(table: string, saved: Row) {
 describe('RatingScheme ordinary Organization archive reads', () => {
 	it.each(cases)(
 		'retains saved $table rows across pages and excludes a foreign Organization',
-		async ({ table, saved }) => {
+		async ({ table, read, saved }) => {
 			const { client, owned } = provider(table, saved);
-			expect(await createSupabaseRatingSchemeExportReader(client, ORG).listRows()).toEqual(owned);
-			expect(await createSupabaseRatingSchemeExportReader(client, 'empty-org').listRows()).toEqual([]);
+			expect(await createSupabaseRatingSchemeExportReader(client, ORG)[read]()).toEqual(owned);
+			expect(await createSupabaseRatingSchemeExportReader(client, 'empty-org')[read]()).toEqual([]);
 		}
 	);
 
 	it.each(cases)(
 		'rejects first and late $table failures without returning partial history',
-		async ({ table, saved }) => {
+		async ({ table, read, saved }) => {
 			const { client, state } = provider(table, saved);
 			for (const from of [0, 1000]) {
 				state.failFrom = from;
-				await expect(createSupabaseRatingSchemeExportReader(client, ORG).listRows()).rejects.toThrow(
+				await expect(createSupabaseRatingSchemeExportReader(client, ORG)[read]()).rejects.toThrow(
 					'Saved rows unavailable'
 				);
 			}
@@ -113,6 +128,6 @@ describe('RatingScheme ordinary Organization archive reads', () => {
 	it('keeps an error-free null provider response empty', async () => {
 		const { client, state } = provider(cases[0].table, cases[0].saved);
 		state.nullData = true;
-		expect(await createSupabaseRatingSchemeExportReader(client, ORG).listRows()).toEqual([]);
+		expect(await createSupabaseRatingSchemeExportReader(client, ORG).listRatingSchemeRows()).toEqual([]);
 	});
 });

@@ -1,81 +1,102 @@
 import { describe, expect, it } from 'vitest';
-import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryOperations.server';
+import {
+	evaluationStartSchema,
+	evaluationUpdateSchema,
+	ratingSchemeCreateSchema,
+	ratingSchemeUpdateSchema
+} from './ratingSchemeEntryOperations.server';
 import { ratingSchemeRaterChangeSchema, ratingSchemeTransitionSchema } from './ratingSchemeEntryMapping.server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
 const RATER = '00000000-0000-4000-8000-0000000000b1';
-const ENTRY = '00000000-0000-4000-8000-0000000000e1';
+const ID = '00000000-0000-4000-8000-0000000000e1';
 
-const input = {
-	ratedPersonId: RATED_PERSON,
-	evalType: 'OER',
-	ratingPeriodStart: '2026-01-01',
-	ratingPeriodEnd: '2026-12-31'
-};
+const scheme = { ratedPersonId: RATED_PERSON, evalType: 'OER' };
+const period = { ratingPeriodStart: '2026-01-01', ratingPeriodEnd: '2026-12-31' };
 
-describe('Rating Scheme entry validation', () => {
-	it.each(['ratedPersonId', 'evalType', 'ratingPeriodStart', 'ratingPeriodEnd'])('requires %s on create', (field) => {
-		const values: Record<string, unknown> = { ...input };
+describe('Rating Scheme validation', () => {
+	it.each(['ratedPersonId', 'evalType'])('requires %s on a new scheme', (field) => {
+		const values: Record<string, unknown> = { ...scheme };
 		delete values[field];
-		expect(ratingSchemeEntryCreateSchema.safeParse(values).success).toBe(false);
+		expect(ratingSchemeCreateSchema.safeParse(values).success).toBe(false);
 	});
 
-	it('accepts omitted and nullable optional values and a retained string report type', () => {
-		expect(ratingSchemeEntryCreateSchema.parse(input)).toEqual(input);
-		expect(
-			ratingSchemeEntryCreateSchema.parse({
-				...input,
+	it.each(['ratingPeriodStart', 'ratingPeriodEnd'])('requires %s to start an Evaluation', (field) => {
+		const values: Record<string, unknown> = { ...period };
+		delete values[field];
+		expect(evaluationStartSchema.safeParse(values).success).toBe(false);
+	});
+
+	it('accepts a nullable chain and starts an Evaluation open unless it says it is completed', () => {
+		expect(ratingSchemeCreateSchema.parse({ ...scheme, raterPersonId: null, reviewerName: null, notes: null })).toEqual(
+			{
+				...scheme,
 				raterPersonId: null,
-				raterName: null,
-				seniorRaterPersonId: null,
-				seniorRaterName: null,
-				intermediateRaterPersonId: null,
-				intermediateRaterName: null,
-				reviewerPersonId: null,
 				reviewerName: null,
-				notes: null,
-				reportType: 'historical-report-code'
-			})
-		).toMatchObject({ reportType: 'historical-report-code' });
+				notes: null
+			}
+		);
+		expect(evaluationStartSchema.parse({ ...period, reportType: 'historical-report-code' })).toEqual({
+			...period,
+			reportType: 'historical-report-code',
+			completed: false,
+			notes: null
+		});
+		expect(evaluationStartSchema.parse({ ...period, reportType: '', completed: true })).toMatchObject({
+			reportType: null,
+			completed: true
+		});
 	});
 
 	it.each(['OER', 'NCOER', 'WOER'])('retains %s evaluation type', (evalType) => {
-		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, evalType }).success).toBe(true);
+		expect(ratingSchemeCreateSchema.safeParse({ ...scheme, evalType }).success).toBe(true);
 	});
 
 	it.each([{ evalType: 'unsupported' }, { notes: 123 }, { ratedPersonId: null }, { ratedPersonId: '' }])(
-		'rejects unsupported field values %j',
+		'rejects unsupported scheme values %j',
 		(values) => {
-			expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, ...values }).success).toBe(false);
-			expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, ...values }).success).toBe(false);
+			expect(ratingSchemeCreateSchema.safeParse({ ...scheme, ...values }).success).toBe(false);
+			expect(ratingSchemeUpdateSchema.safeParse({ id: ID, ...values }).success).toBe(false);
 		}
 	);
 
-	it('starts a new entry not tracked and refuses any other step or a record status', () => {
-		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, workflowStatus: null }).success).toBe(true);
-		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, workflowStatus: 'drafting' }).success).toBe(false);
-		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, status: 'active' }).success).toBe(false);
+	it.each([{ workflowStatus: 'with-rater' }, { status: 'active' }, { signedChain: null }, { organization_id: 'x' }])(
+		'refuses a start that carries %j',
+		(values) => {
+			expect(evaluationStartSchema.safeParse({ ...period, ...values }).success).toBe(false);
+		}
+	);
+
+	it.each([
+		{ workflowStatus: 'completed' },
+		{ workflowStatus: null },
+		{ status: 'completed' },
+		{ ratingSchemeId: ID },
+		{ evalType: 'OER' },
+		{ signedChain: { raterName: 'Forged' } }
+	])('refuses an Evaluation save that carries %j', (values) => {
+		expect(evaluationUpdateSchema.safeParse({ id: ID, notes: 'n', ...values }).success).toBe(false);
 	});
 
-	it.each([{ workflowStatus: 'completed' }, { workflowStatus: null }, { status: 'completed' }])(
-		'refuses an edit that carries %j',
-		(values) => {
-			expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, notes: 'n', ...values }).success).toBe(false);
-		}
-	);
+	it('refuses a scheme save that carries an archive time', () => {
+		expect(ratingSchemeUpdateSchema.safeParse({ id: ID, archivedAt: '2026-05-01T00:00:00Z' }).success).toBe(false);
+		expect(ratingSchemeCreateSchema.safeParse({ ...scheme, archivedAt: '2026-05-01T00:00:00Z' }).success).toBe(false);
+	});
 
 	it('requires update identity and excludes supplied protected and unknown fields', () => {
-		expect(ratingSchemeEntryUpdateSchema.safeParse({ notes: 'changed' }).success).toBe(false);
-		expect(
-			ratingSchemeEntryUpdateSchema.parse({
-				id: ENTRY,
-				notes: null,
-				organization_id: 'foreign',
-				created_at: 'must not change',
-				updated_at: 'must not change',
-				extra_saved_field: 'must not change'
-			})
-		).toEqual({ id: ENTRY, notes: null });
+		expect(ratingSchemeUpdateSchema.safeParse({ notes: 'changed' }).success).toBe(false);
+		expect(evaluationUpdateSchema.safeParse({ notes: 'changed' }).success).toBe(false);
+		const protectedFields = {
+			organization_id: 'foreign',
+			archived_by: 'must not change',
+			chain_snapshot_at: 'must not change',
+			created_at: 'must not change'
+		};
+		expect(ratingSchemeUpdateSchema.parse({ id: ID, notes: null, ...protectedFields })).toEqual({
+			id: ID,
+			notes: null
+		});
+		expect(evaluationUpdateSchema.parse({ id: ID, notes: null, ...protectedFields })).toEqual({ id: ID, notes: null });
 	});
 
 	it('accepts a lifecycle step or not tracked as the observed step and the target and nothing else', () => {

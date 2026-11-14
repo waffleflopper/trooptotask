@@ -36,7 +36,7 @@ function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueAc
 function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: string[] = []) {
 	const selections: string[] = [];
 	const from = vi.fn((table: string) => {
-		if (table !== 'rating_scheme_entries') throw new Error('This projection cannot read another table');
+		if (table !== 'evaluations') throw new Error('This projection cannot read another table');
 		let visible = [...rows];
 		const query = {
 			select: (columns: string) => {
@@ -57,7 +57,11 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 			},
 			range: async (start: number, end: number) => {
 				if (start === failFrom) return { data: null, error: { message: 'Due projection unavailable' } };
-				return { data: visible.slice(start, end + 1), error: null };
+				const page = visible.slice(start, end + 1).map(({ scheme_archived_at, ...row }) => ({
+					...row,
+					rating_schemes: { archived_at: scheme_archived_at ?? null }
+				}));
+				return { data: page, error: null };
 			}
 		};
 		return query;
@@ -164,7 +168,14 @@ describe('Rating Scheme due projection', () => {
 				.split(',')
 				.map((column) => column.trim())
 				.sort()
-		).toEqual(['eval_type', 'id', 'rated_person_id', 'rating_period_end', 'workflow_status']);
+		).toEqual([
+			'eval_type',
+			'id',
+			'rated_person_id',
+			'rating_period_end',
+			'rating_schemes(archived_at)',
+			'workflow_status'
+		]);
 	});
 
 	it('names the rated Person for a Rating-only reader through Rating roster references', async () => {
@@ -190,7 +201,8 @@ describe('Rating Scheme due projection', () => {
 		]);
 	});
 
-	it('leaves out an entry taken off the rating scheme, whatever its step', async () => {
+	it('keeps an open Evaluation on an archived scheme and leaves out the rest of that scheme', async () => {
+		const archived = { organization_id: 'org-a', rated_person_id: 'person-b', eval_type: 'NCOER' as const };
 		const { port } = provider([
 			{
 				id: 'listed',
@@ -200,18 +212,30 @@ describe('Rating Scheme due projection', () => {
 				rating_period_end: '2026-09-25'
 			},
 			{
+				...archived,
 				id: 'archived-open',
-				organization_id: 'org-a',
-				rated_person_id: 'person-b',
-				eval_type: 'NCOER',
 				rating_period_end: '2026-09-25',
-				archived_at: '2026-05-01T00:00:00+00:00'
+				workflow_status: 'with-rater',
+				scheme_archived_at: '2026-05-01T00:00:00+00:00'
+			},
+			{
+				...archived,
+				id: 'archived-done',
+				rating_period_end: '2025-09-25',
+				workflow_status: 'completed',
+				scheme_archived_at: '2026-05-01T00:00:00+00:00'
+			},
+			{
+				...archived,
+				id: 'archived-untracked',
+				rating_period_end: '2024-09-25',
+				scheme_archived_at: '2026-05-01T00:00:00+00:00'
 			}
 		]);
 
 		const entries = await port.listDueEntries(actor());
 
-		expect(entries.map((entry) => entry.id)).toEqual(['listed']);
+		expect(entries.map((entry) => entry.id)).toEqual(['archived-open', 'listed']);
 	});
 
 	it('returns no names or entries without permission to read Rating roster references', async () => {

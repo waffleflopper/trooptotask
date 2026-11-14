@@ -49,7 +49,7 @@ describe('overview checks', () => {
 	it('gives each feature with nothing set up its own fix', async () => {
 		const items = (await OVERVIEW_CHECKS[4].read(sources)).items ?? [];
 
-		expect(items.map((item) => item.fix.path)).toEqual(['evals']);
+		expect(items.map((item) => item.fix.path)).toEqual(['evals/rating-scheme']);
 	});
 
 	it('leaves an invitation cause with nothing in it out of the breakdown', async () => {

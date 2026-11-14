@@ -62,7 +62,7 @@ export async function approveDeletionRequest(
 		personnel: effects.approvePersonnelArchive,
 		training_type: effects.approveTrainingType,
 		personnel_training: effects.approveTrainingRecord,
-		rating_scheme_entry: effects.approveRatingEntry,
+		evaluation: effects.approveEvaluation,
 		counseling_record: effects.approveCounseling
 	}[resourceType];
 	const outcome = await approveTarget(boundRequestId, resourceId, reviewedAt);

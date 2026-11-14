@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
-import type { SavedRatingSchemeEntry } from '../contracts';
+import type { Evaluation, RatingScheme } from '../contracts';
 import type { WorkflowStatus } from '../rating-scheme.types';
 import { evaluationPhase } from '../utils/evaluationWorkflow';
 import { loadPersonnelActiveEvaluation } from './personnelActiveEvaluation.server';
 
 const person = { id: 'okafor' } as Personnel;
 
-function entry(overrides: Partial<SavedRatingSchemeEntry>): SavedRatingSchemeEntry {
+function scheme(overrides: Partial<RatingScheme> = {}): RatingScheme {
 	return {
-		id: 'eval-1',
-		organization_id: 'org-1',
+		id: 'scheme-1',
 		ratedPersonId: person.id,
 		evalType: 'NCOER',
 		raterPersonId: null,
@@ -21,44 +20,57 @@ function entry(overrides: Partial<SavedRatingSchemeEntry>): SavedRatingSchemeEnt
 		intermediateRaterName: null,
 		reviewerPersonId: null,
 		reviewerName: null,
-		ratingPeriodStart: '2025-12-01',
-		ratingPeriodEnd: '2026-11-30',
 		notes: null,
-		reportType: 'AN',
-		workflowStatus: 'drafting',
 		archivedAt: null,
-		created_at: '2025-12-01T00:00:00Z',
-		updated_at: '2025-12-01T00:00:00Z',
 		...overrides
 	};
 }
 
-describe('loadPersonnelActiveEvaluation', () => {
-	it('reads the newest noncompleted entry with evaluator names, thru-date timing and phase', async () => {
-		const evaluation = await loadPersonnelActiveEvaluation({
-			ratingScheme: {
-				listPersonReadiness: async () => [
-					entry({ id: 'done', workflowStatus: 'completed', ratingPeriodEnd: '2027-01-01' }),
-					entry({
-						raterPersonId: 'alvarez',
-						seniorRaterPersonId: 'whitaker',
-						reviewerName: 'MAJ Chen (external)',
-						intermediateRaterPersonId: 'hidden'
-					}),
-					entry({ id: 'older', ratingPeriodEnd: '2025-11-30' })
-				]
-			},
-			asOf: '2026-10-06',
-			loadAuthorizedPerson: async () => person,
-			findPersonNames: async () =>
-				new Map([
-					['alvarez', 'SSG Alvarez'],
-					['whitaker', 'SFC Whitaker']
-				])
-		});
+function evaluation(overrides: Partial<Evaluation>): Evaluation {
+	return {
+		id: 'eval-1',
+		ratingSchemeId: 'scheme-1',
+		ratedPersonId: person.id,
+		evalType: 'NCOER',
+		reportType: 'AN',
+		ratingPeriodStart: '2025-12-01',
+		ratingPeriodEnd: '2026-11-30',
+		workflowStatus: 'drafting',
+		notes: null,
+		signedChain: null,
+		...overrides
+	};
+}
 
-		expect(evaluation).toEqual({
-			entryId: 'eval-1',
+function load(ratingSchemes: RatingScheme[], evaluations: Evaluation[], names = new Map<string, string>()) {
+	return loadPersonnelActiveEvaluation({
+		ratingScheme: { listPersonReadiness: async () => ({ ratingSchemes, evaluations }) },
+		asOf: '2026-10-06',
+		loadAuthorizedPerson: async () => person,
+		findPersonNames: async () => names
+	});
+}
+
+describe('loadPersonnelActiveEvaluation', () => {
+	it('reads the open Evaluation with its scheme’s evaluator names, thru-date timing and phase', async () => {
+		const result = await load(
+			[
+				scheme({
+					raterPersonId: 'alvarez',
+					seniorRaterPersonId: 'whitaker',
+					reviewerName: 'MAJ Chen (external)',
+					intermediateRaterPersonId: 'hidden'
+				})
+			],
+			[evaluation({ id: 'done', workflowStatus: 'completed', ratingPeriodEnd: '2027-01-01' }), evaluation({})],
+			new Map([
+				['alvarez', 'SSG Alvarez'],
+				['whitaker', 'SFC Whitaker']
+			])
+		);
+
+		expect(result).toEqual({
+			evaluationId: 'eval-1',
 			evalType: 'NCOER',
 			reportType: 'AN',
 			reportTypeLabel: 'Annual',
@@ -75,31 +87,23 @@ describe('loadPersonnelActiveEvaluation', () => {
 		});
 	});
 
-	it('skips an entry taken off the rating scheme and reads the next open one', async () => {
-		const evaluation = await loadPersonnelActiveEvaluation({
-			ratingScheme: {
-				listPersonReadiness: async () => [
-					entry({ id: 'archived-open', archivedAt: '2026-05-01T00:00:00Z', ratingPeriodEnd: '2027-01-01' }),
-					entry({ id: 'listed', ratingPeriodEnd: '2026-11-30' })
-				]
-			},
-			asOf: '2026-10-06',
-			loadAuthorizedPerson: async () => person,
-			findPersonNames: async () => new Map()
-		});
+	it('keeps an open Evaluation on the card after its scheme is archived', async () => {
+		const result = await load([scheme({ archivedAt: '2026-05-01T00:00:00Z' })], [evaluation({ id: 'still-open' })]);
 
-		expect(evaluation?.entryId).toBe('listed');
+		expect(result?.evaluationId).toBe('still-open');
 	});
 
-	it('resolves to null when every entry is completed', async () => {
-		const evaluation = await loadPersonnelActiveEvaluation({
-			ratingScheme: { listPersonReadiness: async () => [entry({ workflowStatus: 'completed' })] },
-			asOf: '2026-10-06',
-			loadAuthorizedPerson: async () => person,
-			findPersonNames: async () => new Map()
-		});
+	it('skips a not-tracked Evaluation on an archived scheme', async () => {
+		const result = await load(
+			[scheme({ archivedAt: '2026-05-01T00:00:00Z' })],
+			[evaluation({ id: 'off-the-scheme', workflowStatus: null })]
+		);
 
-		expect(evaluation).toBeNull();
+		expect(result).toBeNull();
+	});
+
+	it('resolves to null when every Evaluation is completed', async () => {
+		expect(await load([scheme()], [evaluation({ workflowStatus: 'completed' })])).toBeNull();
 	});
 });
 

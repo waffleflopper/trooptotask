@@ -77,10 +77,10 @@ export interface WorkflowStep extends WorkflowStepRecord {
 
 export const WORKFLOW_STEPS: readonly WorkflowStep[] = STEP_RECORDS;
 
-export interface RatingSchemeEntry {
-	id: string;
-	ratedPersonId: string;
-	evalType: 'OER' | 'NCOER' | 'WOER';
+export type EvalType = 'OER' | 'NCOER' | 'WOER';
+
+/** Who rates a Soldier: each role is a Personnel Record or an external name. */
+export interface EvaluatorChain {
 	raterPersonId: string | null;
 	raterName: string | null;
 	seniorRaterPersonId: string | null;
@@ -89,13 +89,52 @@ export interface RatingSchemeEntry {
 	intermediateRaterName: string | null;
 	reviewerPersonId: string | null;
 	reviewerName: string | null;
+}
+
+/** A Rated Individual's standing rating chain. At most one per person is listed (archivedAt null). */
+export interface RatingScheme extends EvaluatorChain {
+	id: string;
+	ratedPersonId: string;
+	evalType: EvalType;
+	notes: string | null;
+	archivedAt: string | null;
+}
+
+/** One rating period on a rating scheme with its workflow step. */
+export interface Evaluation {
+	id: string;
+	ratingSchemeId: string;
+	ratedPersonId: string;
+	evalType: EvalType;
+	reportType: ReportType | null;
+	ratingPeriodStart: string;
+	ratingPeriodEnd: string;
+	workflowStatus: WorkflowStatus | null;
+	notes: string | null;
+	/** The chain that signed it; null while it follows its scheme's current chain. */
+	signedChain: SignedChain | null;
+}
+
+/** The chain an Evaluation kept when it completed, and when it kept it. */
+export interface SignedChain extends EvaluatorChain {
+	signedAt: string;
+}
+
+/** One Evaluation as the Evals page lists it, with the chain it shows and its scheme's listing. */
+export interface RatingSchemeEntry extends EvaluatorChain {
+	id: string;
+	ratingSchemeId: string;
+	ratedPersonId: string;
+	evalType: EvalType;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
 	notes: string | null;
 	reportType: ReportType | null;
 	workflowStatus: WorkflowStatus | null;
-	/** When an operator took the entry off the rating scheme; null while it is listed. Independent of the step. */
+	/** When the rating scheme was archived; null while it is listed. Independent of the step. */
 	archivedAt: string | null;
+	/** True when the chain shown is the one that signed the Evaluation, so scheme edits no longer change it. */
+	chainSigned: boolean;
 }
 
 export interface EvaluationPhase {
@@ -106,8 +145,8 @@ export interface EvaluationPhase {
 
 /** The rated Person's newest noncompleted evaluation, with evaluator display names resolved. */
 export interface PersonnelActiveEvaluation {
-	entryId: string;
-	evalType: RatingSchemeEntry['evalType'];
+	evaluationId: string;
+	evalType: EvalType;
 	reportType: ReportType | null;
 	reportTypeLabel: string | null;
 	periodStart: string;

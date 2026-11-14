@@ -31,7 +31,11 @@ export async function _streamRatingSchemeWorkspace(
 				data,
 				hydration: {
 					orgId: ctx.auth.orgId,
-					ratingSchemeEntries: createWorkspaceHydrationTarget(data.ratingSchemeEntries, {
+					ratingSchemes: createWorkspaceHydrationTarget(data.ratingSchemes, {
+						mode: 'replace',
+						resolvedSnapshotKey: 'hash'
+					}),
+					evaluations: createWorkspaceHydrationTarget(data.evaluations, {
 						mode: 'replace',
 						resolvedSnapshotKey: 'hash'
 					})

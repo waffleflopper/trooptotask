@@ -1,19 +1,15 @@
 import {
 	createRequestRatingSchemeWriteContext,
-	createRequestRatingSchemeDeletionContext,
 	createRequestRatingSchemeWorkspaceContext
 } from '$lib/server/adapters/featureRequestContexts.server';
-import { json } from '@sveltejs/kit';
 import { handle, privateJson } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
-import { validateUUID } from '$lib/server/validation';
 import {
 	loadRatingSchemeEntryEditor,
-	createRatingSchemeEntry,
-	updateRatingSchemeEntry,
-	removeRatingSchemeEntry,
-	ratingSchemeEntryCreateSchema,
-	ratingSchemeEntryUpdateSchema
+	createRatingScheme,
+	updateRatingScheme,
+	ratingSchemeCreateSchema,
+	ratingSchemeUpdateSchema
 } from '$features/rating-scheme/index.server';
 import type { RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -21,7 +17,7 @@ import type { RatingSchemeEntryEditorData } from '$features/rating-scheme/contra
 import { uuidSchema } from '$lib/utils/inputSchemas';
 import { z } from 'zod';
 
-const entryEditorInput = z.object({ entry: uuidSchema });
+const entryEditorInput = z.object({ evaluation: uuidSchema });
 
 export const _getConfig: RouteConfig<
 	z.infer<typeof entryEditorInput>,
@@ -32,9 +28,9 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
 	policyResource: { kind: 'unscoped' },
 	input: entryEditorInput,
-	parseInput: (event) => ({ entry: event.url.searchParams.get('entry') ?? '' }),
+	parseInput: (event) => ({ evaluation: event.url.searchParams.get('evaluation') ?? '' }),
 	fn: async (ctx, input) =>
-		(await loadRatingSchemeEntryEditor(ctx, input.entry)) ?? fail(404, 'Rating Scheme entry not found'),
+		(await loadRatingSchemeEntryEditor(ctx, input.evaluation)) ?? fail(404, 'Evaluation not found'),
 	formatOutput: privateJson
 };
 
@@ -45,10 +41,10 @@ export const _postConfig: RouteConfig<
 > = {
 	context: createRequestRatingSchemeWriteContext,
 	mutation: true,
-	input: ratingSchemeEntryCreateSchema,
+	input: ratingSchemeCreateSchema,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) => createRatingSchemeEntry(ctx, input)
+	fn: (ctx, input) => createRatingScheme(ctx, input)
 };
 
 export const _putConfig: RouteConfig<
@@ -58,41 +54,12 @@ export const _putConfig: RouteConfig<
 > = {
 	context: createRequestRatingSchemeWriteContext,
 	mutation: true,
-	input: ratingSchemeEntryUpdateSchema,
+	input: ratingSchemeUpdateSchema,
 	policyAction: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) => updateRatingSchemeEntry(ctx, input)
-};
-
-export const _deleteConfig: RouteConfig<
-	Record<string, unknown>,
-	Record<string, unknown>,
-	ReturnType<typeof createRequestRatingSchemeDeletionContext>
-> = {
-	context: createRequestRatingSchemeDeletionContext,
-	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
-	policyResource: { kind: 'unscoped' },
-	fn: async (ctx, input) => {
-		const id = input?.id;
-		if (!id || typeof id !== 'string') fail(400, 'Missing id');
-		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
-
-		const result = await removeRatingSchemeEntry(ctx, id);
-		if (result?.requiresApproval) {
-			return { requiresApproval: true };
-		}
-		return { success: true };
-	},
-	formatOutput: (result) => {
-		if (result.requiresApproval) {
-			return json(result, { status: 202 });
-		}
-		return json(result);
-	}
+	fn: (ctx, input) => updateRatingScheme(ctx, input)
 };
 
 export const GET = handle(_getConfig);
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);
-export const DELETE = handle(_deleteConfig);

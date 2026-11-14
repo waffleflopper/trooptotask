@@ -113,6 +113,7 @@ import type {
 } from '$features/personnel/contracts';
 import {
 	isArchivedPerson,
+	isOnTracker,
 	parseWorkflowStatus,
 	toArchivedPersonIds,
 	type RatingSchemeDuePort,
@@ -409,16 +410,20 @@ function unavailableRatingScheme(): RatingSchemePersistence {
 		throw new Error('Bind the owned Rating Scheme persistence in this test context');
 	}
 	return {
-		listWorkspace: unavailable,
-		findWriteReference: unavailable,
+		listRatingSchemes: unavailable,
+		listEvaluations: unavailable,
+		findRatingScheme: unavailable,
+		findEvaluationReference: unavailable,
 		listPersonReadiness: unavailable,
-		countEntries: unavailable,
-		create: unavailable,
-		update: unavailable,
-		delete: unavailable,
-		transition: unavailable,
-		setArchived: unavailable,
-		changeRater: unavailable
+		countRatingSchemes: unavailable,
+		createRatingScheme: unavailable,
+		updateRatingScheme: unavailable,
+		setRatingSchemeArchived: unavailable,
+		startEvaluation: unavailable,
+		updateEvaluation: unavailable,
+		deleteEvaluation: unavailable,
+		transitionEvaluation: unavailable,
+		changeEvaluationRater: unavailable
 	};
 }
 
@@ -1558,25 +1563,33 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				inMemoryArchivedPersonIds(rawStore, actor.orgId),
 				createInMemoryPersonnelRatingSchemeRosterPort(rawStore).listActiveReferences(actor)
 			]);
-			const rows = await rawStore.findMany<{
-				id: string;
-				rated_person_id: string;
-				eval_type: 'OER' | 'NCOER' | 'WOER';
-				rating_period_end: string;
-				workflow_status: string | null;
-				archived_at?: string | null;
-			}>(
-				'rating_scheme_entries',
-				actor.orgId,
-				undefined,
-				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
-			);
+			const scope = people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined;
+			const [rows, schemes] = await Promise.all([
+				rawStore.findMany<{
+					id: string;
+					rating_scheme_id: string;
+					rated_person_id: string;
+					eval_type: 'OER' | 'NCOER' | 'WOER';
+					rating_period_end: string;
+					workflow_status: string | null;
+				}>('evaluations', actor.orgId, undefined, scope),
+				rawStore.findMany<{ id: string; archived_at: string | null }>('rating_schemes', actor.orgId, undefined, scope)
+			]);
+			const schemeArchivedAt = new Map(schemes.map((scheme) => [scheme.id, scheme.archived_at ?? null]));
 			const archived = toArchivedPersonIds(archivedIds);
 			const names = new Map(
 				references.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`])
 			);
 			return rows
-				.filter((row) => !row.archived_at && !isArchivedPerson(archived, row.rated_person_id))
+				.filter(
+					(row) =>
+						schemeArchivedAt.has(row.rating_scheme_id) &&
+						!isArchivedPerson(archived, row.rated_person_id) &&
+						isOnTracker({
+							archivedAt: schemeArchivedAt.get(row.rating_scheme_id) ?? null,
+							workflowStatus: parseWorkflowStatus(row.workflow_status)
+						})
+				)
 				.map((row) => ({
 					id: row.id,
 					ratedPersonId: row.rated_person_id,
@@ -1866,7 +1879,7 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 function createInMemoryOrganizationUnitCountsPort(
 	store: FixtureRowStore,
 	orgId: string,
-	ratingScheme: Pick<RatingSchemePersistence, 'countEntries'>
+	ratingScheme: Pick<RatingSchemePersistence, 'countRatingSchemes'>
 ): OrganizationUnitCountsPort {
 	return {
 		async countRows({ table, archived }) {
@@ -1877,7 +1890,7 @@ function createInMemoryOrganizationUnitCountsPort(
 			});
 			return count ?? 0;
 		},
-		countRatingSchemeEntries: () => ratingScheme.countEntries()
+		countRatingSchemeEntries: () => ratingScheme.countRatingSchemes()
 	};
 }
 
@@ -1961,8 +1974,12 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<FixtureRowSt
 		criticalTasks: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
 		dashboard: { listRows: () => rawStore.findMany<Record<string, unknown>>('dashboard_configs', orgId) },
 		ratingScheme: {
-			listRows: () =>
-				rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+			listRatingSchemeRows: () =>
+				rawStore.findMany<Record<string, unknown>>('rating_schemes', orgId, undefined, {
+					orderBy: [{ column: 'id', ascending: true }]
+				}),
+			listEvaluationRows: () =>
+				rawStore.findMany<Record<string, unknown>>('evaluations', orgId, undefined, {
 					orderBy: [{ column: 'id', ascending: true }]
 				})
 		},

@@ -56,6 +56,6 @@ export interface ApprovedDeletionEffects {
 	approvePersonnelArchive(requestId: string, personnelId: string, reviewedAt: string): Promise<void>;
 	approveTrainingType(requestId: string, typeId: string, reviewedAt: string): Promise<void>;
 	approveTrainingRecord(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
-	approveRatingEntry(requestId: string, entryId: string, reviewedAt: string): Promise<void>;
+	approveEvaluation(requestId: string, evaluationId: string, reviewedAt: string): Promise<void>;
 	approveCounseling(requestId: string, recordId: string, reviewedAt: string): Promise<{ fileCleanup: FileCleanup }>;
 }

@@ -3,6 +3,7 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import CalendarAgenda from '$features/calendar/components/calendar-agenda/CalendarAgenda.svelte';
 	import CalendarAgendaSkeleton from '$features/calendar/components/calendar-agenda/CalendarAgendaSkeleton.svelte';
+	import CalendarViewSkeleton from '$features/calendar/components/calendar-agenda/CalendarViewSkeleton.svelte';
 	import CalendarWeekSkeleton from '$features/calendar/components/calendar-agenda/CalendarWeekSkeleton.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import CalendarLegend from '$features/calendar/components/calendar-legend/CalendarLegend.svelte';
@@ -15,11 +16,11 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { buildCalendarAgenda, rosterPeople } from '$features/calendar/utils/calendarAgenda';
 	import { longRangeDates } from '$features/calendar/utils/calendarRange';
+	import { calendarDa6Href } from '$features/calendar/utils/da6View';
 	import {
 		EMPTY_TASKING_FACTS,
 		type CalendarProjection,
@@ -152,6 +153,9 @@
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
 			showEvents: ctx.showEvents,
+			da6Href: ctx.canReadDa6
+				? calendarDa6Href(data.orgUrlSegment ?? data.orgId, dailyAssignmentsStore.types, calendarStore.focusDay)
+				: null,
 			taskingsNeedingAction: projectionStatus === 'ready' ? taskingFacts.needAction : 0,
 			groupOptions: ctx.groupFilterOptions.map((option) => ({
 				value: option.value,
@@ -531,19 +535,7 @@
 			<section class="flex w-full flex-col gap-3 overflow-visible sm:gap-4" aria-live="polite" role="status">
 				<p class="font-mono text-xs font-semibold tracking-widest text-primary uppercase">Loading calendar data</p>
 
-				{#if ctx.viewMode === '3-month'}
-					<Skeleton class="h-[min(820px,calc(100dvh-10rem))] w-full rounded-lg" />
-				{:else if ctx.viewMode === 'week'}
-					<CalendarWeekSkeleton />
-				{:else if ctx.viewMode === 'agenda'}
-					<CalendarAgendaSkeleton />
-				{:else}
-					<div class="grid grid-cols-7 gap-1">
-						{#each { length: 49 }, index (index)}
-							<Skeleton class="h-20 rounded-md" data-testid="skeleton-grid-cell" />
-						{/each}
-					</div>
-				{/if}
+				<CalendarViewSkeleton view={ctx.viewMode} />
 			</section>
 		</div>
 	{:else}
@@ -624,6 +616,7 @@
 						onClearFilters={clearFilters}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
 						onDutyClick={ctx.canManageAssignments ? (date) => ctx.handleDateClick(date) : undefined}
+						onAddStatus={ctx.canAddStatus ? (date) => ctx.openAddStatus(date) : undefined}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						{popoverEntry}
 					/>

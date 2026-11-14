@@ -24,6 +24,7 @@ function renderR4(view: Da6View | null = r4) {
 		orgUrlSegment: 'c-co',
 		typeId: 'staff-duty',
 		month: '2026-10',
+		back: { href: '/org/c-co/calendar/assignments', label: 'Back to planner' },
 		view
 	});
 }
@@ -107,6 +108,22 @@ describe('DA 6 for the R4 fixture', () => {
 		expect(screen.getByRole('status').textContent).toContain('Loading the DA 6');
 		expect(screen.queryByRole('table')).toBeNull();
 		expect((screen.getByRole('button', { name: /Print DA 6/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+});
+
+describe('DA 6 Back link', () => {
+	it('goes where the page was told to send the reader', () => {
+		render(Da6Page, {
+			orgName: 'C Co, 526th BSB',
+			orgUrlSegment: 'c-co',
+			typeId: 'staff-duty',
+			month: '2026-10',
+			back: { href: '/org/c-co/calendar', label: 'Back to calendar' },
+			view: r4
+		});
+
+		expect(screen.getByRole('link', { name: 'Back to calendar' }).getAttribute('href')).toBe('/org/c-co/calendar');
+		expect(screen.queryByRole('link', { name: 'Back to planner' })).toBeNull();
 	});
 });
 

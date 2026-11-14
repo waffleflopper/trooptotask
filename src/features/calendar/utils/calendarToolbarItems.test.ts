@@ -9,6 +9,7 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		canManageAssignments: false,
 		canManageConfig: false,
 		showEvents: true,
+		da6Href: null,
 		taskingsNeedingAction: 0,
 		groupOptions: [{ value: '', label: 'Group: All' }],
 		groupFilter: '',
@@ -72,6 +73,21 @@ describe('buildCalendarToolbar', () => {
 			'/org/1-11-bde/calendar/bulk?tab=remove',
 			'/org/1-11-bde/calendar/import'
 		]);
+	});
+
+	it('links the DA 6 between Reports and Duty planner only when there is one to open', () => {
+		const none = buildCalendarToolbar(makeInput({ canManageAssignments: true }));
+		const some = buildCalendarToolbar(
+			makeInput({ canManageAssignments: true, da6Href: '/org/1-11-bde/calendar/rosters/sd?month=2026-11' })
+		);
+
+		expect(labels(none.items)).not.toContain('DA 6');
+		expect(some.items.find((item) => item.label === 'DA 6')).toMatchObject({
+			href: '/org/1-11-bde/calendar/rosters/sd?month=2026-11'
+		});
+		const order = labels(some.items);
+		expect(order.indexOf('DA 6')).toBeGreaterThan(order.indexOf('Reports'));
+		expect(order.indexOf('DA 6')).toBeLessThan(order.indexOf('Duty planner'));
 	});
 
 	it('links Events & Taskings to the Taskings list only while the feature is on', () => {

@@ -9,8 +9,10 @@ month and long-range views.
 - `calendar-month`: move with `Today`, `Previous month`, the month picker on the title and `Next month`; the same
   controls drive the Duty planner's month.
 - `calendar-range`: switch between `Agenda`, `Week`, `Month` and `3-Month` with `Calendar view` in the title row, at
-  every width. Below 641px the Calendar opens on `Agenda`; at 641px and wider it opens on `Month`. Only the opening view
-  follows the width: resizing never switches it and a reload opens on the width's view again.
+  every width. Until a person chooses a view, the Calendar opens on `Agenda` below 641px and on `Month` at 641px and
+  wider. The view they choose is saved per account and Organization with the Calendar display preferences, survives
+  Back and a reload, and opens at every width, and its loading skeleton takes that view's shape. Resizing never
+  switches the view.
 - `calendar-week`: `Week` is the month grid over the seven days of one Monday-start week, titled `9–15 Nov 2026` (or
   `27 Oct – 2 Nov 2026` across a month edge) with `Previous week` and `Next week`. It fits 390px with no horizontal
   scroll.
@@ -18,9 +20,14 @@ month and long-range views.
   and only the people who are out or on duty, one row per person with that day's statuses and duties together; a duty
   whose person is out carries the conflict mark and reason. A day with no one says `No one out or on duty.` It follows
   the group filter and the reader's scope and shows the entries the month grid shows.
-- `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display`, `Events & Taskings` (when enabled)
-  and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings`
-  and the exports always live in More, after any folded controls.
+- `calendar-toolbar`: as the page narrows, `Duty planner`, `DA 6`, `Reports`, `Display`, `Events & Taskings` (when
+  enabled) and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row;
+  `Settings` and the exports always live in More, after any folded controls.
+- `calendar-da6-link`: `DA 6` opens the DA 6 for the first person-assigned, unarchived duty type in the month the
+  Calendar shows. It appears only for a reader with Calendar view at Organization scope and only while such a duty
+  type exists.
+- `calendar-editor-history`: the status dialog opened from a cell, a person's name, an entry's `Edit details` or an
+  Agenda `Add status` closes on browser Back and stays on the Calendar in the same view. A reload never reopens it.
 - `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
   Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization. When the
   search or the Group hides everyone while the roster has People, `Month`, `Week` and `Agenda` show `No one matches` with
@@ -80,8 +87,8 @@ planner's header (title `Duty planner`) carries `Today`, then a group of `Previo
 `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title
 names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it
 holds `Calendar group filter`, the personnel searchbox, `Events & Taskings` (when enabled, with a need-action badge),
-`Duty planner` (assignment managers), `Reports`, `Display`,
-`More Calendar controls` and the pinned `Bulk Status` menu. `Events & Taskings` opens `/calendar/taskings`;
+`Duty planner` (assignment managers), `DA 6` (Organization-wide readers, when a person-assigned duty type exists),
+`Reports`, `Display`, `More Calendar controls` and the pinned `Bulk Status` menu. `Events & Taskings` opens `/calendar/taskings`;
 `Bulk Status` includes `Import spreadsheet`, which opens `/calendar/import`. `Display` holds `Show Onboarding` (when onboarding People
 exist), `Show Status Text`, `Show Personnel Roles`, `Show Days`, `Show Events & Suspenses` (only when Events & Taskings is
 on) and `Show Assignments` as checkboxes that keep the menu open. `More Calendar controls`
@@ -204,8 +211,9 @@ filters and request controls between cases.
 13. **View-only affordances.** As `calendarView`, choose September 2026 and click an empty day in Able's row, the
     September 15 date header and Able's name. No dialog opens. Click Able's `Verification Leave` bar: its popover shows
     the status, dates and note with no `Edit details`, `Remove` or resize handles, and a drag across empty days draws no
-    selection. Record which toolbar actions are present: no `Bulk Status` or `Duty planner`, and no
-    `Drag across days to add` in the legend.
+    selection. Record which toolbar actions are present: no `Bulk Status` or `Duty planner`, `DA 6` on the row at 1280
+    (in More at 390), and no `Drag across days to add` in the legend. In `Agenda` no day card has `Add status`. As
+    `calendarScoped`, neither the row nor More holds `DA 6`, because the DA 6 read needs Organization-wide Calendar view.
 14. **Empty and denied states.** As `calendarEmpty`, capture the grid at 1280 light and 390 dark; record whether
     `No personnel added yet` renders. For the in-page denied state, as `calendarOperate` on a settled `/calendar`, run
     `$V calendar-grant calendarOperate none`, then reach Calendar through the attempted path. The workspace-level
@@ -363,14 +371,29 @@ Suspenses` with a suspense due in the month (the Events lane and the header diam
     skeleton in place while the title row and toolbar stay, then release. Arm `$V network arm-fail $PAGE
 calendar-range` and step again: the body is replaced by `Additional calendar data is temporarily unavailable.` with
     `Retry calendar load`, never a broken page. `Retry calendar load` reads again and restores the week.
+25. **Saved view and the dialog in history.** On a fresh worker, as `calendarOperate` at 390x844 on `/calendar`,
+    `Agenda` is checked. Click `Week`, open Able's record through `Find a person`, and press native `navigate_page`
+    `back`: `Week` is checked. Reload: `Week` is still checked. `resize_page` to 1280x900 and reload: `Week`, not
+    `Month`, is checked. Click `Month`, open `Reports`, go back and reload: `Month` stays.
+    `$V preferences calendarOperate orgA` shows `calendar.viewMode` as the last choice. In
+    `Month`, click an empty day in Able's row: `Set Personnel Status` opens. Press `back`: the dialog closes, the path
+    is still `/calendar`, `Month` is checked and focus returns to the cell. Open it again and press `Cancel`: the
+    dialog closes and `history.length` is unchanged from before the open. As `calendarView` on a fresh worker at 390,
+    `Agenda` is checked; at 1280 after a reload, `Month` is, since a viewer who never chose follows the width.
 
 ## Gotchas
 
 - Sweep `Calendar controls` as `calendarOperate` or `calendarConfigure`. `calendarView` has no `duty-planner` or
   `bulk-status`, so the sweep fails its start check at any `--from`. Use
-  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-reports,calendar-display,calendar-events,group --pinned bulk-status --search --more-always --step 4`
-  when `Events & Taskings` is enabled; otherwise omit `calendar-events` from `--expect`. Folding widths depend on the
-  controls present; retain the sweep's observed widths rather than assuming fixed thresholds.
+  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-da6,calendar-reports,calendar-display,calendar-events,group --pinned bulk-status --search --more-always --step 4`
+  when `Events & Taskings` is enabled; otherwise omit `calendar-events` from `--expect`, and omit `calendar-da6` when
+  the Organization has no person-assigned duty type. Folding widths depend on the controls present; retain the sweep's
+  observed widths rather than assuming fixed thresholds.
+- A fresh visit to `/calendar` shows the Calendar layout's own `Loading Calendar data` block until the workspace
+  settles, so a held `server-source` read never shows the page's view-shaped skeleton (`CalendarViewSkeleton`). That
+  skeleton appears only in the page's own loading states, which no helper holds yet.
+- A chosen view is saved for the actor, so a later step in the same worker that expects the width's opening view
+  (step 22's 390 `Agenda` and 1280 `Month`) needs a fresh worker or an actor who has not chosen one.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February
   1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because a month move lands on the first of the
   month, so no live month route displays a day-31 anchor.

@@ -2,7 +2,7 @@
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
@@ -16,7 +16,13 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import { CALENDAR_DATE_LABEL } from '../utils/calendarRenderState';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { go, resetHistory } from '$lib/test-support/shallowHistory.svelte';
 
+vi.mock('$app/state', async () => ({ page: (await import('$lib/test-support/shallowHistory.svelte')).page }));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: (await import('$lib/test-support/shallowHistory.svelte')).goto
+}));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], loading: false, load: vi.fn() }
 }));
@@ -125,6 +131,7 @@ function fillStores() {
 }
 
 beforeEach(() => {
+	resetHistory();
 	fillStores();
 	calendarStore.goToDay(new Date(2026, 10, 11));
 });
@@ -392,6 +399,60 @@ describe('Calendar views over one week', () => {
 
 		expect(duty).toBeTruthy();
 		expect(duty.closest('button')).toBeNull();
+	});
+
+	describe('Add status in Agenda', () => {
+		const addStatus = (day: string) => screen.queryByRole('button', { name: `Add status for ${day}` });
+
+		it('is offered on each day to a reader who can manage availability, and to no one else', async () => {
+			await renderAt('Agenda');
+			expect(addStatus('9 Nov')).toBeTruthy();
+			expect(addStatus('15 Nov')).toBeTruthy();
+			cleanup();
+
+			await renderAt('Agenda', makeContext(makeOrg({ level: 'view' })));
+			expect(addStatus('9 Nov')).toBeNull();
+		});
+
+		it('saves a status for the person chosen on the day tapped, without leaving Agenda', async () => {
+			const ctx = makeContext();
+			const save = vi.spyOn(ctx, 'saveAvailability').mockResolvedValue('saved');
+			await renderAt('Agenda', ctx);
+
+			await fireEvent.click(addStatus('12 Nov')!);
+			const dialog = await screen.findByRole('dialog', { name: 'Set Personnel Status' });
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Person' }));
+			await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'SGT Cole, Pat' }));
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save and close' }));
+
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Set Personnel Status' })).toBeNull());
+			expect(save.mock.calls).toEqual([
+				[
+					{
+						kind: 'create',
+						record: {
+							personnelId: 'p3',
+							statusTypeId: 'leave',
+							startDate: '2026-11-12',
+							endDate: '2026-11-12',
+							note: null
+						}
+					}
+				]
+			]);
+			expect(screen.getByTestId('calendar-agenda')).toBeTruthy();
+		});
+
+		it('closes the dialog when the reader presses Back', async () => {
+			await renderAt('Agenda');
+			await fireEvent.click(addStatus('12 Nov')!);
+			await screen.findByRole('dialog', { name: 'Set Personnel Status' });
+
+			go(-1);
+
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Set Personnel Status' })).toBeNull());
+			expect(screen.getByTestId('calendar-agenda')).toBeTruthy();
+		});
 	});
 
 	it('points to Personnel instead of an agenda when the roster is empty', async () => {

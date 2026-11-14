@@ -9,6 +9,9 @@ show their saved record; the open form is worked out from today's facts. The pag
   plain counts, pulled duty in bold with a corner mark, `A` and code cells (`D5`, `U3`) on a gray fill, today's column
   highlighted and future columns shaded. Under Separate count the weekend and holiday numbers are red; under No duty
   those columns are left out.
+- `da6-entry`: the Calendar toolbar's `DA 6` opens the first person-assigned type's DA 6 in the month the Calendar
+  shows. `Back to planner` leads an assignment manager to the Duty planner; a reader who cannot manage assignments
+  gets `Back to calendar` instead, because the planner refuses them.
 - `da6-switch`: the roster toggle lists every active person-assigned type by short code and keeps the month; month
   navigation writes `?month=YYYY-MM`, and Back returns to the previous roster or month.
 - `da6-show-the-work`: the rule (DA PAM 220-45, para 6), the selected day worked out, and the tie-break. A column header
@@ -38,7 +41,9 @@ show their saved record; the open form is worked out from today's facts. The pag
 
 Open `/org/<org>/calendar/rosters/<assignment type id>`, optionally with `?month=YYYY-MM`. The title reads
 `DA 6 · <type name>` under the eyebrow `Calendar · Duty roster`. The header holds the roster toggle (each item named by
-the type's full name), `Today`, `Previous month`, the month picker, `Next month`, `Back to planner` and `Print DA 6`.
+the type's full name), `Today`, `Previous month`, the month picker, `Next month`, `Back to planner` (`Back to calendar` for a reader who cannot manage assignments) and `Print DA 6`.
+From the Calendar, `DA 6` in the `Calendar controls` toolbar (in `More Calendar controls` on a narrow page) opens the
+first person-assigned type's DA 6 with `?month=` set to the month the Calendar shows.
 Each form is a region named `DA 6, <type>, <From> to <To or open>`; its grid is a scroll region named
 `<type> DA 6 grid, <Month YYYY>`. A day's column header is a button named `<D Mon>` with `aria-pressed`.
 
@@ -173,6 +178,11 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
     `(1) <rank> <last> and <rank> <last> exchanged <day> and <day>. Numbers as published.` with the first holder named
     first. Choose `Undo swap` in the planner and reload: the remarks read `None.` again. Swap, then reassign one swapped
     day: the remark is gone and the cells follow the holders.
+11. **From the Calendar and back.** As `calendarView` at 390x844 on `/calendar`, open `More Calendar controls`: it holds
+    `DA 6`. Choose it: the URL is the first person-assigned type's DA 6 with `?month=` the Calendar's month, and the
+    header shows `Back to calendar`. Click it: the page is `/calendar`, not the planner's `Access restricted.` At
+    1280x900 `DA 6` sits on the toolbar row beside `Reports`. As `calendarOperate`, the same DA 6 shows
+    `Back to planner` linking to `/calendar/assignments`. As `calendarScoped`, neither the row nor More holds `DA 6`.
 
 ## Gotchas
 

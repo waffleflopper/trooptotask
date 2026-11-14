@@ -203,38 +203,41 @@ describe('training types page', () => {
 			user: { id: 'user-1' },
 			member: { role, capabilityMap: {}, scopeSet: { kind: 'organization' } }
 		});
-		const bootstrapWith = (key: string, items: <T>(resolved: T[]) => T[] | Promise<T[]>) => {
+		const bootstrapWith = (key: string, roster: Personnel[] | Promise<Personnel[]>) => {
 			const bootstrap = makeDeferredBootstrap();
-			bootstrap.hydration.personnel = { mode: 'replace', snapshotKey: `personnel:${key}`, items: items(personnel) };
-			bootstrap.hydration.trainingTypes = {
-				mode: 'replace',
-				snapshotKey: `types:${key}`,
-				items: items([trainingType])
-			};
+			bootstrap.hydration.personnel = { mode: 'replace', snapshotKey: `personnel:${key}`, items: roster };
+			bootstrap.hydration.trainingTypes = { mode: 'replace', snapshotKey: `types:${key}`, items: [trainingType] };
 			return bootstrap;
 		};
 		const view = render(TrainingTypesRoute, {
 			props: {
 				data: {
 					shell: shellWith('admin'),
-					training: { data: Promise.resolve(bootstrapWith('full', (resolved) => resolved)) }
+					training: { data: Promise.resolve(bootstrapWith('full', personnel)) }
 				} as never
 			}
 		});
 		await screen.findByRole('button', { name: 'CPR' });
 
+		let resolveRoster!: (roster: Personnel[]) => void;
+		const narrowedRoster = new Promise<Personnel[]>((resolve) => (resolveRoster = resolve));
 		await view.rerender({
 			data: {
 				shell: shellWith('member'),
-				training: { data: Promise.resolve(bootstrapWith('narrowed', () => new Promise(() => {}))) }
+				training: { data: Promise.resolve(bootstrapWith('narrowed', narrowedRoster)) }
 			} as never
 		});
 
+		// The types have landed; the roster alone holds the page back.
 		for (let turn = 0; turn < 5; turn++) {
 			expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
 			expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
 			await new Promise((resolve) => setTimeout(resolve, 0));
 		}
-		expect(trainingTypesStore.loading).toBe(true);
+		expect(trainingTypesStore.loading).toBe(false);
+
+		resolveRoster([]);
+		expect(await screen.findByRole('button', { name: 'CPR' })).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
 	});
 });

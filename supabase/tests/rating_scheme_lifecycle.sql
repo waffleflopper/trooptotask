@@ -274,6 +274,13 @@ SELECT results_eq(
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('stamped'), NULL, 'completed');
 SELECT is((SELECT eval_type FROM public.evaluations WHERE id = pg_temp.f('stamped')), 'NCOER',
   'completing an Evaluation takes the eval type its scheme has as it completes');
+SELECT throws_ok(format($$ UPDATE public.evaluations SET %s WHERE id = %L $$, assignment, pg_temp.f('stamped')),
+    '55000', 'Reopen this evaluation to change its report or period',
+    'a completed Evaluation keeps its ' || label || ' until it is reopened')
+FROM (VALUES ('rating_period_end = ''2031-01-31''', 'period'), ('report_type = ''CR''', 'report')) AS w(assignment, label);
+UPDATE public.evaluations SET notes = 'Filed', report_type = report_type WHERE id = pg_temp.f('stamped');
+SELECT is((SELECT notes FROM public.evaluations WHERE id = pg_temp.f('stamped')), 'Filed',
+  'a completed Evaluation still takes a notes edit that resends its report');
 
 -- A scheme holds one open Evaluation, and its rater changes only by Change of rater while one is open.
 SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_name = 'SSG Sneaky' WHERE id = %L $$,

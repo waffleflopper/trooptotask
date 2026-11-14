@@ -679,6 +679,17 @@ describe('Evaluation — change of rater', () => {
 		});
 	});
 
+	it('returns the rater change again when a Change of Rater completion is repeated', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, changeOfRater);
+		const first = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+
+		const repeat = await transitionEvaluation(ctx, EVALUATION, { from: 'with-rater', to: 'completed' });
+
+		expect(repeat).toEqual({ ...first, moved: false });
+		expect(await ctx.store.findMany('evaluations', ctx.auth.orgId)).toHaveLength(2);
+	});
+
 	it('leaves the scheme without a rater when the Change of Rater names none', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, { ...changeOfRater, next_rater_name: null });

@@ -127,7 +127,7 @@ export interface EvaluationTransition {
 	evaluation: Evaluation;
 	/** False when the evaluation was already at the requested step. */
 	moved: boolean;
-	/** Set only by the move that first completes a Change of Rater. */
+	/** Set by the move that first completes a Change of Rater, and by a repeat of that move whose response was lost. */
 	raterChange: EvaluationRaterChange | null;
 }
 

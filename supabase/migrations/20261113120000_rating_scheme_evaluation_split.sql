@@ -296,7 +296,7 @@ CREATE TRIGGER require_one_open_evaluation BEFORE INSERT OR UPDATE OF workflow_s
   FOR EACH ROW EXECUTE FUNCTION organization_private.require_one_open_evaluation();
 
 -- Completing an Evaluation keeps the chain that signed it: its own snapshot when it has one, else its scheme's
--- current chain. It also takes the scheme's eval type as it stands when it completes, so a type change that
+-- current chain. The snapshot time is when it completed, which the sheets show as its completion date. It also takes the scheme's eval type as it stands when it completes, so a type change that
 -- commits just before keeps it. Reopening clears the snapshot and takes the scheme's eval type again.
 -- The first completion of a Change of Rater report stamps rater_changed_at: transition_evaluation hands the scheme to
 -- the next rater then, and a report recorded already completed is history the scheme has moved past. Either way the
@@ -319,6 +319,8 @@ BEGIN
         NEW.snapshot_senior_rater_person_id, NEW.snapshot_senior_rater_name, NEW.snapshot_reviewer_person_id,
         NEW.snapshot_reviewer_name
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      NEW.chain_snapshot_at := pg_catalog.now();
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
     -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
@@ -536,8 +538,9 @@ CREATE TRIGGER audit_evaluation AFTER INSERT OR DELETE OR UPDATE ON public.evalu
 -- one. A move works whether or not the scheme is archived.
 --
 -- Completing a Change of Rater report for the first time hands the scheme to its next rater, or to no rater when it
--- names none, and opens an Annual from the next day on a listed scheme. raterChange returns both; it is null on every
--- other move, including a repeat.
+-- names none, and opens an Annual from the next day on a listed scheme. raterChange returns both. Repeating that
+-- completion returns the scheme and that Annual as they stand, so a retry after a lost response still shows the
+-- handoff. raterChange is null on every other move.
 CREATE FUNCTION public.transition_evaluation(p_organization_id uuid, p_evaluation_id uuid, p_from text DEFAULT NULL,
   p_to text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -576,7 +579,17 @@ BEGIN
   END IF;
 
   IF v_row.workflow_status IS NOT DISTINCT FROM p_to THEN
-    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row), 'raterChange', NULL);
+    IF p_to = 'completed' AND v_row.report_type = 'CR' AND v_row.rater_changed_at IS NOT NULL THEN
+      SELECT * INTO v_scheme FROM public.rating_schemes AS s WHERE s.id = v_row.rating_scheme_id;
+      SELECT * INTO v_successor FROM public.evaluations AS e
+      WHERE e.rating_scheme_id = v_row.rating_scheme_id AND e.report_type = 'AN'
+        AND e.rating_period_start = v_row.rating_period_end + 1
+      ORDER BY e.created_at, e.id LIMIT 1;
+      v_rater_change := pg_catalog.jsonb_build_object('ratingScheme', pg_catalog.to_jsonb(v_scheme) - 'archived_by',
+        'successor', CASE WHEN v_successor.id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(v_successor) END);
+    END IF;
+    RETURN pg_catalog.jsonb_build_object('moved', false, 'evaluation', pg_catalog.to_jsonb(v_row),
+      'raterChange', v_rater_change);
   END IF;
   IF v_row.workflow_status IS DISTINCT FROM p_from THEN
     RAISE EXCEPTION 'The evaluation is at %, not %',

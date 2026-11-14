@@ -52,7 +52,7 @@ export interface CalendarAssignmentsHydrationLoadable {
 export interface CalendarPinnedGroupsHydrationLoadable {
 	readonly orgId: string;
 	readonly loadVersion?: number;
-	load(items: string[], orgId: string): void;
+	load(items: string[], orgId: string, since?: number): void;
 }
 
 export interface CalendarHydrationStores {
@@ -162,7 +162,8 @@ function createPinnedGroupsDescriptor(
 	target: CalendarWorkspaceHydrationTarget<string>,
 	store: CalendarPinnedGroupsHydrationLoadable,
 	orgId: string,
-	targetName: string
+	targetName: string,
+	confirmedBeforeRequest: number
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
 
@@ -172,7 +173,7 @@ function createPinnedGroupsDescriptor(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		apply: (items) => store.load(items as string[], orgId)
+		apply: (items) => store.load(items as string[], orgId, confirmedBeforeRequest)
 	};
 }
 
@@ -236,7 +237,13 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					'calendarAssignments',
 					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
-				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
+				createPinnedGroupsDescriptor(
+					hydration.pinnedGroups,
+					stores.pinnedGroupsStore,
+					orgId,
+					'pinnedGroups',
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
+				)
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
 			await hydrationTargets.applyDescriptors(orgId, descriptors, options);

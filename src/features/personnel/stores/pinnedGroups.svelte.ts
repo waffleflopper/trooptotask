@@ -5,10 +5,11 @@
  * pin, a move or a delete cannot leave them out of step. A response from another Organization or a shell lifetime the user has left
  * changes nothing and says nothing.
  */
-import { organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
+import { nextConfirmedSequence, organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const PIN_FAILURE_MESSAGE = 'Failed to update pinned Groups. Try again.';
+const CONFIRMED_KEPT = 50;
 
 export class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
@@ -20,6 +21,8 @@ export class PinnedGroupsStore {
 	#organizationVersion = 0;
 	#loadedLifetime = organizationLifetime();
 	#loadVersion = 0;
+	/** Saved pins and unpins, numbered so a snapshot requested before one of them has it applied again. */
+	#confirmed: { sequence: number; groupId: string; pinned: boolean }[] = [];
 
 	get list() {
 		return this.#pinnedGroups;
@@ -33,23 +36,40 @@ export class PinnedGroupsStore {
 		return this.#orgId;
 	}
 
-	load(pinnedGroups: string[], orgId: string) {
+	/** `since` is the confirmed-change sequence the snapshot's request carried; later pins and unpins are kept. */
+	load(pinnedGroups: string[], orgId: string, since?: number) {
 		if (orgId !== this.#orgId || this.#loadedLifetime !== organizationLifetime()) {
 			this.#organizationVersion++;
 			this.#pendingMutations = 0;
 			this.#rereadAfterSettle = false;
+			this.#confirmed = [];
 			this.#loadedLifetime = organizationLifetime();
 		} else if (this.#pendingMutations > 0) return;
 		this.#version++;
 		this.#loadVersion++;
 		this.#pinnedGroups = pinnedGroups;
+		if (since !== undefined) {
+			for (const change of this.#confirmed) {
+				if (change.sequence <= since) continue;
+				const without = this.#pinnedGroups.filter((id) => id !== change.groupId);
+				if (!change.pinned) this.#pinnedGroups = without;
+				else if (without.length === this.#pinnedGroups.length) this.#pinnedGroups = [...without, change.groupId];
+			}
+		}
 		this.#orgId = orgId;
+	}
+
+	#confirm(groupId: string, pinned: boolean) {
+		this.#confirmed = [...this.#confirmed, { sequence: nextConfirmedSequence(), groupId, pinned }].slice(
+			-CONFIRMED_KEPT
+		);
 	}
 
 	/** The database drops a deleted or moved-down Group's pins; this keeps the open page in step without a reload. */
 	forgetGroup(groupId: string) {
 		// Even when this tab does not show the pin, a reread still out may hold it.
 		this.#version++;
+		this.#confirmed = this.#confirmed.filter((change) => change.groupId !== groupId);
 		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}
@@ -111,7 +131,9 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ groupId, sortOrder: this.#pinnedGroups.length - 1 })
 			});
 			if (!res.ok) throw new Error('Failed to pin group');
-			return current();
+			if (!current()) return false;
+			this.#confirm(groupId, true);
+			return true;
 		} catch {
 			if (current()) {
 				this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
@@ -139,7 +161,9 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ groupId })
 			});
 			if (!res.ok) throw new Error('Failed to unpin group');
-			return current();
+			if (!current()) return false;
+			this.#confirm(groupId, false);
+			return true;
 		} catch {
 			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(groupId)) {
 				const restored = [...this.#pinnedGroups];
@@ -192,7 +216,7 @@ export const pinnedGroupsHydration = {
 	get orgId() {
 		return pinnedGroupManagementStore.orgId;
 	},
-	load(groupIds: string[], orgId: string) {
-		pinnedGroupManagementStore.load(groupIds, orgId);
+	load(groupIds: string[], orgId: string, since?: number) {
+		pinnedGroupManagementStore.load(groupIds, orgId, since);
 	}
 };

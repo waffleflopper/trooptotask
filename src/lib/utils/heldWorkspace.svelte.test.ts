@@ -110,6 +110,23 @@ describe('HeldWorkspace', () => {
 		held.stop();
 	});
 
+	it('loads a scope afresh when it returns before the scope that replaced it settled', async () => {
+		const refreshes: boolean[] = [];
+		const held = hold(Promise.resolve('admin rows'), { hydrate: (_value, refresh) => void refreshes.push(refresh) });
+		await settle();
+		held.show(new Promise<string>(() => {}), 'org-1 narrowed');
+
+		const back = deferred<string>();
+		held.show(back.promise, 'org-1');
+		expect(held.current).toEqual({ status: 'pending' });
+
+		back.resolve('admin rows again');
+		await settle();
+		expect(held.current).toEqual({ status: 'ready', value: 'admin rows again', refresh: 'idle' });
+		expect(refreshes).toEqual([false, false]);
+		held.stop();
+	});
+
 	it('does not keep the old scope when the new scope fails to load', async () => {
 		const held = hold(Promise.resolve('alpha rows'));
 		await settle();

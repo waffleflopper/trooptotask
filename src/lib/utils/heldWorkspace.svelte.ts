@@ -73,6 +73,10 @@ export class HeldWorkspace<T> {
 		$effect(() => {
 			const source = options.source();
 			const scope = options.scope();
+			// Leaving a scope forgets its workspace, so coming back before the other scope settles is a first load again.
+			untrack(() => {
+				if (this.#settled && this.#settled.scope !== scope) this.#settled = null;
+			});
 			if (source == null) return;
 			// A workspace that is already resolved and needs no applying is shown in the same pass, with no loading step.
 			if (!options.hydrate && !isPromiseLike(source)) {

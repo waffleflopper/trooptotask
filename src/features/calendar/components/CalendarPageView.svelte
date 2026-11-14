@@ -612,6 +612,7 @@
 						onClearFilters={clearFilters}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
 						onDutyClick={ctx.canManageAssignments ? (date) => ctx.handleDateClick(date) : undefined}
+						onAddStatus={ctx.canAddStatus ? (date) => ctx.openAddStatus(date) : undefined}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						{popoverEntry}
 					/>

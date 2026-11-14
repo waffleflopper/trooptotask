@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { resetHistory } from '$lib/test-support/shallowHistory.svelte';
 import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
@@ -30,10 +31,15 @@ const exportMocks = vi.hoisted(() => ({
 
 vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
 vi.mock('$features/calendar/utils/calendarPrint', () => exportMocks);
-vi.mock('$app/navigation', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: gotoMock
-}));
+vi.mock('$app/state', async () => ({ page: (await import('$lib/test-support/shallowHistory.svelte')).page }));
+vi.mock('$app/navigation', async (importOriginal) => {
+	const history = await import('$lib/test-support/shallowHistory.svelte');
+	return {
+		...(await importOriginal<typeof import('$app/navigation')>()),
+		goto: (href: string, options?: Parameters<typeof history.goto>[1]) =>
+			options?.shallow ? history.goto(href, options) : gotoMock(href, options)
+	};
+});
 
 vi.mock('$features/calendar/taskings/taskingRequests', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/calendar/taskings/taskingRequests')>()),
@@ -63,6 +69,8 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
+
+beforeEach(resetHistory);
 
 afterEach(() => {
 	cleanup();

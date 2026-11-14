@@ -10,6 +10,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
@@ -31,10 +32,34 @@
 
 	let { request, statusTypes, defaultStatusTypeId, existingEntries, saving, onSave, onClose }: Props = $props();
 
-	const person = $derived(request.person);
-	const dateStr = $derived(request.kind === 'create' ? request.startDate : request.entry.startDate);
+	let pickedId = $state('');
+	const person = $derived(
+		request.kind === 'pick' ? (request.people.find((candidate) => candidate.id === pickedId) ?? null) : request.person
+	);
+	const dateStr = $derived.by(() => {
+		switch (request.kind) {
+			case 'create':
+				return request.startDate;
+			case 'edit':
+				return request.entry.startDate;
+			case 'pick':
+				return request.date;
+		}
+	});
+	const pickOptions = $derived(
+		request.kind === 'pick'
+			? [...request.people]
+					.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+					.map((candidate) => ({
+						value: candidate.id,
+						label: `${candidate.rank} ${candidate.lastName}, ${candidate.firstName}`
+					}))
+			: []
+	);
 	const dayEntries = $derived(
-		existingEntries.filter((e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate)
+		person
+			? existingEntries.filter((e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate)
+			: []
 	);
 
 	let selectedStatusId = $state('');
@@ -67,6 +92,12 @@
 
 	untrack(() => (request.kind === 'edit' ? startEdit(request.entry) : resetForm()));
 
+	function pickPerson(next: string | string[]) {
+		if (typeof next !== 'string' || next === pickedId || saving || uncertain) return;
+		pickedId = next;
+		resetForm();
+	}
+
 	// Starter types can be added from the empty picker while the dialog stays open.
 	$effect(() => {
 		if (!selectedStatusId && choices.length > 0) selectedStatusId = defaultStatusTypeId || choices[0].id;
@@ -97,7 +128,7 @@
 	}
 
 	async function handleSubmit(closeWhenSaved: boolean) {
-		if (saving || uncertain || !selectedStatusId || !range.valid) return;
+		if (!person || saving || uncertain || !selectedStatusId || !range.valid) return;
 		const values = { statusTypeId: selectedStatusId, startDate, endDate, note: note.trim() || null };
 		const outcome = await onSave(
 			editingEntry
@@ -135,12 +166,36 @@
 		<AppDialog.Header>
 			<AppDialog.Title id="availability-title">Set Personnel Status</AppDialog.Title>
 			<AppDialog.Description>
-				{person.rank}
-				{person.lastName}, {person.firstName} · {dateDisplay}
+				{#if person}
+					{person.rank}
+					{person.lastName}, {person.firstName} · {dateDisplay}
+				{:else}
+					Choose a person · {dateDisplay}
+				{/if}
 			</AppDialog.Description>
 		</AppDialog.Header>
 
 		<AppDialog.Body class="space-y-4">
+			{#if request.kind === 'pick'}
+				<Field.Root>
+					<Field.Label for="availability-person">Person</Field.Label>
+					<Combobox.Root
+						items={pickOptions}
+						value={pickedId}
+						label="Person"
+						autoHighlight
+						disabled={saving || uncertain}
+						onValueChange={pickPerson}
+					>
+						<Combobox.Trigger id="availability-person" placeholder="Search for a person..." aria-label="Person" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="Search for a person..." />
+							<Combobox.Empty>No matches</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
+				</Field.Root>
+			{/if}
 			{#if uncertain}
 				<p role="alert" class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">
 					Saved status could not be confirmed. Reload the calendar before making another change.
@@ -199,7 +254,7 @@
 				</div>
 			{/if}
 
-			<fieldset class="grid min-w-0 gap-4 pt-1" disabled={saving}>
+			<fieldset class="grid min-w-0 gap-4 pt-1" disabled={saving || !person}>
 				{#if editingEntry}
 					<h4 class="text-sm font-medium">Edit Status</h4>
 				{:else}
@@ -276,11 +331,14 @@
 			<Button
 				variant="outline"
 				onclick={() => handleSubmit(false)}
-				disabled={saving || uncertain || !selectedStatusId || !range.valid}
+				disabled={!person || saving || uncertain || !selectedStatusId || !range.valid}
 			>
 				{editingEntry ? 'Update Status' : 'Add Status'}
 			</Button>
-			<Button onclick={() => handleSubmit(true)} disabled={saving || uncertain || !selectedStatusId || !range.valid}>
+			<Button
+				onclick={() => handleSubmit(true)}
+				disabled={!person || saving || uncertain || !selectedStatusId || !range.valid}
+			>
 				Save and close
 			</Button>
 		</AppDialog.Footer>

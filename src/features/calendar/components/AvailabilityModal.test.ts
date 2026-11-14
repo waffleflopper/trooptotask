@@ -466,3 +466,87 @@ describe('AvailabilityModal — day counts', () => {
 		}
 	});
 });
+
+describe('AvailabilityModal — adding a status before choosing who', () => {
+	const adams: Personnel = { ...person, id: 'person-2', firstName: 'Jo', lastName: 'Adams', rank: 'SPC' };
+	const pick: AvailabilityEditorRequest = { kind: 'pick', date: '2026-04-07', people: [person, adams] };
+	const smithOut: AvailabilityEntry = { ...existingEntry, note: 'Smith block leave' };
+	const adamsOut: AvailabilityEntry = { ...existingEntry, id: 'entry-2', personnelId: 'person-2', note: 'Adams TDY' };
+	const entries = [smithOut, adamsOut];
+
+	async function choose(name: string) {
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name }));
+	}
+
+	const createdFor = (personnelId: string) => ({
+		kind: 'create',
+		record: {
+			personnelId,
+			statusTypeId: 'leave',
+			startDate: '2026-04-07',
+			endDate: '2026-04-07',
+			note: null
+		}
+	});
+
+	it('cannot save until someone is chosen', async () => {
+		renderModal(pick, { existingEntries: entries });
+		const addStatus = screen.getByRole('button', { name: 'Add Status' }) as HTMLButtonElement;
+		const saveAndClose = screen.getByRole('button', { name: 'Save and close' }) as HTMLButtonElement;
+
+		expect([addStatus.disabled, saveAndClose.disabled]).toEqual([true, true]);
+		expect(screen.queryByText('Smith block leave')).toBeNull();
+		expect(screen.queryByText('Adams TDY')).toBeNull();
+
+		await choose('SGT Smith, Alex');
+
+		await waitFor(() => expect([addStatus.disabled, saveAndClose.disabled]).toEqual([false, false]));
+	});
+
+	it('lists the day’s statuses of the person chosen, and of whoever is chosen next', async () => {
+		renderModal(pick, { existingEntries: entries });
+
+		await choose('SGT Smith, Alex');
+		await waitFor(() => expect(screen.getByText('Smith block leave')).toBeTruthy());
+		expect(screen.queryByText('Adams TDY')).toBeNull();
+
+		await choose('SPC Adams, Jo');
+		await waitFor(() => expect(screen.getByText('Adams TDY')).toBeTruthy());
+		expect(screen.queryByText('Smith block leave')).toBeNull();
+	});
+
+	it('saves the status for the chosen person on the tapped day', async () => {
+		const { onSave, onClose } = renderModal(pick);
+
+		await choose('SPC Adams, Jo');
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+		expect(onSave).toHaveBeenCalledExactlyOnceWith(createdFor('person-2'));
+	});
+
+	it('keeps the chosen person after Add Status for the next entry', async () => {
+		const { onSave } = renderModal(pick);
+
+		await choose('SPC Adams, Jo');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		expect(onSave.mock.calls.map(([change]) => change)).toEqual([createdFor('person-2'), createdFor('person-2')]);
+	});
+
+	it('drops an edit of the first person’s status when someone else is chosen', async () => {
+		const { onSave } = renderModal(pick, { existingEntries: entries });
+
+		await choose('SGT Smith, Alex');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Edit status' }));
+		expect(screen.getByRole('button', { name: 'Update Status' })).toBeTruthy();
+		await choose('SPC Adams, Jo');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add Status' }));
+
+		expect(screen.queryByRole('button', { name: 'Update Status' })).toBeNull();
+		expect(onSave).toHaveBeenCalledExactlyOnceWith(createdFor('person-2'));
+	});
+});

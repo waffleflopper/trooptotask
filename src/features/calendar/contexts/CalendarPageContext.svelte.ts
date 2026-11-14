@@ -27,6 +27,8 @@ import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEv
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { initialCalendarView, rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
+import { historyBack } from '$lib/utils/historyBack';
+import { writeAddress } from '$lib/utils/addressWriter';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
@@ -64,7 +66,9 @@ export type CalendarPopover =
 
 export type AvailabilityEditorRequest =
 	| { readonly kind: 'create'; readonly person: Personnel; readonly startDate: string; readonly endDate: string }
-	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry };
+	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry }
+	/** No one chosen yet. Holds only people the actor may manage, never empty. */
+	| { readonly kind: 'pick'; readonly date: string; readonly people: readonly [Personnel, ...Personnel[]] };
 
 export interface TodayAvailability {
 	readonly date: Date;
@@ -125,7 +129,7 @@ export class CalendarPageContext {
 	}
 
 	popover = $state.raw<CalendarPopover | null>(null);
-	editor = $state.raw<AvailabilityEditorRequest | null>(null);
+	#request = $state.raw<AvailabilityEditorRequest | null>(null);
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
@@ -144,6 +148,11 @@ export class CalendarPageContext {
 	calendarPersonnelSearch = $state('');
 	/** Bumped by each Today press, so the grid reveals today even when the month does not change. */
 	todayRequests = $state(0);
+
+	/** Visible only while this page's history entry for it is current, so browser Back closes it. */
+	get editor(): AvailabilityEditorRequest | null {
+		return page.state.calendarEditor ? this.#request : null;
+	}
 
 	/** The saved view, or null until the reader chooses one. */
 	get chosenView(): CalendarViewMode | null {
@@ -434,13 +443,34 @@ export class CalendarPageContext {
 	}
 
 	openEditor(request: AvailabilityEditorRequest): void {
-		if (!this.canManageAvailabilityFor(request.person)) return;
+		if (request.kind !== 'pick' && !this.canManageAvailabilityFor(request.person)) return;
 		this.popover = null;
-		this.editor = request;
+		this.#request = request;
+		if (!page.state.calendarEditor) void writeAddress({ push: true, state: { ...page.state, calendarEditor: true } });
 	}
 
 	closeEditor(): void {
-		this.editor = null;
+		if (!this.editor) return;
+		this.#request = null;
+		historyBack();
+	}
+
+	/** Everyone in the reader's scope the actor may mark out. The picker has its own search, so the Group filter does not apply. */
+	readonly #statusPickPeople = $derived.by(() => {
+		const allowedInGroup: Record<string, boolean> = {};
+		return this.allPersonnelFlat.filter((person) => {
+			const groupId = person.groupId ?? '';
+			return (allowedInGroup[groupId] ??= this.canManageAvailabilityFor(person));
+		});
+	});
+
+	get canAddStatus(): boolean {
+		return this.#statusPickPeople.length > 0;
+	}
+
+	openAddStatus(date: Date): void {
+		const [first, ...rest] = this.#statusPickPeople;
+		if (first) this.openEditor({ kind: 'pick', date: formatDate(date), people: [first, ...rest] });
 	}
 
 	openQuickAdd(person: Personnel, startDate: string, endDate: string, anchor: HTMLElement): void {

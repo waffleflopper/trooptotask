@@ -8,7 +8,6 @@
 	let { children, data } = $props();
 	onDestroy(() => {
 		onboardingStore.invalidatePendingRequests();
-		onboardingWorkspaceHydrator.reset();
 	});
 
 	$effect(() => {
@@ -23,7 +22,8 @@
 		source: () => data.onboarding?.data,
 		scope: () => workspaceScope(data.shell),
 		fallbackMessage: 'Failed to hydrate onboarding workspace',
-		hydrate: (onboarding) => onboardingWorkspaceHydrator.hydrate(onboarding.hydration)
+		hydrate: (onboarding) => onboardingWorkspaceHydrator.hydrate(onboarding.hydration),
+		abandon: () => onboardingWorkspaceHydrator.reset()
 	});
 </script>
 

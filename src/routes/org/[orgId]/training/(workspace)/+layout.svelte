@@ -13,7 +13,8 @@
 		hydrate: (training) =>
 			'access' in training
 				? trainingWorkspaceHydrator.restrict()
-				: trainingWorkspaceHydrator.hydrate(training.hydration)
+				: trainingWorkspaceHydrator.hydrate(training.hydration),
+		abandon: () => trainingWorkspaceHydrator.reset()
 	});
 	const workspace = $derived(held.current);
 </script>

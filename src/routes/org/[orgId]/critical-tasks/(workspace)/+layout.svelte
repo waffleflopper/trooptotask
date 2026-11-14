@@ -53,7 +53,8 @@
 			markCriticalTasksWorkspaceResolved(criticalTasks);
 			return criticalTasksWorkspaceHydrator.hydrate(criticalTasks.hydration);
 		},
-		onReject: (error) => markCriticalTasksWorkspaceRejected(error, orgId)
+		onReject: (error) => markCriticalTasksWorkspaceRejected(error, orgId),
+		abandon: () => criticalTasksWorkspaceHydrator.reset()
 	});
 	const workspace = $derived(held.current);
 </script>

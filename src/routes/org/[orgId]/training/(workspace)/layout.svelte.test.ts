@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const { hydrateMock, restrictMock } = vi.hoisted(() => ({ hydrateMock: vi.fn(), restrictMock: vi.fn() }));
 vi.mock('$features/training', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/training')>()),
-	trainingWorkspaceHydrator: { hydrate: hydrateMock, restrict: restrictMock }
+	trainingWorkspaceHydrator: { hydrate: hydrateMock, restrict: restrictMock, reset: vi.fn() }
 }));
 
 import Layout from './+layout.svelte';

@@ -303,6 +303,31 @@ describe('critical tasks layout client hydration', () => {
 		expect(draft().value).toBe('Keep this draft');
 	});
 
+	it('keeps the rows it shows when a superseded refresh delivers its rows after a later refresh failed', async () => {
+		const { children, rerender } = await typedDraft();
+		const shown = personnelIctCompletionsStore.items;
+		const lateRows = deferred<PersonnelIctCompletion[]>();
+		const superseded = createWorkspace();
+		superseded.hydration.personnelIctCompletions = {
+			mode: 'replace',
+			deferred: true,
+			snapshotKey: 'completions:superseded',
+			items: lateRows.promise
+		};
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: Promise.resolve(superseded) } } });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const rejected = Promise.reject(new Error('ict_tasks failed'));
+		rejected.catch(() => {});
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: rejected } } });
+		await screen.findByRole('alert');
+
+		lateRows.resolve([{ id: 'late', personnelId: 'p1', ictTaskId: 't1' } as PersonnelIctCompletion]);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(personnelIctCompletionsStore.items).toEqual(shown);
+		expect(draft().value).toBe('Keep this draft');
+	});
+
 	it('removes the workspace at once when the Organization changes, and ignores its late refresh', async () => {
 		const { children, rerender } = await typedDraft();
 		const lateRefresh = deferred<CriticalTasksWorkspaceResult>();

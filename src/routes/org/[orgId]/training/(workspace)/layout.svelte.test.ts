@@ -75,28 +75,3 @@ it('keeps the workspace on screen and reports the failure when a refresh rejects
 	expect((await screen.findByRole('alert')).textContent).toContain('could not be refreshed');
 	expect((screen.getByLabelText('Unsaved notes') as HTMLInputElement).value).toBe('Keep this draft');
 });
-
-it('keeps store rows for a refresh, and reloads them when access changes in the same Organization', async () => {
-	const children = createRawSnippet(() => ({ render: () => '<section>Training child</section>' }));
-	const shellWith = (role: string) => ({
-		org: { id: 'org-1' },
-		user: { id: 'user-1' },
-		member: { role, capabilityMap: {}, scopeSet: { kind: 'organization' } }
-	});
-	const workspace = () => Promise.resolve({ laneKey: 'training', hydration: {} });
-	const view = render(Layout, {
-		props: { children, data: { shell: shellWith('admin'), training: { data: workspace() } } }
-	});
-	await waitFor(() => expect(hydrateMock).toHaveBeenCalledTimes(1));
-
-	await view.rerender({ children, data: { shell: shellWith('admin'), training: { data: workspace() } } });
-	await waitFor(() => expect(hydrateMock).toHaveBeenCalledTimes(2));
-	await view.rerender({ children, data: { shell: shellWith('member'), training: { data: workspace() } } });
-	await waitFor(() => expect(hydrateMock).toHaveBeenCalledTimes(3));
-
-	expect(hydrateMock.mock.calls.map(([, , options]) => options)).toEqual([
-		{ keepRows: false },
-		{ keepRows: true },
-		{ keepRows: false }
-	]);
-});

@@ -197,7 +197,7 @@ describe('training types page', () => {
 		expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
 	});
 
-	it('never shows the old roster or types while the same Organization reloads under changed access', async () => {
+	it('keeps the rows through a refresh, and never shows the old roster once access changes in the same Organization', async () => {
 		const shellWith = (role: string) => ({
 			org: { id: 'org-1' },
 			user: { id: 'user-1' },
@@ -217,7 +217,22 @@ describe('training types page', () => {
 				} as never
 			}
 		});
-		await screen.findByRole('button', { name: 'CPR' });
+		const shown = await screen.findByRole('button', { name: 'CPR' });
+		// The first load is over only once every lane has landed.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		// A refresh under the same access keeps the rows on screen while its roster is still out.
+		await view.rerender({
+			data: {
+				shell: shellWith('admin'),
+				training: { data: Promise.resolve(bootstrapWith('refresh', new Promise<Personnel[]>(() => {}))) }
+			} as never
+		});
+		for (let turn = 0; turn < 5; turn++) {
+			expect(screen.getByRole('button', { name: 'CPR' })).toBe(shown);
+			expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
 
 		let resolveRoster!: (roster: Personnel[]) => void;
 		const narrowedRoster = new Promise<Personnel[]>((resolve) => (resolveRoster = resolve));

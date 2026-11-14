@@ -20,6 +20,8 @@ not. MOS applicability excludes unrelated tasks from the denominator.
   previous person shows it (step 3).
 - `readiness`: matrix cells, individual readiness, Personnel detail and reports agree on current, expiring, expired,
   missing and not-applicable examples.
+- `readiness-tiers`: one Soldier has one colour on the matrix bar, the Reports badges and their record, decided from
+  ready and applicable counts rather than the rounded percent (step 13).
 - `history`: multiple dated completions use the latest applicable record; archived task history retains its record and
   dates while leaving active readiness.
 - `reports-export`: combined Group/rank/MOS/duty-role filters, error/retry and downloaded matrix/report workbooks
@@ -510,6 +512,23 @@ personnel_ict_completions orgA id <ID>` shows Baker's `personnel_id` on the same
     URL-opened drawer through `Cancel` removes its `item` or `add` query parameter. This drawer is separate from the
     matrix modal; keep its proof separate and restart this worker before any baseline-dependent recipe.
 
+13. **Readiness tiers at a rounding edge.** Run on a fresh worker; it changes every readiness baseline. Write
+    `tasks.csv` with header `Task code,Title,MOS,Expires after (months)` and 21 rows `VFY-T01`…`VFY-T21`, blank MOS
+    (all MOS), 12 months. As `ictConfigurator`, open `critical-tasks/library/import`, drop it, `Review 21 rows` (all
+    New) and `Import 21 changes`. Write `completions.csv` with header
+    `Last name,First name,Task code,Completed,Validation method,Notes`: Able `VFY-T01`…`T15`, Baker `VFY-T01`…`T15`,
+    and Unassigned `VERIFY-ICT-ALPHA`, `VERIFY-ICT-ALL` and `VFY-T01`…`T21`, all on a recent date with Demonstration.
+    As `ictOperator`, `Import Completions`, drop it, `Review 53 rows` and `Import 53 changes`. Able is then **16/23
+    (69.57%, shown as 70%)**, Baker **15/22 (68%)** and Unassigned **23/23 (100%)**.
+
+    Read the class of each Soldier's RDY bar on the matrix (inside the row link labelled
+    `<Last, First> readiness <n>%`), their badge under Reports → Immediate risk → Soldiers, and the Individual
+    Readiness number and bar on their record, at 1280x800 and 390x844. Red is below 70, amber from 70 to under 80 and
+    green from 80: Able and Baker are `bg-danger` on the matrix, `destructive` in Reports and `text-danger`/`bg-danger`
+    on their record; Unassigned is `bg-success`, `success` and `text-success`/`bg-success`. Reports reads
+    `Soldiers below 70%` `2 of 3`. Able's displayed `70%` beside a red tier is expected: only the tier uses the exact
+    ratio. The heat map keeps its five bands (below 60, 60, 70, 80, 90) from the same exact ratio.
+
 Use the documented narrow `network arm-fail|arm-hold PAGE FAMILY`, `state`, `release`, `restore`,
 `feedback arm|state|restore` and `export arm|save|restore` controls. Critical Tasks families are
 `personnel-ict-completions`, `personnel-ict-completions/batch`, `critical-tasks/reports/summary`,
@@ -541,6 +560,8 @@ pages.
   rule Training uses for its warning states.
 - The denominator is applicable Person/task assignments, not task count or Personnel count; zero-applicable report
   readiness is 0%, while a MOS/category matrix can use an empty value.
+- Tiers, below-threshold counts, heat-map bands and distribution bins compare ready × 100 with the cut-off ×
+  applicable. A percent rounded up to a cut-off still sits in the tier below it.
 - History includes archived definitions; active matrix/report denominators exclude them. Archived Personnel history is
   read-only.
 - `actor` establishes sign-in and a starting route, not completion of a streamed workspace or a permission verdict. Its

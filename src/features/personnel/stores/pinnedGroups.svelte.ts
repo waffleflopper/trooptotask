@@ -69,7 +69,8 @@ export class PinnedGroupsStore {
 	forgetGroup(groupId: string) {
 		// Even when this tab does not show the pin, a reread still out may hold it.
 		this.#version++;
-		this.#confirmed = this.#confirmed.filter((change) => change.groupId !== groupId);
+		// An older snapshot still out may hold the pin too.
+		this.#confirm(groupId, false);
 		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}

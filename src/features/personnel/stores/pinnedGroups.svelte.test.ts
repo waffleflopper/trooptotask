@@ -457,6 +457,15 @@ describe('pinned Group state', () => {
 		expect(store.list).toEqual(['Bravo']);
 	});
 
+	it('does not bring back the pin of a Group deleted after an older snapshot was requested', () => {
+		store.load(['Alpha', 'Bravo'], 'org-1');
+		const requested = confirmedSequence();
+		store.forgetGroup('Bravo');
+
+		store.load(['Alpha', 'Bravo'], 'org-1', requested);
+		expect(store.list).toEqual(['Alpha']);
+	});
+
 	it('does not bring back a pin saved in another Organization', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 		const requested = confirmedSequence();

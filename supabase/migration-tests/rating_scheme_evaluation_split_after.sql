@@ -21,13 +21,26 @@ SELECT results_eq(
   $$SELECT e.id, to_jsonb(e) - ARRAY['rating_scheme_id', 'chain_snapshot_at', 'snapshot_rater_person_id',
       'snapshot_rater_name', 'snapshot_intermediate_rater_person_id', 'snapshot_intermediate_rater_name',
       'snapshot_senior_rater_person_id', 'snapshot_senior_rater_name', 'snapshot_reviewer_person_id',
-      'snapshot_reviewer_name', 'next_rater_person_id', 'next_rater_name', 'rater_changed_at']
+      'snapshot_reviewer_name', 'next_rater_person_id', 'next_rater_name', 'rater_changed_at', 'eval_type']
     FROM public.evaluations e WHERE organization_id = 'e7c40000-0000-4000-8000-000000000101' ORDER BY id$$,
   $$SELECT id, saved - ARRAY['rater_person_id', 'rater_name', 'intermediate_rater_person_id',
       'intermediate_rater_name', 'senior_rater_person_id', 'senior_rater_name', 'reviewer_person_id', 'reviewer_name',
-      'archived_at', 'archived_by']
+      'archived_at', 'archived_by', 'eval_type']
     FROM upgrade_fixture.rating_scheme_evaluation_split_before ORDER BY id$$,
-  'every entry becomes an Evaluation with its id, step, period, report, type, notes and times');
+  'every entry becomes an Evaluation with its id, step, period, report, notes and times');
+
+SELECT results_eq(
+  $$SELECT id, eval_type FROM public.evaluations
+    WHERE organization_id = 'e7c40000-0000-4000-8000-000000000101' ORDER BY id$$,
+  $$VALUES
+    ('e7c40000-0000-4000-8000-000000000501'::uuid, 'NCOER'::text),
+    ('e7c40000-0000-4000-8000-000000000502'::uuid, 'NCOER'),
+    ('e7c40000-0000-4000-8000-000000000503'::uuid, 'WOER'),
+    ('e7c40000-0000-4000-8000-000000000504'::uuid, 'OER'),
+    ('e7c40000-0000-4000-8000-000000000505'::uuid, 'WOER'),
+    ('e7c40000-0000-4000-8000-000000000506'::uuid, 'WOER'),
+    ('e7c40000-0000-4000-8000-000000000507'::uuid, 'NCOER')$$,
+  'a completed Evaluation keeps its type and an unfinished one takes its scheme''s');
 
 -- A completed Change of Rater already moved its scheme to the next rater, so reopening it keeps its chain and
 -- completing it again changes nothing. No copied entry names a next rater.

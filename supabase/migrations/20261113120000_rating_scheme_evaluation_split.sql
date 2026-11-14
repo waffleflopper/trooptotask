@@ -99,7 +99,8 @@ CROSS JOIN LATERAL (
 ) AS a;
 
 -- One Evaluation per entry. A completed entry, or one whose chain differs from its scheme's, keeps its own chain. A
--- completed Change of Rater entry is history whose rater change already happened.
+-- completed entry keeps its type, and an unfinished one takes its scheme's. A completed Change of Rater entry is
+-- history whose rater change already happened.
 INSERT INTO public.evaluations (
   id, organization_id, rating_scheme_id, rated_person_id, eval_type, report_type, rating_period_start,
   rating_period_end, workflow_status, notes, chain_snapshot_at, snapshot_rater_person_id, snapshot_rater_name,
@@ -107,7 +108,8 @@ INSERT INTO public.evaluations (
   snapshot_senior_rater_name, snapshot_reviewer_person_id, snapshot_reviewer_name, rater_changed_at, created_at,
   updated_at
 )
-SELECT r.id, r.organization_id, s.id, r.rated_person_id, r.eval_type, r.report_type, r.rating_period_start,
+SELECT r.id, r.organization_id, s.id, r.rated_person_id,
+  CASE WHEN r.workflow_status = 'completed' THEN r.eval_type ELSE s.eval_type END, r.report_type, r.rating_period_start,
   r.rating_period_end, r.workflow_status, r.notes,
   CASE WHEN k.keeps THEN r.updated_at END,
   CASE WHEN k.keeps THEN r.rater_person_id END, CASE WHEN k.keeps THEN r.rater_name END,

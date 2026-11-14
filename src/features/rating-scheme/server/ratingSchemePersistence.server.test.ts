@@ -338,25 +338,6 @@ describe('owned Rating Scheme provider', () => {
 		expect(tables.rating_schemes[0].archived_by).toBe('who-archived');
 	});
 
-	it('carries a scheme’s new type to its unfinished Evaluations and leaves completed ones as rated', async () => {
-		const { ratingScheme, tables } = provider({
-			rating_schemes: [schemeRow],
-			evaluations: [
-				evaluationRow,
-				{ ...evaluationRow, id: 'untracked', workflow_status: null },
-				{ ...evaluationRow, id: 'completed', workflow_status: 'completed' },
-				{ ...evaluationRow, id: 'other-scheme', rating_scheme_id: 'scheme-b' }
-			]
-		});
-		await ratingScheme.updateRatingScheme('scheme-a', { evalType: 'WOER' });
-		expect(Object.fromEntries(tables.evaluations.map((row) => [row.id, row.eval_type]))).toEqual({
-			'evaluation-a': 'WOER',
-			untracked: 'WOER',
-			completed: 'OER',
-			'other-scheme': 'OER'
-		});
-	});
-
 	it('deletes only this unit’s Evaluation and reports a failed delete', async () => {
 		const foreign = { ...evaluationRow, organization_id: 'org-b' };
 		const { ratingScheme, tables, state } = provider({ evaluations: [evaluationRow, foreign] });

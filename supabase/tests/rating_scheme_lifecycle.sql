@@ -158,7 +158,9 @@ UPDATE public.rating_schemes SET rater_person_id = pg_temp.id('306') WHERE id = 
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('departing'), NULL, 'drafting');
 INSERT INTO changed (entry) SELECT pg_temp.at_step('both', 'with-rater');
 INSERT INTO leap (entry) SELECT pg_temp.new_entry('none', '2027-03-01', '2028-03-31');
-INSERT INTO fixture VALUES ('retained', pg_temp.new_entry('none')), ('narrowed', pg_temp.new_entry('both'));
+INSERT INTO fixture VALUES ('retained', pg_temp.new_entry('none')), ('narrowed', pg_temp.new_entry('both')),
+  ('stamped', pg_temp.new_entry('none'));
+UPDATE public.evaluations SET eval_type = 'WOER' WHERE id = pg_temp.f('stamped');
 UPDATE public.evaluations SET chain_snapshot_at = now(), snapshot_rater_person_id = pg_temp.id('302'),
   snapshot_senior_rater_name = 'COL Senior',
   snapshot_intermediate_rater_name = CASE WHEN id = pg_temp.f('retained') THEN 'MSG Retained' END
@@ -200,7 +202,8 @@ FROM (VALUES ('workflow_status = ''completed''', 'the step'),
   ('snapshot_rater_name = ''SSG Forged''', 'the signed chain'),
   ('rating_scheme_id = gen_random_uuid()', 'the scheme'),
   ('rated_person_id = gen_random_uuid()', 'the rated Person'),
-  ('created_at = now()', 'the creation time')) AS w(assignment, label);
+  ('created_at = now()', 'the creation time'),
+  ('eval_type = ''WOER''', 'the eval type')) AS w(assignment, label);
 SELECT throws_ok(format($$ INSERT INTO public.evaluations (organization_id, rating_scheme_id, rated_person_id, eval_type,
     rating_period_start, rating_period_end) SELECT organization_id, rating_scheme_id, rated_person_id, eval_type,
     '2031-01-01', '2031-12-31' FROM public.evaluations WHERE id = %L $$,
@@ -252,12 +255,25 @@ SELECT results_eq(
   $$ VALUES (pg_temp.id('302'), NULL::text, 'COL Senior'::text) $$,
   'a later change to the scheme leaves the signed chain as it was');
 UPDATE public.rating_schemes SET eval_type = 'OER' WHERE id = pg_temp.scheme(pg_temp.f('signed'));
+SELECT is((SELECT eval_type FROM public.evaluations WHERE id = pg_temp.f('signed')), 'NCOER',
+  'a completed Evaluation keeps the eval type it was rated on when its scheme''s type changes');
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('signed'), 'completed', 'with-rater');
 SELECT ok((SELECT chain_snapshot_at IS NULL AND snapshot_rater_person_id IS NULL AND snapshot_senior_rater_name IS NULL
     FROM public.evaluations WHERE id = pg_temp.f('signed')),
   'reopening an Evaluation clears its signed chain, so it reads the scheme again');
 SELECT is((SELECT eval_type FROM public.evaluations WHERE id = pg_temp.f('signed')), 'OER',
   'reopening an Evaluation takes the eval type its scheme has now');
+
+-- An unfinished Evaluation has its scheme's eval type, changed in the scheme's own statement and stamped on completion.
+UPDATE public.rating_schemes SET eval_type = 'WOER'
+WHERE id IN (pg_temp.scheme(pg_temp.f('stale')), pg_temp.scheme(pg_temp.f('fresh')));
+SELECT results_eq(
+  $$ SELECT eval_type FROM public.evaluations WHERE id IN (pg_temp.f('stale'), pg_temp.f('fresh')) $$,
+  $$ VALUES ('WOER'::text), ('WOER'::text) $$,
+  'a scheme''s new eval type reaches its open and not tracked Evaluations in the same statement');
+SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('stamped'), NULL, 'completed');
+SELECT is((SELECT eval_type FROM public.evaluations WHERE id = pg_temp.f('stamped')), 'NCOER',
+  'completing an Evaluation takes the eval type its scheme has as it completes');
 
 -- A scheme holds one open Evaluation, and its rater changes only by Change of rater while one is open.
 SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_name = 'SSG Sneaky' WHERE id = %L $$,

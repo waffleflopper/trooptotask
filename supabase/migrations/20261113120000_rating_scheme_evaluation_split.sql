@@ -222,7 +222,7 @@ GRANT INSERT (id, organization_id, rated_person_id, eval_type, rater_person_id, 
 GRANT UPDATE (rated_person_id, eval_type, rater_person_id, rater_name, intermediate_rater_person_id,
   intermediate_rater_name, senior_rater_person_id, senior_rater_name, reviewer_person_id, reviewer_name, notes)
   ON public.rating_schemes TO authenticated;
-GRANT UPDATE (eval_type, report_type, rating_period_start, rating_period_end, notes)
+GRANT UPDATE (report_type, rating_period_start, rating_period_end, notes)
   ON public.evaluations TO authenticated;
 
 CREATE TRIGGER update_rating_schemes_updated_at BEFORE UPDATE ON public.rating_schemes
@@ -258,11 +258,15 @@ CREATE TRIGGER require_one_open_evaluation BEFORE INSERT OR UPDATE OF workflow_s
   FOR EACH ROW EXECUTE FUNCTION organization_private.require_one_open_evaluation();
 
 -- Completing an Evaluation keeps the chain that signed it: its own snapshot when it has one, else its scheme's
--- current chain. Reopening it clears the snapshot and takes the scheme's eval type, so it follows its scheme again.
+-- current chain. It also takes the scheme's eval type as it stands when it completes, so a type change that
+-- commits just before keeps it. Reopening clears the snapshot and takes the scheme's eval type again.
 CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS trigger
   LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
   IF NEW.workflow_status = 'completed' THEN
+    IF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    END IF;
     IF NEW.chain_snapshot_at IS NULL THEN
       SELECT pg_catalog.now(), s.rater_person_id, s.rater_name, s.intermediate_rater_person_id,
         s.intermediate_rater_name, s.senior_rater_person_id, s.senior_rater_name, s.reviewer_person_id, s.reviewer_name
@@ -273,7 +277,8 @@ BEGIN
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
-    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
+    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR SHARE;
     NEW.chain_snapshot_at := NULL;
     NEW.snapshot_rater_person_id := NULL;
     NEW.snapshot_rater_name := NULL;
@@ -290,6 +295,21 @@ $$;
 REVOKE ALL ON FUNCTION organization_private.keep_evaluation_chain_snapshot() FROM PUBLIC;
 CREATE TRIGGER keep_evaluation_chain_snapshot BEFORE INSERT OR UPDATE OF workflow_status ON public.evaluations
   FOR EACH ROW EXECUTE FUNCTION organization_private.keep_evaluation_chain_snapshot();
+
+-- An Evaluation that is not completed has its scheme's eval type, set in the same transaction as the scheme.
+CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  UPDATE public.evaluations AS e SET eval_type = NEW.eval_type
+  WHERE e.rating_scheme_id = NEW.id AND e.eval_type <> NEW.eval_type
+    AND e.workflow_status IS DISTINCT FROM 'completed';
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION organization_private.follow_scheme_eval_type() FROM PUBLIC;
+CREATE TRIGGER follow_scheme_eval_type AFTER UPDATE OF eval_type ON public.rating_schemes
+  FOR EACH ROW WHEN (NEW.eval_type IS DISTINCT FROM OLD.eval_type)
+  EXECUTE FUNCTION organization_private.follow_scheme_eval_type();
 
 -- Intermediate rater, senior rater and reviewer edits apply live to the open Evaluation. The rater it is rated by
 -- changes only through change_evaluation_rater, which completes it as a Change of Rater report first. Deleting the
@@ -445,6 +465,11 @@ BEGIN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
@@ -580,6 +605,11 @@ BEGIN
     RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
@@ -985,10 +1015,14 @@ BEGIN
   END IF;
 
   -- Training and rating approvals delete their record before approving its request, and archive approval
-  -- locks its request before the Person. The purge takes records, then requests, then People.
+  -- locks its request before the Person. The purge takes records, then requests, then People. A scheme locks
+  -- before its Evaluations, the order a scheme type change takes.
   PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
     WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT scheme.id FROM public.rating_schemes AS scheme
+    WHERE scheme.organization_id = p_org_id AND scheme.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY scheme.id FOR UPDATE) AS locked;
   PERFORM 1 FROM (SELECT record.id FROM public.evaluations AS record
     WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;

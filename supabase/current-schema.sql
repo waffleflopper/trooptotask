@@ -3504,6 +3504,25 @@ $$;
 ALTER FUNCTION organization_private.file_key_retired(p_bucket_id text, p_object_name text) OWNER TO postgres;
 
 --
+-- Name: follow_scheme_eval_type(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  UPDATE public.evaluations AS e SET eval_type = NEW.eval_type
+  WHERE e.rating_scheme_id = NEW.id AND e.eval_type <> NEW.eval_type
+    AND e.workflow_status IS DISTINCT FROM 'completed';
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.follow_scheme_eval_type() OWNER TO postgres;
+
+--
 -- Name: group_within(uuid, uuid, uuid); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -3578,6 +3597,9 @@ CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS tr
     AS $$
 BEGIN
   IF NEW.workflow_status = 'completed' THEN
+    IF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    END IF;
     IF NEW.chain_snapshot_at IS NULL THEN
       SELECT pg_catalog.now(), s.rater_person_id, s.rater_name, s.intermediate_rater_person_id,
         s.intermediate_rater_name, s.senior_rater_person_id, s.senior_rater_name, s.reviewer_person_id, s.reviewer_name
@@ -3588,7 +3610,8 @@ BEGIN
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
-    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    -- The share lock waits out a scheme type change in flight, which skips this row while it is still completed.
+    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id FOR SHARE;
     NEW.chain_snapshot_at := NULL;
     NEW.snapshot_rater_person_id := NULL;
     NEW.snapshot_rater_name := NULL;
@@ -6657,6 +6680,11 @@ BEGIN
     RAISE EXCEPTION 'Choose the last day with the current rater' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
@@ -7913,10 +7941,14 @@ BEGIN
   END IF;
 
   -- Training and rating approvals delete their record before approving its request, and archive approval
-  -- locks its request before the Person. The purge takes records, then requests, then People.
+  -- locks its request before the Person. The purge takes records, then requests, then People. A scheme locks
+  -- before its Evaluations, the order a scheme type change takes.
   PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
     WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT scheme.id FROM public.rating_schemes AS scheme
+    WHERE scheme.organization_id = p_org_id AND scheme.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY scheme.id FOR UPDATE) AS locked;
   PERFORM 1 FROM (SELECT record.id FROM public.evaluations AS record
     WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
     ORDER BY record.id FOR UPDATE) AS locked;
@@ -14853,6 +14885,11 @@ BEGIN
     RAISE EXCEPTION 'Unknown evaluation step' USING ERRCODE = '22023';
   END IF;
 
+  -- The scheme locks before its Evaluation, the order a scheme type change takes.
+  PERFORM 1 FROM public.rating_schemes AS s
+  WHERE s.id = (SELECT e.rating_scheme_id FROM public.evaluations AS e
+    WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id)
+  FOR UPDATE;
   SELECT * INTO v_row FROM public.evaluations AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_evaluation_id
   FOR UPDATE;
@@ -19191,6 +19228,13 @@ CREATE TRIGGER flag_calendar_tasking_picks_on_change AFTER UPDATE OF responsible
 
 
 --
+-- Name: rating_schemes follow_scheme_eval_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER follow_scheme_eval_type AFTER UPDATE OF eval_type ON public.rating_schemes FOR EACH ROW WHEN ((new.eval_type IS DISTINCT FROM old.eval_type)) EXECUTE FUNCTION organization_private.follow_scheme_eval_type();
+
+
+--
 -- Name: personnel forget_deleted_personnel_undo; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -23522,6 +23566,13 @@ REVOKE ALL ON FUNCTION organization_private.file_key_retired(p_bucket_id text, p
 
 
 --
+-- Name: FUNCTION follow_scheme_eval_type(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.follow_scheme_eval_type() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -26606,13 +26657,6 @@ GRANT ALL ON TABLE public.durable_rate_limits TO service_role;
 GRANT SELECT,DELETE,MAINTAIN ON TABLE public.evaluations TO authenticated;
 GRANT ALL ON TABLE public.evaluations TO service_role;
 GRANT SELECT ON TABLE public.evaluations TO anon;
-
-
---
--- Name: COLUMN evaluations.eval_type; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT UPDATE(eval_type) ON TABLE public.evaluations TO authenticated;
 
 
 --

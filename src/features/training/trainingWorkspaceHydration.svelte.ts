@@ -10,10 +10,12 @@ import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
-	startLoadingUnlessHeld,
+	reconcileOnLoad,
+	type FeatureLaneHydrationOptions,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
+import type { StoreRead } from '$lib/stores/core';
 import type { TrainingWorkspaceHydration, TrainingWorkspaceHydrationTarget } from './contracts';
 import type { TrainingWorkspaceReadiness } from './contracts';
 import { trainingReadinessHydration } from './webSources.svelte';
@@ -24,6 +26,7 @@ export interface TrainingHydrationLoadable<T> {
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
+	beginRead?(since?: number): StoreRead<T & { id: string }>;
 }
 
 export interface TrainingHydrationStores {
@@ -37,7 +40,11 @@ export interface TrainingHydrationStores {
 }
 
 export interface TrainingWorkspaceHydrator {
-	hydrate(hydration?: TrainingWorkspaceHydration, stores?: TrainingHydrationStores): Promise<void>;
+	hydrate(
+		hydration?: TrainingWorkspaceHydration,
+		stores?: TrainingHydrationStores,
+		options?: FeatureLaneHydrationOptions
+	): Promise<void>;
 	reset(): void;
 	/** Drop pending hydration and this Organization's lane rows after access is denied. */
 	restrict(stores?: TrainingHydrationStores): void;
@@ -67,7 +74,7 @@ function createTargetDescriptor<T>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: startLoadingUnlessHeld(store, orgId),
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
 }
@@ -88,20 +95,36 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 
 		async hydrate(
 			hydration?: TrainingWorkspaceHydration,
-			stores: TrainingHydrationStores = defaultTrainingHydrationStores
+			stores: TrainingHydrationStores = defaultTrainingHydrationStores,
+			options?: FeatureLaneHydrationOptions
 		): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
 			const descriptors = [
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
-				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
-				createTargetDescriptor(hydration.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
-				createTargetDescriptor(
-					hydration.personnelTrainings,
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
+					stores.trainingTypesStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				),
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
+					stores.trainingViewsStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				),
+				reconcileOnLoad(
+					createTargetDescriptor(
+						hydration.personnelTrainings,
+						stores.personnelTrainingsStore,
+						orgId,
+						'personnelTrainings'
+					),
 					stores.personnelTrainingsStore,
 					orgId,
-					'personnelTrainings'
+					hydration.confirmedChangesByTab
 				),
 				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
 				hydration.rankCatalog
@@ -118,7 +141,7 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 				});
 			}
 
-			await hydrationTargets.applyDescriptors(orgId, descriptors);
+			await hydrationTargets.applyDescriptors(orgId, descriptors, options);
 		}
 	};
 }

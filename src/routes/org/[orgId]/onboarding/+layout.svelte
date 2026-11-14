@@ -22,7 +22,10 @@
 		source: () => data.onboarding?.data,
 		scope: () => workspaceScope(data.shell),
 		fallbackMessage: 'Failed to hydrate onboarding workspace',
-		hydrate: (onboarding) => onboardingWorkspaceHydrator.hydrate(onboarding.hydration),
+		hydrate: (onboarding, refresh) =>
+			onboardingWorkspaceHydrator.hydrate(onboarding.hydration, undefined, {
+				keepRows: refresh
+			}),
 		abandon: () => onboardingWorkspaceHydrator.reset()
 	});
 </script>

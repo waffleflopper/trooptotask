@@ -44,14 +44,16 @@
 			personnelIctCompletionsStore.invalidateImports();
 			markCriticalTasksWorkspacePending(orgId);
 		},
-		hydrate: (criticalTasks) => {
+		hydrate: (criticalTasks, refresh) => {
 			if ('access' in criticalTasks) {
 				resetCriticalTasksWorkspaceStatus();
 				if (orgId) criticalTasksWorkspaceHydrator.restrict();
 				return;
 			}
 			markCriticalTasksWorkspaceResolved(criticalTasks);
-			return criticalTasksWorkspaceHydrator.hydrate(criticalTasks.hydration);
+			return criticalTasksWorkspaceHydrator.hydrate(criticalTasks.hydration, undefined, {
+				keepRows: refresh
+			});
 		},
 		onReject: (error) => markCriticalTasksWorkspaceRejected(error, orgId),
 		abandon: () => criticalTasksWorkspaceHydrator.reset()

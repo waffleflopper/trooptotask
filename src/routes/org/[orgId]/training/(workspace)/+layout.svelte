@@ -10,10 +10,12 @@
 		source: () => data.training?.data,
 		scope: () => workspaceScope(data.shell),
 		fallbackMessage: 'Failed to hydrate training workspace',
-		hydrate: (training) =>
+		hydrate: (training, refresh) =>
 			'access' in training
 				? trainingWorkspaceHydrator.restrict()
-				: trainingWorkspaceHydrator.hydrate(training.hydration),
+				: trainingWorkspaceHydrator.hydrate(training.hydration, undefined, {
+						keepRows: refresh
+					}),
 		abandon: () => trainingWorkspaceHydrator.reset()
 	});
 	const workspace = $derived(held.current);

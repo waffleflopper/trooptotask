@@ -15,10 +15,13 @@ export interface HeldWorkspaceOptions<T> {
 	fallbackMessage: string;
 	/** Runs when a streamed source starts loading. */
 	onPending?(): void;
-	/** Applies a resolved workspace before it is shown. A rejection counts as a failed load. */
-	hydrate?(workspace: T): Promise<void> | void;
+	/**
+	 * Applies a resolved workspace before it is shown. A rejection counts as a failed load. `refresh` is true when a
+	 * workspace of this scope is already on screen.
+	 */
+	hydrate?(workspace: T, refresh: boolean): Promise<void> | void;
 	onReject?(error: Error): void;
-	/** Runs when a source is replaced or the owner goes away, so work for it can be dropped. */
+	/** Runs when a source fails, is replaced or loses its owner, so work still running for it can be dropped. */
 	abandon?(): void;
 }
 
@@ -83,7 +86,8 @@ export class HeldWorkspace<T> {
 					fallbackMessage: options.fallbackMessage,
 					onPending: options.onPending,
 					hydrate: async (value) => {
-						await options.hydrate?.(value);
+						const kept = this.#settled;
+						await options.hydrate?.(value, !!kept?.held && kept.scope === scope);
 						if (live) this.#settled = { scope, source, held: true, value, refreshError: null };
 					},
 					onReject: (error) => {
@@ -92,6 +96,7 @@ export class HeldWorkspace<T> {
 							kept?.held && kept.scope === scope
 								? { ...kept, source, refreshError: error }
 								: { scope, source, held: false, error };
+						options.abandon?.();
 						options.onReject?.(error);
 					}
 				})

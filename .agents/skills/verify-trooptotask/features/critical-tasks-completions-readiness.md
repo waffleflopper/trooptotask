@@ -312,6 +312,13 @@ personnel_ict_completions orgA id <ID>` shows Baker's `personnel_id` on the same
         `Loading Critical Tasks`. The failed refresh adds `Critical Tasks could not be refreshed` with
         `Retry Critical Tasks` above the toolbar and keeps the rest
 
+    - ID: M3b
+      - Screen and control: Save during a workspace refresh
+      - How to reach it: Fill `Record Completion` for a person and task with no completion, run the
+        [workspace refresh](README.md#workspace-refresh) drive with `ict_tasks` held, and press `Save` during the hold
+      - Expected: The dialog closes and the person's cell shows the new expiry while the refresh is held. After
+        `server-source release` the cell still shows it. A cell that returns to `No completion` is a FAIL
+
     - ID: M4
       - Screen and control: Workspace error (`critical-tasks/(workspace)/+layout`; Reports through
         `critical-tasks/+error`)

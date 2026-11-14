@@ -18,10 +18,12 @@
 		source: () => data.calendar?.data,
 		scope: () => workspaceScope(data.shell),
 		fallbackMessage: 'Failed to hydrate calendar workspace',
-		hydrate: (calendar) =>
+		hydrate: (calendar, refresh) =>
 			'access' in calendar
 				? calendarWorkspaceHydrator.restrict()
-				: calendarWorkspaceHydrator.hydrate(calendar.hydration),
+				: calendarWorkspaceHydrator.hydrate(calendar.hydration, undefined, {
+						keepRows: refresh
+					}),
 		abandon: () => calendarWorkspaceHydrator.reset()
 	});
 	const workspace = $derived(held.current);

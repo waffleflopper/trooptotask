@@ -1,4 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
+import { confirmedBeforeRequest, type ConfirmedChangesByTab, type StoreRead } from '$lib/stores/core';
 import { isPromiseLike } from './streamedRouteData';
 
 export interface FeatureLaneWorkspaceHydrationTargetDescriptor {
@@ -13,22 +14,46 @@ export interface FeatureLaneWorkspaceHydrationTargetDescriptor {
 	settle?(): void;
 }
 
+export interface ReconcilableStore<T extends { id: string }> {
+	readonly orgId: string;
+	load(items: T[], orgId: string): void;
+	beginRead?(since?: number): StoreRead<T>;
+}
+
 /**
- * The `startLoading` of a lane whose page stays on screen through a refresh. A store that already shows this
- * Organization keeps its rows while a newer snapshot streams in, so the page never drops back to its skeleton.
+ * A store that stays usable through a refresh can confirm a save after the refresh's request left. Its snapshot is
+ * older than that save, so the changes confirmed since are applied on top of it instead of being replaced.
  */
-export function startLoadingUnlessHeld(
-	store: { readonly orgId: string; startLoading?(): void },
-	orgId: string
-): (() => void) | undefined {
-	if (!store.startLoading) return undefined;
-	return () => {
-		if (store.orgId !== orgId) store.startLoading?.();
+export function reconcileOnLoad<T extends { id: string }>(
+	descriptor: FeatureLaneWorkspaceHydrationTargetDescriptor | undefined,
+	store: ReconcilableStore<T>,
+	orgId: string,
+	confirmedChangesByTab: ConfirmedChangesByTab | undefined
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
+	if (!descriptor || store.orgId !== orgId || !store.beginRead) return descriptor;
+	const read = store.beginRead(confirmedChangesByTab && confirmedBeforeRequest(confirmedChangesByTab));
+	return {
+		...descriptor,
+		apply: (items) =>
+			store.load(store.orgId === orgId ? read.reconcile(items as T[], () => true) : (items as T[]), orgId),
+		settle: () => read.close()
 	};
 }
 
+export interface FeatureLaneHydrationOptions {
+	/**
+	 * Set for a refresh of the workspace already on screen: its stores keep their rows while newer snapshots stream
+	 * in. Any other load, including the same Organization under changed access, puts them back into loading.
+	 */
+	keepRows?: boolean;
+}
+
 export interface FeatureLaneWorkspaceHydrator {
-	applyDescriptors(orgId: string, descriptors: FeatureLaneWorkspaceHydrationTargetDescriptor[]): Promise<void>;
+	applyDescriptors(
+		orgId: string,
+		descriptors: FeatureLaneWorkspaceHydrationTargetDescriptor[],
+		options?: FeatureLaneHydrationOptions
+	): Promise<void>;
 	reset(): void;
 }
 
@@ -82,7 +107,8 @@ export function createFeatureLaneWorkspaceHydrator(
 
 	async function applyDescriptor(
 		descriptor: FeatureLaneWorkspaceHydrationTargetDescriptor,
-		orgId: string
+		orgId: string,
+		keepRows: boolean
 	): Promise<void> {
 		const { targetName, snapshotKey } = descriptor;
 
@@ -110,7 +136,7 @@ export function createFeatureLaneWorkspaceHydrator(
 
 		if (isPromiseLike<unknown>(descriptor.items)) {
 			const initialStoreOrgId = descriptor.storeOrgId();
-			descriptor.startLoading?.();
+			if (!keepRows) descriptor.startLoading?.();
 			try {
 				const items = await descriptor.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
@@ -145,9 +171,11 @@ export function createFeatureLaneWorkspaceHydrator(
 			pendingSnapshotKeys.clear();
 		},
 
-		async applyDescriptors(orgId: string, descriptors: FeatureLaneWorkspaceHydrationTargetDescriptor[]): Promise<void> {
+		async applyDescriptors(orgId, descriptors, { keepRows = false } = {}): Promise<void> {
 			await Promise.all(
-				descriptors.map((descriptor) => applyDescriptor(descriptor, orgId).finally(() => descriptor.settle?.()))
+				descriptors.map((descriptor) =>
+					applyDescriptor(descriptor, orgId, keepRows).finally(() => descriptor.settle?.())
+				)
 			);
 		}
 	};

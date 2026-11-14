@@ -11,7 +11,7 @@ import { confirmedBeforeRequest, type StoreRead } from '$lib/stores/core';
 import { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 import {
 	createFeatureLaneWorkspaceHydrator,
-	startLoadingUnlessHeld,
+	type FeatureLaneHydrationOptions,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
@@ -66,7 +66,11 @@ export interface CalendarHydrationStores {
 }
 
 export interface CalendarWorkspaceHydrator {
-	hydrate(hydration?: CalendarWorkspaceHydration, stores?: CalendarHydrationStores): Promise<void>;
+	hydrate(
+		hydration?: CalendarWorkspaceHydration,
+		stores?: CalendarHydrationStores,
+		options?: FeatureLaneHydrationOptions
+	): Promise<void>;
 	restrict(stores?: CalendarHydrationStores): void;
 	reset(): void;
 }
@@ -95,7 +99,7 @@ function createTargetDescriptor<T>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: startLoadingUnlessHeld(store, orgId),
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
 }
@@ -119,7 +123,7 @@ function createReconciledTargetDescriptor<T extends { id: string }>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: startLoadingUnlessHeld(store, orgId),
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(store.orgId === orgId ? read.reconcile(items as T[], covers) : (items as T[]), orgId),
 		settle: () => read.close()
 	};
@@ -141,7 +145,7 @@ function createCalendarAssignmentsDescriptor(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: startLoadingUnlessHeld(store, orgId),
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
 			const { types, assignments } = items as CalendarAssignmentsHydrationItems;
 			store.load(
@@ -193,7 +197,8 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 
 		async hydrate(
 			hydration?: CalendarWorkspaceHydration,
-			stores: CalendarHydrationStores = defaultCalendarHydrationStores
+			stores: CalendarHydrationStores = defaultCalendarHydrationStores,
+			options?: FeatureLaneHydrationOptions
 		): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
@@ -234,7 +239,7 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await hydrationTargets.applyDescriptors(orgId, descriptors);
+			await hydrationTargets.applyDescriptors(orgId, descriptors, options);
 		}
 	};
 }

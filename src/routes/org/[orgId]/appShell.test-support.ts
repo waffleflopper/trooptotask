@@ -139,7 +139,7 @@ export function createUrlBlindLayoutEvent<TEvent>(
 	const depends = vi.fn();
 	const event = {
 		...createOrganizationLoadEventData(parentData, options),
-		cookies: {} as Cookies,
+		cookies: { getAll: () => [] } as unknown as Cookies,
 		depends,
 		get url(): URL {
 			throw new Error('Feature workspace layouts must not read the URL');

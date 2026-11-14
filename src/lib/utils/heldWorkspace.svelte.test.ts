@@ -21,7 +21,7 @@ async function settle() {
 
 function hold<T>(
 	initial: T | Promise<T> | null,
-	options: Pick<HeldWorkspaceOptions<T>, 'hydrate'> = {},
+	options: Pick<HeldWorkspaceOptions<T>, 'hydrate' | 'abandon'> = {},
 	initialScope = 'org-1'
 ) {
 	let source = $state.raw(initial);
@@ -146,6 +146,30 @@ describe('HeldWorkspace', () => {
 		applying.resolve();
 		await settle();
 		expect(held.current).toEqual({ status: 'ready', value: 'other org', refresh: 'idle' });
+		held.stop();
+	});
+
+	it('tells the applying step whether a workspace of this scope is already shown', async () => {
+		const refreshes: boolean[] = [];
+		const held = hold(Promise.resolve('first'), { hydrate: (_value, refresh) => void refreshes.push(refresh) });
+		await settle();
+		held.show(Promise.resolve('second'));
+		await settle();
+		held.show(Promise.resolve('narrowed access'), 'org-1 narrowed');
+		await settle();
+		expect(refreshes).toEqual([false, true, false]);
+		held.stop();
+	});
+
+	it('drops the work still running for a source once it fails', async () => {
+		let abandoned = 0;
+		const applying = deferred<void>();
+		const held = hold(Promise.resolve('first'), { hydrate: () => applying.promise, abandon: () => void abandoned++ });
+		await settle();
+		applying.reject(new Error('one lane failed'));
+		await settle();
+		expect(held.current.status).toBe('failed');
+		expect(abandoned).toBe(1);
 		held.stop();
 	});
 

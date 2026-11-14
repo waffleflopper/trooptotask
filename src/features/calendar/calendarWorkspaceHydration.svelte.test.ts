@@ -270,7 +270,7 @@ describe('Calendar workspace hydration adapter', () => {
 				availabilityEntries: { mode: 'range', snapshotKey: `availability:${orgId}`, items: entries, range: MAY }
 			});
 
-		const refresh = createCalendarWorkspaceHydrator().hydrate(streaming('org-1'), stores);
+		const refresh = createCalendarWorkspaceHydrator().hydrate(streaming('org-1'), stores, { keepRows: true });
 		expect(stores.availabilityEntriesStore.loading).toBe(false);
 		expect(stores.availabilityEntriesStore.items).toEqual([shown]);
 

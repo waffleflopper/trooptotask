@@ -7,10 +7,12 @@ import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
-	startLoadingUnlessHeld,
+	reconcileOnLoad,
+	type FeatureLaneHydrationOptions,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
+import type { StoreRead } from '$lib/stores/core';
 import type { CriticalTasksWorkspaceHydration, CriticalTasksWorkspaceHydrationTarget } from './contracts';
 
 export {
@@ -27,6 +29,7 @@ export interface CriticalTasksHydrationLoadable<T> {
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
+	beginRead?(since?: number): StoreRead<T & { id: string }>;
 }
 
 export interface CriticalTasksHydrationStores {
@@ -38,7 +41,11 @@ export interface CriticalTasksHydrationStores {
 }
 
 export interface CriticalTasksWorkspaceHydrator {
-	hydrate(hydration?: CriticalTasksWorkspaceHydration, stores?: CriticalTasksHydrationStores): Promise<void>;
+	hydrate(
+		hydration?: CriticalTasksWorkspaceHydration,
+		stores?: CriticalTasksHydrationStores,
+		options?: FeatureLaneHydrationOptions
+	): Promise<void>;
 	reset(): void;
 	/** Drop pending hydration and this Organization's lane rows after access is denied. */
 	restrict(stores?: CriticalTasksHydrationStores): void;
@@ -66,7 +73,7 @@ function createTargetDescriptor<T>(
 		items: target.items,
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
-		startLoading: startLoadingUnlessHeld(store, orgId),
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
 }
@@ -86,7 +93,8 @@ export function createCriticalTasksWorkspaceHydrator(): CriticalTasksWorkspaceHy
 
 		async hydrate(
 			hydration?: CriticalTasksWorkspaceHydration,
-			stores: CriticalTasksHydrationStores = defaultCriticalTasksHydrationStores
+			stores: CriticalTasksHydrationStores = defaultCriticalTasksHydrationStores,
+			options?: FeatureLaneHydrationOptions
 		): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
@@ -94,16 +102,26 @@ export function createCriticalTasksWorkspaceHydrator(): CriticalTasksWorkspaceHy
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
 				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
-				createTargetDescriptor(hydration.ictTasks, stores.ictTasksStore, orgId, 'ictTasks'),
-				createTargetDescriptor(
-					hydration.personnelIctCompletions,
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.ictTasks, stores.ictTasksStore, orgId, 'ictTasks'),
+					stores.ictTasksStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				),
+				reconcileOnLoad(
+					createTargetDescriptor(
+						hydration.personnelIctCompletions,
+						stores.personnelIctCompletionsStore,
+						orgId,
+						'personnelIctCompletions'
+					),
 					stores.personnelIctCompletionsStore,
 					orgId,
-					'personnelIctCompletions'
+					hydration.confirmedChangesByTab
 				)
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
-			await hydrationTargets.applyDescriptors(orgId, descriptors);
+			await hydrationTargets.applyDescriptors(orgId, descriptors, options);
 		}
 	};
 }

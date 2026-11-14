@@ -221,6 +221,8 @@ export interface CriticalTasksWorkspaceHydrationTarget<T> {
 
 export interface CriticalTasksWorkspaceHydration {
 	orgId: string;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab?: Record<string, number>;
 	personnel: CriticalTasksWorkspaceHydrationTarget<Personnel>;
 	groups: CriticalTasksWorkspaceHydrationTarget<Group>;
 	pinnedGroups: CriticalTasksWorkspaceHydrationTarget<string>;

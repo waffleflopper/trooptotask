@@ -14273,7 +14273,17 @@ BEGIN
     RAISE EXCEPTION 'The rating scheme is archived' USING ERRCODE = '55000';
   END IF;
 
-  IF NOT p_completed THEN
+  IF p_completed THEN
+    SELECT * INTO v_row FROM public.evaluations AS e
+    WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status = 'completed'
+      AND e.report_type IS NOT DISTINCT FROM v_report_type
+      AND e.rating_period_start = p_rating_period_start AND e.rating_period_end = p_rating_period_end
+    ORDER BY e.created_at, e.id
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN pg_catalog.jsonb_build_object('created', false, 'evaluation', pg_catalog.to_jsonb(v_row));
+    END IF;
+  ELSE
     SELECT * INTO v_row FROM public.evaluations AS e
     WHERE e.rating_scheme_id = p_rating_scheme_id AND e.workflow_status IS NOT NULL AND e.workflow_status <> 'completed'
     ORDER BY e.created_at DESC, e.id
@@ -14913,7 +14923,8 @@ BEGIN
       COALESCE(v_row.workflow_status, 'not tracked'), COALESCE(p_from, 'not tracked') USING ERRCODE = '55000';
   END IF;
 
-  IF v_row.chain_snapshot_at IS NOT NULL AND v_row.workflow_status IS DISTINCT FROM 'completed' THEN
+  IF v_row.chain_snapshot_at IS NOT NULL
+    AND (v_row.workflow_status IS DISTINCT FROM 'completed' OR v_row.rater_changed_at IS NOT NULL) THEN
     v_has_ir := v_row.snapshot_intermediate_rater_person_id IS NOT NULL
       OR NULLIF(pg_catalog.btrim(v_row.snapshot_intermediate_rater_name), '') IS NOT NULL;
     v_has_reviewer := v_row.snapshot_reviewer_person_id IS NOT NULL

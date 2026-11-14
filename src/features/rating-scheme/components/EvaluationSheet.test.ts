@@ -149,6 +149,21 @@ describe('EvaluationSheet on a completed Evaluation', () => {
 		}
 	});
 
+	it('offers reopen steps from its scheme, or from the chain it kept once it settled a Change of Rater', () => {
+		const withReviewer = scheme('scheme-1', { reviewerName: 'COL Reviewer' });
+		renderSheet({ evaluation: signed, scheme: withReviewer });
+
+		expect(steps().getByRole('button', { name: 'Jump to With Reviewer' })).toBeEnabled();
+		cleanup();
+
+		renderSheet({
+			evaluation: { ...signed, reportType: 'CR', raterChangedAt: '2026-02-03T12:00:00Z' },
+			scheme: withReviewer
+		});
+
+		expect(steps().queryByRole('button', { name: 'Jump to With Reviewer' })).toBeNull();
+	});
+
 	it('shows the chain that signed it, not the scheme as it stands now', () => {
 		renderSheet({ evaluation: signed });
 

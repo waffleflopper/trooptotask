@@ -455,6 +455,10 @@ SELECT results_eq(
      JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE r.label = 'again' $$,
   $$ VALUES ('null'::jsonb, pg_temp.id('303'), NULL::text, pg_temp.id('302'), 2) $$,
   'completing the Change of Rater again keeps the scheme''s rater and opens no second successor');
+UPDATE public.rating_schemes SET reviewer_person_id = NULL WHERE id = pg_temp.scheme((SELECT entry FROM changed));
+SELECT public.transition_evaluation(pg_temp.id('101'), entry, 'completed', 'with-reviewer') FROM changed;
+SELECT is((SELECT workflow_status FROM public.evaluations WHERE id = (SELECT entry FROM changed)), 'with-reviewer',
+  'a reopened Change of Rater moves through the chain it kept, even after its scheme loses that reviewer');
 
 -- A Change of Rater naming no next rater leaves the scheme without a rater, which may then be filled.
 UPDATE public.evaluations SET report_type = 'CR', rating_period_end = '2028-02-28' WHERE id = (SELECT entry FROM leap);
@@ -491,6 +495,14 @@ SELECT results_eq(
      JOIN public.rating_schemes s ON s.id = e.rating_scheme_id WHERE r.label = 'recorded again' $$,
   $$ VALUES ('null'::jsonb, pg_temp.id('302'), 'completed'::text, true, 2) $$,
   'a recorded Change of Rater, reopened and completed, keeps the scheme''s rater and opens no successor');
+INSERT INTO returned SELECT 'recorded repeat', public.start_evaluation(pg_temp.id('101'),
+  pg_temp.scheme(pg_temp.f('fresh')), 'CR', '2029-01-01', '2029-06-30', true);
+SELECT results_eq(
+  $$ SELECT r.result ->> 'created', r.result #>> '{evaluation,id}' = o.result #>> '{evaluation,id}',
+       (SELECT count(*)::int FROM public.evaluations WHERE rating_scheme_id = pg_temp.scheme(pg_temp.f('fresh')))
+     FROM returned r CROSS JOIN returned o WHERE r.label = 'recorded repeat' AND o.label = 'recorded' $$,
+  $$ VALUES ('false'::text, true, 2) $$,
+  'recording the same completed evaluation again returns the one recorded, in case the first response was lost');
 
 -- An open Change of Rater starts with its next rater, and starting it again returns it.
 INSERT INTO returned SELECT 'opened', public.start_evaluation(pg_temp.id('101'), pg_temp.scheme(pg_temp.f('fresh')), 'CR',

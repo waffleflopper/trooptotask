@@ -1,3 +1,4 @@
+import { readConfirmedChangeCookies } from '$lib/stores/core';
 import { createRequestOnboardingWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -22,7 +23,12 @@ async function streamOnboardingWorkspaceBootstrap(
 		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
-		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'active', today: viewerToday(context.cookies) })
+		fn: (ctx) =>
+			fetchOnboardingWorkspace(ctx, {
+				mode: 'active',
+				today: viewerToday(context.cookies),
+				confirmedChangesByTab: readConfirmedChangeCookies(context.cookies.getAll())
+			})
 	});
 	return { onboarding };
 }

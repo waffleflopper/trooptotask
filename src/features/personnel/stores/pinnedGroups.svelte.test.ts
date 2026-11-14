@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PinnedGroupsStore } from './pinnedGroups.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { confirmedSequence, endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 describe('pinned Group state', () => {
@@ -441,6 +441,38 @@ describe('pinned Group state', () => {
 				expect(store.list).toEqual(['Alpha']);
 			});
 		});
+	});
+
+	it('keeps a pin and an unpin saved after an older snapshot was requested', async () => {
+		store.load(['Alpha', 'Bravo'], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
+		const requested = confirmedSequence();
+		await store.pin('Charlie');
+		await store.unpin('Alpha');
+
+		store.load(['Alpha', 'Bravo'], 'org-1', requested);
+		expect(store.list).toEqual(['Bravo', 'Charlie']);
+
+		store.load(['Bravo'], 'org-1', confirmedSequence());
+		expect(store.list).toEqual(['Bravo']);
+	});
+
+	it('does not bring back the pin of a Group deleted after an older snapshot was requested', () => {
+		store.load(['Alpha', 'Bravo'], 'org-1');
+		const requested = confirmedSequence();
+		store.forgetGroup('Bravo');
+
+		store.load(['Alpha', 'Bravo'], 'org-1', requested);
+		expect(store.list).toEqual(['Alpha']);
+	});
+
+	it('does not bring back a pin saved in another Organization', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
+		const requested = confirmedSequence();
+		await store.pin('Charlie');
+
+		store.load([], 'org-2', requested);
+		expect(store.list).toEqual([]);
 	});
 
 	it('forgets a deleted Group pin and keeps the rest in order', () => {

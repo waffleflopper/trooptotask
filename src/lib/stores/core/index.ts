@@ -37,6 +37,7 @@ export type { DefineStoreConfig } from './defineStore.svelte';
 export {
 	confirmedBeforeRequest,
 	confirmedSequence,
+	nextConfirmedSequence,
 	readConfirmedChangeCookies,
 	SnapshotTooOldError,
 	type ConfirmedChangesByTab

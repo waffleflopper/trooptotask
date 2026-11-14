@@ -65,6 +65,26 @@ through visible links, then read
 Each digit of `x-sveltekit-invalidated` marks one server load in the route chain; a `1` in the feature layout's position
 means the workspace reloaded.
 
+## Workspace refresh
+
+Calendar, Critical Tasks, Onboarding and Training Types stay on screen with the rows they last loaded while a refresh of
+the same Organization is in flight. An open dialog, its typed text, scroll position and filters survive it. A refresh
+that fails keeps those rows and adds `<Feature> could not be refreshed` with `Retry <Feature>` above them. A different
+Organization, user or access level drops the page to its loading state at once. Only the first load shows a skeleton.
+
+The shell refreshes the workspace when the tab regains focus after 60 seconds away, at most once every 90 seconds. To
+drive it, open a dialog on the settled page and type into a text field, then mark the dialog and dispatch the blur with
+`evaluate_script`: `() => { document.querySelector('[role=dialog]').dataset.proof = 'same-node'; window.dispatchEvent(new Event('blur')) }`.
+Wait at least 90 seconds through `evaluate_script` timers of 25 seconds or less each. Arm
+`$V server-source arm TABLE hold 1 30000` with the feature's table (`availability_entries`, `ict_tasks`,
+`personnel_onboardings`, `personnel_trainings`), then dispatch `window.dispatchEvent(new Event('focus'))`. After five
+seconds `server-source state` must read `held` with `matches: 1`. While it is held and again after
+`$V server-source release`, read the page: the dialog still carries `data-proof`, the field keeps its text, the rows
+behind it are still mounted, no `role="status"` loading region shows, and a `layout-shift` `PerformanceObserver` armed
+before the focus records nothing. Repeat with `fail-hard 1` in place of the hold for the failed refresh. Run it at
+1280x800 and 390x844, with `emulate` `Slow 4G` when the check is about a slow connection, and finish with
+`$V server-source restore`. A dialog that closes, an emptied field or a skeleton over the rows is a FAIL.
+
 ## Features
 
 - [Dashboard composition and freshness](dashboard.md): source counts, packet progress, losses and delayed navigation.

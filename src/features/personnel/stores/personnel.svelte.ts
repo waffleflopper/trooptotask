@@ -89,6 +89,10 @@ export const personnelRosterHydration = {
 	load(items: Personnel[], orgId: string) {
 		personnelStore.load(items, orgId);
 	},
+	/** Lets a lane that stays usable through a refresh keep people confirmed after the refresh's request left. */
+	beginRead(since?: number) {
+		return personnelStore.beginRead(since);
+	},
 	startLoading() {
 		personnelStore.startLoading();
 	}

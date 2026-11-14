@@ -122,7 +122,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: { get: () => undefined } as unknown as Cookies,
+			cookies: { get: () => undefined, getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		let workspace: ReturnType<typeof granted<Awaited<typeof routeData.training.data>>> | undefined;
@@ -210,7 +210,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: { get: () => undefined } as unknown as Cookies,
+			cookies: { get: () => undefined, getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.training.data);
@@ -237,7 +237,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: { get: () => undefined } as unknown as Cookies,
+			cookies: { get: () => undefined, getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.training.data);
@@ -260,7 +260,10 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			]) {
 				const routeData = await streamTrainingWorkspaceBootstrap({
 					locals: {} as App.Locals,
-					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as unknown as Cookies,
+					cookies: {
+						get: (name: string) => (name === 't2t_tz' ? timeZone : undefined),
+						getAll: () => []
+					} as unknown as Cookies,
 					orgId: '1-11-bde'
 				});
 				const workspace = granted(await routeData.training.data);
@@ -284,7 +287,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: { get: () => undefined } as unknown as Cookies,
+			cookies: { get: () => undefined, getAll: () => [] } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.training.data);

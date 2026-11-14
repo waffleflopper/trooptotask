@@ -161,20 +161,95 @@ it('does not reopen a denied workspace when its abandoned bootstrap streams reso
 	expect(calendarAssignmentsSource.assignments).toEqual([]);
 });
 
-it('removes the prior child workspace until replacement streams settle', async () => {
+const draftChild = () => createRawSnippet(() => ({ render: () => '<input aria-label="Unsaved notes" />' }));
+const draft = () => screen.getByLabelText('Unsaved notes') as HTMLInputElement;
+const shellFor = (orgId: string, role = 'member') => ({
+	org: { id: orgId },
+	user: { id: 'user-1' },
+	member: { role, capabilityMap: {}, scopeSet: { kind: 'organization' } }
+});
+
+async function typedDraft(shell = shellFor('org-1')) {
 	const first = workspace();
 	first.resolve();
-	const children = createRawSnippet(() => ({ render: () => '<section>Calendar workspace</section>' }));
-	const { rerender } = render(Layout, {
-		props: { children, data: { calendar: { data: Promise.resolve(first.value) } } }
+	const children = draftChild();
+	const view = render(Layout, {
+		props: { children, data: { shell, calendar: { data: Promise.resolve(first.value) } } }
 	});
-	await waitFor(() => expect(screen.getByText('Calendar workspace')).toBeTruthy());
+	await waitFor(() => expect(draft()).toBeTruthy());
+	await fireEvent.input(draft(), { target: { value: 'Keep this draft' } });
+	return { children, ...view };
+}
+
+it('keeps the child workspace and its unsaved state while a refresh of the same Organization streams', async () => {
+	const { children, rerender } = await typedDraft();
 	const next = workspace();
-	await rerender({ children, data: { calendar: { data: Promise.resolve(next.value) } } });
-	expect(screen.queryByText('Calendar workspace')).toBeNull();
+	await rerender({ children, data: { shell: shellFor('org-1'), calendar: { data: Promise.resolve(next.value) } } });
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(draft().value).toBe('Keep this draft');
+	expect(screen.queryByRole('status')).toBeNull();
+	expect(calendarAvailabilitySource.loading).toBe(false);
+
+	next.resolve();
+	await waitFor(() => expect(calendarAssignmentsSource.assignments.map((item) => item.id)).toEqual(['assignment-10']));
+	expect(draft().value).toBe('Keep this draft');
+});
+
+it('keeps the child workspace and reports the failure when a refresh rejects', async () => {
+	const { children, rerender } = await typedDraft();
+	const rejected = Promise.reject(new Error('availability failed'));
+	rejected.catch(() => {});
+	await rerender({ children, data: { shell: shellFor('org-1'), calendar: { data: rejected } } });
+	expect((await screen.findByRole('alert')).textContent).toContain('could not be refreshed');
+	expect(draft().value).toBe('Keep this draft');
+	expect(calendarAvailabilitySource.items.map((item) => item.id)).toEqual(['availability-10']);
+});
+
+it.each([
+	['Organization', shellFor('org-2')],
+	['access', shellFor('org-1', 'admin')]
+])('removes the child workspace at once when the %s changes, until the new one settles', async (_name, shell) => {
+	const { children, rerender } = await typedDraft();
+	const next = workspace();
+	await rerender({ children, data: { shell, calendar: { data: Promise.resolve(next.value) } } });
+	expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
 	expect(screen.getByRole('status')).toBeTruthy();
 	next.resolve();
-	await waitFor(() => expect(screen.getByText('Calendar workspace')).toBeTruthy());
+	await waitFor(() => expect(draft().value).toBe(''));
+});
+
+it('never shows a refresh of the previous Organization that settles after the switch', async () => {
+	const { children, rerender } = await typedDraft();
+	const lateRefresh = workspace();
+	await rerender({
+		children,
+		data: { shell: shellFor('org-1'), calendar: { data: Promise.resolve(lateRefresh.value) } }
+	});
+	const pendingSwitch = deferred<CalendarWorkspaceResult>();
+	await rerender({ children, data: { shell: shellFor('org-2'), calendar: { data: pendingSwitch.promise } } });
+	lateRefresh.resolve();
+	await Promise.all([
+		lateRefresh.value.hydration.availabilityEntries.items,
+		lateRefresh.value.hydration.specialDays.items,
+		lateRefresh.value.hydration.calendarAssignments.items
+	]);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
+	expect(screen.getByRole('status')).toBeTruthy();
+});
+
+it('replaces the child workspace when a refresh comes back access restricted', async () => {
+	const { children, rerender } = await typedDraft();
+	await rerender({
+		children,
+		data: {
+			shell: shellFor('org-1'),
+			calendar: { data: Promise.resolve({ laneKey: 'calendar', access: 'restricted' }) }
+		}
+	});
+	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
+	expect(screen.queryByLabelText('Unsaved notes')).toBeNull();
+	expect(calendarAvailabilitySource.items).toEqual([]);
 });
 
 it('preserves unsaved child state when page data retains the same workspace', async () => {

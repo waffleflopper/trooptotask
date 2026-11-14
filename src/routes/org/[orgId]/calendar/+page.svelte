@@ -4,15 +4,15 @@
 		CalendarPageContext,
 		calendarViewCoverage,
 		calendarStore,
-		CalendarViewSkeleton,
+		CalendarWorkspaceSkeleton,
 		type CalendarPageData,
-		type CalendarWorkspaceResult
+		type CalendarWorkspaceResult,
+		type CalendarWorkspaceRestricted
 	} from '$features/calendar';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
 	import { getAppShellContext } from '$features/app-shell';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
+	import { HeldWorkspace, workspaceScope } from '$lib/utils/heldWorkspace.svelte';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();
@@ -21,49 +21,18 @@
 	const preferences = getAccountPreferencesContext();
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
-	let loadError = $state<Error | null>(null);
-
-	$effect(() => {
-		let cancelled = false;
-		const streamedCalendar = data.calendar?.data;
-
-		calendarBootstrap = null;
-		loadError = null;
-
-		if (!streamedCalendar) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedCalendar)) {
-			calendarBootstrap = 'access' in streamedCalendar ? null : streamedCalendar;
-			return;
-		}
-
-		void observeDeferred(streamedCalendar, {
-			fallbackMessage: 'Failed to load calendar workspace',
-			onResolve: (calendar) => {
-				calendarBootstrap = 'access' in calendar ? null : calendar;
-			},
-			onReject: (error) => {
-				loadError = error;
-			},
-			isCancelled: () => cancelled
-		});
-
-		return () => {
-			cancelled = true;
-		};
+	const held = new HeldWorkspace<CalendarWorkspaceResult | CalendarWorkspaceRestricted>({
+		source: () => data.calendar?.data,
+		scope: () => workspaceScope(data.shell),
+		fallbackMessage: 'Failed to load calendar workspace'
 	});
+	const calendarBootstrap = $derived(held.value && !('access' in held.value) ? held.value : null);
 
+	// A refreshed workspace is current only for the dates it carries, so every other loaded range is read again.
 	$effect(() => {
 		const bootstrap = calendarBootstrap?.data;
-		if (!bootstrap) {
-			rangeCoordinator.reset();
-			return;
-		}
-
-		rangeCoordinator.includeBootstrap(bootstrap);
+		rangeCoordinator.reset();
+		if (bootstrap) rangeCoordinator.includeBootstrap(bootstrap);
 	});
 
 	$effect(() => {
@@ -81,7 +50,6 @@
 		};
 	});
 
-	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
 	const pageData = $derived.by(
 		(): CalendarPageData => ({
 			orgId: data.shell.org.id,
@@ -140,17 +108,10 @@
 	});
 </script>
 
-{#if loadError}
+{#if held.current.status === 'failed'}
 	<!-- The Calendar layout observes this same source and shows WorkspaceLoadError. -->
-{:else if workspacePending}
-	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" aria-live="polite" role="status">
-		<div class="flex flex-wrap items-center gap-3">
-			<Skeleton class="h-3 w-34" />
-			<Skeleton class="h-3 w-22" />
-		</div>
-		<Skeleton class="h-24 w-full rounded-lg" />
-		<CalendarViewSkeleton view={ctx.chosenView} />
-	</section>
+{:else if held.current.status === 'pending'}
+	<CalendarWorkspaceSkeleton shape="grid" view={ctx.chosenView} />
 {:else}
 	<CalendarPageView
 		{ctx}

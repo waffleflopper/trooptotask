@@ -24,6 +24,8 @@ widths, in light and dark.
   retry; empty list.
 - `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for the Onboarding list,
   History, Templates and the roster sheet.
+- `workspace-refresh`: a refresh of the same Organization keeps the list, an open packet or dialog and what was typed
+  in it; a failed one adds `Onboarding could not be refreshed` with `Retry Onboarding`.
 - `workspace-load-error`: a rejected Onboarding workspace source shows one `WorkspaceLoadError`
   (`Unable to load Onboarding` with `Retry Onboarding`), never a stuck skeleton.
 
@@ -101,6 +103,11 @@ then `Cancel onboarding`) at the end and run `clean-seeds`; packets have no hard
    | Assign or Switch failure | On the list `$V network arm-fail $PAGE onboarding-resync` before opening the dialog; open the null-template packet, then `More packet actions` and `Assign template` (or `Switch template`), choose `Verification Onboarding A` and confirm                      | The dialog stays open with an `Alert` (`role="alert"`) inside it, the chosen template stays selected and `$V rows personnel_onboardings orgA id PACKET` and its progress rows are unchanged; record where focus lands. `network restore`, confirm again: the dialog closes, the packet reads the template after reload, and `More packet actions` now offers `Switch template`; record where focus lands                                                                                                                                                                                                                             |
    | Read-only                | `onboardingView`'s stage controls                                                                                                                                                                                                                                | Each paperwork step shows a read-only stage list: earlier stages read `Cleared` and the current stage shows its days at stage (amber from 7), with `aria-current="step"`; no `Set` or `Advance` buttons, checkboxes, `Add note`, `Close out`, menu or disabled controls                                                                                                                                                                                                                                                                                                                                                              |
    | Narrow                   | 390 dark, configure, packet open                                                                                                                                                                                                                                 | No page overflow; the `Onboarding controls` toolbar keeps search and `Start onboarding` visible at 390; record which of `Group`, `History` and `Templates` stay on the row and which fold into More, read as toolbar `scrollWidth` equal to `clientWidth` and each action's right edge at most 390, because the shell `main` clips horizontal overflow and the document width alone hides it; the packet sheet fills 390 and its footer actions stay on one row                                                                                                                                                                      |
+
+   **Refresh.** On the settled list open `Start onboarding` (or a packet and type a note), then run the
+   [workspace refresh](README.md#workspace-refresh) drive with `personnel_onboardings`: the dialog and the `Onboarding`
+   heading stay, with no `Loading onboarding`, held and released. With `fail-hard 1` the alert reads
+   `Onboarding could not be refreshed` with `Retry Onboarding` above the page, which stays.
 
 3. **History.** Driven by the [History recipe](onboarding-history.md): the packet accordion, the read-only final packet,
    notes with authors, filters, the retention line and every page state at 1280 light and 390 dark.

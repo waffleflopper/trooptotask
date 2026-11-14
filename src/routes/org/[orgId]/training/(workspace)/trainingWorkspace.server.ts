@@ -5,6 +5,7 @@ import {
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 import {
 	createWorkspaceHydrationTarget,
 	createWorkspaceValueHydrationTarget,
@@ -38,9 +39,14 @@ function createTrainingHydrationTarget<T>(items: HydrationItems<T>): TrainingWor
 	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
-function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspaceData): TrainingWorkspaceHydration {
+function createTrainingWorkspaceHydration(
+	orgId: string,
+	data: TrainingWorkspaceData,
+	confirmedChangesByTab: ConfirmedChangesByTab
+): TrainingWorkspaceHydration {
 	const hydration: TrainingWorkspaceHydration = {
 		orgId,
+		confirmedChangesByTab,
 		personnel: createTrainingHydrationTarget(data.personnel),
 		groups: createTrainingHydrationTarget(data.groups),
 		trainingTypes: createTrainingHydrationTarget(data.trainingTypes),
@@ -89,7 +95,11 @@ export async function streamTrainingWorkspaceBootstrap(
 			return {
 				laneKey: TRAINING_WORKSPACE_LANE_KEY,
 				data,
-				hydration: createTrainingWorkspaceHydration(ctx.auth.orgId, data)
+				hydration: createTrainingWorkspaceHydration(
+					ctx.auth.orgId,
+					data,
+					readConfirmedChangeCookies(context.cookies.getAll())
+				)
 			} satisfies TrainingWorkspaceResult;
 		}
 	});

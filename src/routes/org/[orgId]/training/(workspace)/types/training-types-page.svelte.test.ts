@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
+import TrainingTypesRoute from './trainingTypesRoute.test.svelte';
 import { trainingTypesStore } from '$features/training';
 import { personnelRosterHydration } from '$features/personnel';
 import type { TrainingWorkspaceResult } from '$features/training/contracts';
@@ -154,6 +155,103 @@ describe('training types page', () => {
 			}
 		});
 
+		expect(await screen.findByRole('button', { name: 'CPR' })).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
+	});
+
+	it('keeps the same page on screen while a refresh of the same Organization streams', async () => {
+		personnelRosterHydration.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+		const shell = { org: { id: 'org-1' } };
+		const view = render(Page, {
+			props: { data: { shell, training: { data: Promise.resolve(makeDeferredBootstrap()) } } as never }
+		});
+		const shown = await screen.findByRole('button', { name: 'CPR' });
+
+		await view.rerender({
+			data: { shell, training: { data: new Promise<TrainingWorkspaceResult>(() => {}) } } as never
+		});
+
+		expect(screen.getByRole('button', { name: 'CPR' })).toBe(shown);
+		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
+	});
+
+	it('returns to loading at once when the Organization changes', async () => {
+		personnelRosterHydration.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+		const view = render(Page, {
+			props: {
+				data: { shell: { org: { id: 'org-1' } }, training: { data: Promise.resolve(makeDeferredBootstrap()) } } as never
+			}
+		});
+		await screen.findByRole('button', { name: 'CPR' });
+
+		await view.rerender({
+			data: {
+				shell: { org: { id: 'org-2' } },
+				training: { data: new Promise<TrainingWorkspaceResult>(() => {}) }
+			} as never
+		});
+
+		expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
+	});
+
+	it('keeps the rows through a refresh, and never shows the old roster once access changes in the same Organization', async () => {
+		const shellWith = (role: string) => ({
+			org: { id: 'org-1' },
+			user: { id: 'user-1' },
+			member: { role, capabilityMap: {}, scopeSet: { kind: 'organization' } }
+		});
+		const bootstrapWith = (key: string, roster: Personnel[] | Promise<Personnel[]>) => {
+			const bootstrap = makeDeferredBootstrap();
+			bootstrap.hydration.personnel = { mode: 'replace', snapshotKey: `personnel:${key}`, items: roster };
+			bootstrap.hydration.trainingTypes = { mode: 'replace', snapshotKey: `types:${key}`, items: [trainingType] };
+			return bootstrap;
+		};
+		const view = render(TrainingTypesRoute, {
+			props: {
+				data: {
+					shell: shellWith('admin'),
+					training: { data: Promise.resolve(bootstrapWith('full', personnel)) }
+				} as never
+			}
+		});
+		const shown = await screen.findByRole('button', { name: 'CPR' });
+		// The first load is over only once every lane has landed.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		// A refresh under the same access keeps the rows on screen while its roster is still out.
+		await view.rerender({
+			data: {
+				shell: shellWith('admin'),
+				training: { data: Promise.resolve(bootstrapWith('refresh', new Promise<Personnel[]>(() => {}))) }
+			} as never
+		});
+		for (let turn = 0; turn < 5; turn++) {
+			expect(screen.getByRole('button', { name: 'CPR' })).toBe(shown);
+			expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+
+		let resolveRoster!: (roster: Personnel[]) => void;
+		const narrowedRoster = new Promise<Personnel[]>((resolve) => (resolveRoster = resolve));
+		await view.rerender({
+			data: {
+				shell: shellWith('member'),
+				training: { data: Promise.resolve(bootstrapWith('narrowed', narrowedRoster)) }
+			} as never
+		});
+
+		// The types have landed; the roster alone holds the page back.
+		for (let turn = 0; turn < 5; turn++) {
+			expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
+			expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+		expect(trainingTypesStore.loading).toBe(false);
+
+		resolveRoster([]);
 		expect(await screen.findByRole('button', { name: 'CPR' })).toBeTruthy();
 		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
 	});

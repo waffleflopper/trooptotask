@@ -235,6 +235,8 @@ export interface TrainingWorkspaceHydrationTarget<T> {
 }
 export interface TrainingWorkspaceHydration {
 	orgId: string;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab?: Record<string, number>;
 	personnel: TrainingWorkspaceHydrationTarget<Personnel>;
 	groups: TrainingWorkspaceHydrationTarget<Group>;
 	trainingTypes: TrainingWorkspaceHydrationTarget<TrainingType>;

@@ -21,8 +21,10 @@ import {
 	buildLastIctUpdateLookup,
 	compareIctCompletionRecency,
 	countCriticalTasksExpiringSoon,
+	criticalTaskReadinessTier,
 	daysSinceIctUpdate,
 	ictCompletionKey,
+	isCriticalTaskReadinessAtLeast,
 	normalizeCriticalTasksMosName,
 	resolveCriticalTasksAsOfDate,
 	type IctAtRiskSoldierRow,
@@ -293,13 +295,18 @@ function selectTopMosByHeadcount(personnel: Personnel[], limit = 4): { mos: stri
 		.slice(0, limit);
 }
 
-function readinessTierForPercent(percent: number | null): IctReadinessMatrixTier {
-	if (percent === null) return 'not-applicable';
-	if (percent < 60) return 'danger';
-	if (percent < 70) return 'warn';
-	if (percent < 80) return 'caution';
-	if (percent < 90) return 'okay';
-	return 'good';
+/** The heat map splits the red and green tiers in two at 60 and 90. */
+function readinessMatrixTier(ready: number, applicable: number): IctReadinessMatrixTier {
+	switch (criticalTaskReadinessTier(ready, applicable)) {
+		case 'none':
+			return 'not-applicable';
+		case 'below':
+			return isCriticalTaskReadinessAtLeast(ready, applicable, 60) ? 'warn' : 'danger';
+		case 'near':
+			return 'caution';
+		case 'goal':
+			return isCriticalTaskReadinessAtLeast(ready, applicable, 90) ? 'good' : 'okay';
+	}
 }
 
 function normalizeTaskCategoryLabel(category: string | null | undefined): string | null {
@@ -386,7 +393,7 @@ function buildReadinessMatrix(input: {
 				averageReadinessPercent: total.percent,
 				averageReadyCount: total.ready,
 				averageApplicableCount: total.applicable,
-				averageTier: readinessTierForPercent(total.percent),
+				averageTier: readinessMatrixTier(total.ready, total.applicable),
 				cells: categories.map((category) => {
 					const cell = cellsByCategory.get(category.key)!;
 
@@ -396,7 +403,7 @@ function buildReadinessMatrix(input: {
 						readinessPercent: cell.percent,
 						readyCount: cell.ready,
 						applicableCount: cell.applicable,
-						tier: readinessTierForPercent(cell.percent)
+						tier: readinessMatrixTier(cell.ready, cell.applicable)
 					};
 				})
 			};
@@ -423,7 +430,7 @@ function buildReadinessDistribution(rows: IctAtRiskSoldierRow[]): IctReadinessDi
 		.map(([mos, mosRows]) => {
 			const countsByBin = new Map(READINESS_DISTRIBUTION_BINS.map((bin) => [bin.key, 0]));
 			for (const row of mosRows) {
-				const bin = readinessDistributionBinForPercent(row.readinessPercent);
+				const bin = readinessDistributionBinFor(row.readyCount, row.applicableCount);
 				countsByBin.set(bin.key, (countsByBin.get(bin.key) ?? 0) + 1);
 			}
 
@@ -445,17 +452,10 @@ function buildReadinessDistribution(rows: IctAtRiskSoldierRow[]): IctReadinessDi
 	};
 }
 
-function readinessDistributionBinForPercent(percent: number): IctReadinessDistributionBinDefinition {
-	const clampedPercent = Math.min(Math.max(percent, 0), 100);
-	const lastBin = READINESS_DISTRIBUTION_BINS[READINESS_DISTRIBUTION_BINS.length - 1];
-	for (const bin of READINESS_DISTRIBUTION_BINS) {
-		const isLastBin = bin.key === lastBin.key;
-		if (clampedPercent >= bin.minPercent && (clampedPercent < bin.maxPercent || isLastBin)) {
-			return bin;
-		}
-	}
-
-	return lastBin;
+function readinessDistributionBinFor(ready: number, applicable: number): IctReadinessDistributionBinDefinition {
+	return READINESS_DISTRIBUTION_BINS.findLast((bin) =>
+		isCriticalTaskReadinessAtLeast(ready, applicable, bin.minPercent)
+	)!;
 }
 
 function buildReadinessTrend(input: {
@@ -716,8 +716,7 @@ function buildDashboardRiskRows(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
 	completions: PersonnelIctCompletion[];
-	latestCompletions: Map<string, PersonnelIctCompletion>;
-	settings?: CriticalTasksSettingsInput | null;
+	facts: readonly ReadinessFact<IctStatus>[];
 	asOf?: string | Date;
 	timeZone?: string;
 	limit: number;
@@ -730,8 +729,7 @@ function buildDashboardRiskRows(input: {
 	const asOfDate = resolveCriticalTasksAsOfDate(input.asOf);
 	const personnelById = new Map(input.personnel.map((person) => [person.id, person]));
 	const lastIctUpdates = buildLastIctUpdateLookup(input);
-	const facts = buildIctReadinessFacts(input);
-	const bySoldier = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
+	const bySoldier = tallyReadinessBy(input.facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
 	const rows: IctAtRiskSoldierRow[] = [];
 	let soldiersBelowThresholdCount = 0;
 	let lapsingAboveThresholdCount = 0;
@@ -740,7 +738,7 @@ function buildDashboardRiskRows(input: {
 		const person = personnelById.get(personnelId)!;
 		const lastUpdate = lastIctUpdates.get(personnelId) ?? null;
 		const expiringSoonCount = tally.stateCounts.get('expiring-soon') ?? 0;
-		if (tally.percent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+		if (criticalTaskReadinessTier(tally.ready, tally.applicable) === 'below') {
 			soldiersBelowThresholdCount += 1;
 		} else if (expiringSoonCount > 0) {
 			lapsingAboveThresholdCount += 1;
@@ -776,20 +774,16 @@ function buildDashboardRiskRows(input: {
 
 function buildDashboardTasksBelowThreshold(input: {
 	activeTasks: IctTask[];
-	latestCompletions: Map<string, PersonnelIctCompletion>;
-	personnel: Personnel[];
-	settings?: CriticalTasksSettingsInput | null;
-	asOf?: string | Date;
+	facts: readonly ReadinessFact<IctStatus>[];
 	limit: number;
 }): IctReportDashboardSummary['tasksBelowThreshold'] {
 	const tasksById = new Map(input.activeTasks.map((task) => [task.id, task]));
-	const facts = buildIctReadinessFacts(input);
-	const byTask = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.requirementKey);
+	const byTask = tallyReadinessBy(input.facts, ICT_READINESS_ROLLUP, (fact) => fact.requirementKey);
 	const rows: IctTaskBelowThresholdRow[] = [];
 	let count = 0;
 
 	for (const [taskId, tally] of byTask) {
-		if (tally.applicable === 0 || tally.percent >= CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+		if (criticalTaskReadinessTier(tally.ready, tally.applicable) !== 'below') {
 			continue;
 		}
 
@@ -959,24 +953,23 @@ export function buildIctReportDashboardSummary({
 		settings,
 		asOf: currentAsOfDate
 	});
+	const currentFacts = buildIctReadinessFacts({
+		personnel,
+		activeTasks,
+		latestCompletions,
+		settings,
+		asOf: currentAsOfDate
+	});
 	const atRiskSoldiers = buildDashboardRiskRows({
 		personnel,
 		activeTasks,
 		completions,
-		latestCompletions,
-		settings,
+		facts: currentFacts,
 		asOf: currentAsOfDate,
 		timeZone,
 		limit: 3
 	});
-	const tasksBelowThreshold = buildDashboardTasksBelowThreshold({
-		personnel,
-		activeTasks,
-		latestCompletions,
-		settings,
-		asOf: currentAsOfDate,
-		limit: 3
-	});
+	const tasksBelowThreshold = buildDashboardTasksBelowThreshold({ activeTasks, facts: currentFacts, limit: 3 });
 	const expiringSoonWindowDays = normalizeCriticalTasksSettings(settings).expiringSoonWarningDays;
 
 	return {

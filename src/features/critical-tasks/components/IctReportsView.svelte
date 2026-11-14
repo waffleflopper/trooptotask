@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { Badge } from '$lib/components/ui/badge';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
 	import * as Progress from '$lib/components/ui/progress';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
@@ -13,6 +13,10 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
+	import {
+		criticalTaskReadinessTier,
+		type CriticalTaskReadinessTier
+	} from '$features/critical-tasks/utils/ictReadinessSnapshot';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
 	import { buildGroupTree, groupFilterMatcher } from '$features/personnel/contracts';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
@@ -93,12 +97,9 @@
 		{ label: 'Filters', value: activeFilterCount },
 		{ label: 'Population', value: filteredPersonnelCount }
 	]);
-	const readinessVariant = $derived.by(() => {
-		const percent = dashboard.kpis.overallReadiness.percent;
-		if (percent >= 80) return 'success';
-		if (percent >= 70) return 'warning';
-		return 'destructive';
-	});
+	const readinessVariant = $derived(
+		readinessBadgeVariant(dashboard.kpis.overallReadiness.readyCount, dashboard.kpis.overallReadiness.applicableCount)
+	);
 	const readinessProgress = $derived(Math.max(0, Math.min(100, dashboard.kpis.overallReadiness.percent)));
 	const readinessMetrics = $derived.by(() => {
 		const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
@@ -221,11 +222,15 @@
 		}
 	}
 
-	function readinessBadgeVariant(percent: number | null): 'success' | 'warning' | 'destructive' | 'secondary' {
-		if (percent === null) return 'secondary';
-		if (percent >= 80) return 'success';
-		if (percent >= 70) return 'warning';
-		return 'destructive';
+	const readinessBadgeVariants: Record<CriticalTaskReadinessTier, BadgeVariant> = {
+		below: 'destructive',
+		near: 'warning',
+		goal: 'success',
+		none: 'secondary'
+	};
+
+	function readinessBadgeVariant(ready: number, applicable: number): BadgeVariant {
+		return readinessBadgeVariants[criticalTaskReadinessTier(ready, applicable)];
 	}
 
 	$effect(() => {
@@ -347,7 +352,9 @@
 									<div class="rounded-lg border bg-background p-3">
 										<div class="flex items-start justify-between gap-3">
 											<p class="text-sm font-medium">{task.taskCode}</p>
-											<Badge variant={readinessBadgeVariant(task.percentComplete)}>{task.percentComplete}%</Badge>
+											<Badge variant={readinessBadgeVariant(task.completeCount, task.applicableCount)}
+												>{task.percentComplete}%</Badge
+											>
 										</div>
 										<p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.taskName}</p>
 									</div>
@@ -366,7 +373,9 @@
 											<p class="truncate text-sm font-medium">{soldier.soldierName}</p>
 											<p class="text-xs text-muted-foreground">{soldier.rank} / {soldier.mos}</p>
 										</div>
-										<Badge variant={readinessBadgeVariant(soldier.readinessPercent)}>{soldier.readinessPercent}%</Badge>
+										<Badge variant={readinessBadgeVariant(soldier.readyCount, soldier.applicableCount)}
+											>{soldier.readinessPercent}%</Badge
+										>
 									</div>
 								{:else}
 									<p class="text-sm text-muted-foreground">No at-risk Soldiers.</p>

@@ -42,6 +42,7 @@
 	} from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -131,8 +132,10 @@
 		busy = $bindable(false)
 	}: Props = $props();
 
+	// The table stays on screen while its month loads, with every day's assignee still unknown.
+	const loading = $derived(rangeStatus === 'loading');
 	// Nothing assigns while a write is in flight or the month may show a filled day as open.
-	const locked = $derived(busy || staleAssignments !== undefined);
+	const locked = $derived(busy || staleAssignments !== undefined || loading);
 
 	const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
 	const monthTitle = $derived(`${getMonthName(monthStart.getMonth())} ${monthStart.getFullYear()}`);
@@ -507,19 +510,10 @@
 	}
 </script>
 
-{#if rangeStatus !== 'ready'}
-	<section
-		class="flex items-center justify-between gap-3 rounded-lg border bg-card px-5 py-4"
-		role="status"
-		aria-live="polite"
-		aria-busy={rangeStatus === 'loading'}
-	>
-		{#if rangeStatus === 'error'}
-			<p>Assignments for this month could not be loaded.</p>
-			<Button variant="outline" size="sm" onclick={onRetry}>Retry calendar load</Button>
-		{:else}
-			<p>Loading assignments for this month...</p>
-		{/if}
+{#if rangeStatus === 'error'}
+	<section class="flex items-center justify-between gap-3 rounded-lg border bg-card px-5 py-4" role="alert">
+		<p>Assignments for this month could not be loaded.</p>
+		<Button variant="outline" size="sm" onclick={onRetry}>Retry calendar load</Button>
 	</section>
 {:else if table.columns.length === 0}
 	<section class="rounded-lg border bg-card px-5 py-6 text-sm text-muted-foreground">
@@ -538,6 +532,7 @@
 			>
 		</section>
 	{/if}
+	<p class="sr-only" role="status">{loading ? 'Loading assignments for this month...' : ''}</p>
 	<WorkspaceToolbar ariaLabel="Planner actions" items={toolbarItems} />
 	<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<div class="overflow-hidden rounded-lg border bg-card">
@@ -545,6 +540,7 @@
 				aria-label="{monthTitle} duty assignments"
 				scrollRegionLabel="{monthTitle} duty assignments"
 				containerClass="max-h-[calc(100dvh-15rem)] min-h-64 overflow-y-auto"
+				aria-busy={loading}
 			>
 				<Table.Header class="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--color-border)]">
 					<Table.Row class="bg-muted/40 hover:bg-muted/40">
@@ -560,7 +556,8 @@
 									<span
 										class="col-start-2 row-start-2 truncate font-mono text-[10px] tracking-wider text-muted-foreground uppercase"
 									>
-										{column.filledDays} of {column.totalDays} days{column.type.assignTo === 'group'
+										{loading ? 'Loading' : `${column.filledDays} of ${column.totalDays} days`}{column.type.assignTo ===
+										'group'
 											? ' · group'
 											: ''}{column.type.showOnCalendar ? '' : ' · planner only'}
 									</span>
@@ -619,49 +616,58 @@
 							</Table.Head>
 							{#each row.cells as cell, index (cell.typeId)}
 								{@const column = table.columns[index]}
-								<Table.Cell class={['px-2 py-1', cell.conflict && 'border-l-2 border-l-destructive bg-destructive/10']}>
-									<Button
-										variant={cell.assignee ? 'ghost' : 'outline'}
-										size={cell.assignee ? 'sm' : 'xs'}
-										class={[
-											cell.assignee
-												? 'h-auto min-h-8 w-full justify-start gap-1.5 px-2 py-1 text-left'
-												: 'border-dashed text-primary',
-											cell.conflict && 'text-destructive-text hover:bg-destructive/15'
-										]}
-										disabled={locked}
-										data-duty-slot={assignmentSlotKey(cell.dateKey, cell.typeId)}
-										aria-label={cellLabel(column, row, cell)}
-										onclick={(event) => openPicker(cell.typeId, cell.dateKey, event.currentTarget)}
-									>
-										{#if !cell.assignee}
-											<PlusIcon aria-hidden="true" />
-											Assign
-										{:else}
-											{#if cell.conflict}
-												<TriangleAlertIcon class="size-3.5 shrink-0" aria-hidden="true" />
-											{/if}
-											<span class="grid min-w-0">
-												<span class="flex items-baseline gap-1.5">
-													{#if cell.assignee.prefix}
-														<span class="font-mono text-[10px] font-semibold text-muted-foreground uppercase"
-															>{cell.assignee.prefix}</span
-														>
-													{/if}
-													<span class="truncate font-medium">{cell.assignee.name}</span>
-												</span>
+								<Table.Cell
+									class={[
+										'px-2 py-1',
+										!loading && cell.conflict && 'border-l-2 border-l-destructive bg-destructive/10'
+									]}
+								>
+									{#if loading}
+										<Skeleton class="h-8 w-full" />
+									{:else}
+										<Button
+											variant={cell.assignee ? 'ghost' : 'outline'}
+											size={cell.assignee ? 'sm' : 'xs'}
+											class={[
+												cell.assignee
+													? 'h-auto min-h-8 w-full justify-start gap-1.5 px-2 py-1 text-left'
+													: 'border-dashed text-primary',
+												cell.conflict && 'text-destructive-text hover:bg-destructive/15'
+											]}
+											disabled={locked}
+											data-duty-slot={assignmentSlotKey(cell.dateKey, cell.typeId)}
+											aria-label={cellLabel(column, row, cell)}
+											onclick={(event) => openPicker(cell.typeId, cell.dateKey, event.currentTarget)}
+										>
+											{#if !cell.assignee}
+												<PlusIcon aria-hidden="true" />
+												Assign
+											{:else}
 												{#if cell.conflict}
-													<span class="truncate font-mono text-[10px] uppercase">On {cell.conflict.reason}</span>
+													<TriangleAlertIcon class="size-3.5 shrink-0" aria-hidden="true" />
 												{/if}
-											</span>
-											{@const swapped = swappedDays.get(cell.typeId)?.get(cell.dateKey)}
-											{#if swapped}
-												<span class="ml-auto shrink-0 text-muted-foreground" title={swapMark(swapped)}>
-													<ArrowLeftRightIcon class="size-3.5" aria-hidden="true" />
+												<span class="grid min-w-0">
+													<span class="flex items-baseline gap-1.5">
+														{#if cell.assignee.prefix}
+															<span class="font-mono text-[10px] font-semibold text-muted-foreground uppercase"
+																>{cell.assignee.prefix}</span
+															>
+														{/if}
+														<span class="truncate font-medium">{cell.assignee.name}</span>
+													</span>
+													{#if cell.conflict}
+														<span class="truncate font-mono text-[10px] uppercase">On {cell.conflict.reason}</span>
+													{/if}
 												</span>
+												{@const swapped = swappedDays.get(cell.typeId)?.get(cell.dateKey)}
+												{#if swapped}
+													<span class="ml-auto shrink-0 text-muted-foreground" title={swapMark(swapped)}>
+														<ArrowLeftRightIcon class="size-3.5" aria-hidden="true" />
+													</span>
+												{/if}
 											{/if}
-										{/if}
-									</Button>
+										</Button>
+									{/if}
 								</Table.Cell>
 							{/each}
 						</Table.Row>
@@ -671,7 +677,12 @@
 		</div>
 
 		<div class="grid grid-cols-[minmax(0,1fr)] gap-4">
-			<AssignmentConflictsPanel conflicts={table.conflicts} busy={locked} onFindReplacement={findReplacement} />
+			<AssignmentConflictsPanel
+				conflicts={table.conflicts}
+				{loading}
+				busy={locked}
+				onFindReplacement={findReplacement}
+			/>
 			{#if rosters && countType}
 				<RosterCountPanel
 					types={rosterTypes}

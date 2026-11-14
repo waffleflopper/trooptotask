@@ -19,7 +19,8 @@ function preferences(): UserOrgPreferences {
 			showEventLanes: true,
 			showAssignmentLanes: true,
 			groupFilter: null,
-			lastStatusTypeId: null
+			lastStatusTypeId: null,
+			viewMode: null
 		},
 		training: getDefaultUserOrgPreferences().training,
 		roster: getDefaultUserOrgPreferences().roster
@@ -106,7 +107,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'seed-group',
@@ -153,6 +155,23 @@ describe('AccountPreferencesState', () => {
 		expect(onError).toHaveBeenCalledExactlyOnceWith('Failed to save your preferences');
 		expect(state.value.calendar.lastStatusTypeId).toBe('tdy');
 		expect(server.saved.calendar.lastStatusTypeId).toBeNull();
+	});
+
+	it('saves the chosen Calendar view and keeps it after the acknowledgment', async () => {
+		const server = transport();
+		const { state, onError } = createState(server);
+
+		state.patch({ calendar: { viewMode: 'week' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(server.requests).toHaveLength(1);
+		expect(server.requests[0]!.patch).toEqual({ calendar: { viewMode: 'week' } });
+		server.requests[0]!.confirm();
+		await settleReplies();
+
+		expect(state.value.calendar.viewMode).toBe('week');
+		expect(server.saved.calendar.viewMode).toBe('week');
+		expect(onError).not.toHaveBeenCalled();
 	});
 
 	it('saves the roster view mode alongside other sections and keeps it after the acknowledgment', async () => {
@@ -220,7 +239,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -254,7 +274,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -291,7 +312,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -319,7 +341,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -342,7 +365,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -389,7 +413,8 @@ describe('AccountPreferencesState', () => {
 						showEventLanes: true,
 						showAssignmentLanes: true,
 						groupFilter: null,
-						lastStatusTypeId: null
+						lastStatusTypeId: null,
+						viewMode: null
 					},
 					training: { selectedGroupId: 'alpha', selectedViewId: null, matrixViewMode: 'unexpected' }
 				})
@@ -413,7 +438,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'alpha',
@@ -444,7 +470,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'alpha',
@@ -485,7 +512,8 @@ describe('AccountPreferencesState', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -535,7 +563,8 @@ describe('AccountPreferencesState', () => {
 					showEventLanes: true,
 					showAssignmentLanes: true,
 					groupFilter: null,
-					lastStatusTypeId: null
+					lastStatusTypeId: null,
+					viewMode: null
 				},
 				training: {
 					selectedGroupId: 'bravo',

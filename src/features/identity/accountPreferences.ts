@@ -8,6 +8,10 @@ export const RosterViewModeSchema = z.enum(['alphabetical', 'by-group']);
 
 export type RosterViewMode = z.infer<typeof RosterViewModeSchema>;
 
+export const CalendarViewPreferenceSchema = z.enum(['agenda', 'week', 'month', '3-month']);
+
+export type CalendarViewPreference = z.infer<typeof CalendarViewPreferenceSchema>;
+
 export const TrainingMatrixCurrentMarkSchema = z.enum(['date', 'check', 'blank']);
 
 export type TrainingMatrixCurrentMark = z.infer<typeof TrainingMatrixCurrentMarkSchema>;
@@ -23,6 +27,8 @@ export type UserOrgPreferences = {
 		/** A top-level Group id or an outside-tree band value; null is All. */
 		groupFilter: string | null;
 		lastStatusTypeId: string | null;
+		/** The view the person last chose; null until they choose one, when the screen width decides. */
+		viewMode: CalendarViewPreference | null;
 	};
 	training: {
 		selectedGroupId: string | null;
@@ -53,7 +59,8 @@ export const UserOrgPreferencesSchema = z.object({
 		showEventLanes: z.boolean(),
 		showAssignmentLanes: z.boolean(),
 		groupFilter: z.string().nullable(),
-		lastStatusTypeId: z.string().nullable()
+		lastStatusTypeId: z.string().nullable(),
+		viewMode: CalendarViewPreferenceSchema.nullable()
 	}),
 	training: z.object({
 		selectedGroupId: z.string().nullable(),
@@ -78,7 +85,8 @@ export const UserOrgPreferencesPatchSchema = z.object({
 			showEventLanes: z.boolean().optional(),
 			showAssignmentLanes: z.boolean().optional(),
 			groupFilter: z.string().nullable().optional(),
-			lastStatusTypeId: z.string().nullable().optional()
+			lastStatusTypeId: z.string().nullable().optional(),
+			viewMode: CalendarViewPreferenceSchema.nullable().optional()
 		})
 		.optional(),
 	training: z
@@ -108,7 +116,8 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 			showEventLanes: true,
 			showAssignmentLanes: true,
 			groupFilter: null,
-			lastStatusTypeId: null
+			lastStatusTypeId: null,
+			viewMode: null
 		},
 		training: {
 			selectedGroupId: null,

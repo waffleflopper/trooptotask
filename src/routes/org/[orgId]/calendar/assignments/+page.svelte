@@ -3,46 +3,17 @@
 	const org = getAppShellContext();
 	import { Spinner } from '$lib/components/ui/spinner';
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
-	import type { CalendarWorkspaceResult } from '$features/calendar';
-	import { isPromiseLike, materializeWorkspaceData, observeDeferred } from '$lib/utils/streamedRouteData';
+	import type { CalendarWorkspaceResult, CalendarWorkspaceRestricted } from '$features/calendar';
+	import { HeldWorkspace, workspaceScope } from '$lib/utils/heldWorkspace.svelte';
+	import { materializeWorkspaceData } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
-	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
-	let loadError = $state<Error | null>(null);
-
-	$effect(() => {
-		let cancelled = false;
-		const streamedCalendar = data.calendar?.data;
-
-		calendarBootstrap = null;
-		loadError = null;
-
-		if (!streamedCalendar) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedCalendar)) {
-			calendarBootstrap = 'access' in streamedCalendar ? null : streamedCalendar;
-			return;
-		}
-
-		void observeDeferred(streamedCalendar, {
-			fallbackMessage: 'Failed to load assignment planner workspace',
-			onResolve: (calendar) => {
-				calendarBootstrap = 'access' in calendar ? null : calendar;
-			},
-			onReject: (error) => {
-				loadError = error;
-			},
-			isCancelled: () => cancelled
-		});
-
-		return () => {
-			cancelled = true;
-		};
+	const held = new HeldWorkspace<CalendarWorkspaceResult | CalendarWorkspaceRestricted>({
+		source: () => data.calendar?.data,
+		scope: () => workspaceScope(data.shell),
+		fallbackMessage: 'Failed to load assignment planner workspace'
 	});
-
-	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
+	const calendarBootstrap = $derived(held.value && !('access' in held.value) ? held.value : null);
 	const resolvedData = $derived.by(() => materializeWorkspaceData(data, 'calendar', calendarBootstrap));
 
 	const pageData = $derived.by(() => ({
@@ -56,9 +27,9 @@
 	<title>Duty planner - Troop to Task</title>
 </svelte:head>
 
-{#if loadError}
+{#if held.current.status === 'failed'}
 	<!-- The Calendar layout observes this same source and shows WorkspaceLoadError. -->
-{:else if workspacePending}
+{:else if held.current.status === 'pending'}
 	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
 		<Spinner />
 		<p class="m-0">Loading assignment planner...</p>

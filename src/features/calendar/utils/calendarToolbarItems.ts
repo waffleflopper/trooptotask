@@ -11,6 +11,8 @@ export interface CalendarToolbarInput {
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
 	showEvents: boolean;
+	/** The DA 6 to open, or null when the reader cannot read it or no duty type is assigned to people. */
+	da6Href: string | null;
 	/** Active Taskings that are overdue, blocked or short of people. */
 	taskingsNeedingAction: number;
 	groupOptions: ToolbarOption[];
@@ -124,6 +126,9 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 		{ kind: 'action', id: 'calendar-reports', label: 'Reports', icon: 'chart', href: `${calendarHref}/reports` }
 	];
 
+	if (input.da6Href) {
+		items.push({ kind: 'action', id: 'calendar-da6', label: 'DA 6', icon: 'file-text', href: input.da6Href });
+	}
 	if (input.canManageAssignments) {
 		items.push({
 			kind: 'action',

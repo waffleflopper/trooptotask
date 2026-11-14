@@ -1,12 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Da6Page from '$features/calendar/components/da6/Da6Page.svelte';
-	import { Da6SetupPage, type Da6Setup, type Da6View } from '$features/calendar';
+	import { Da6SetupPage, da6BackLink, type Da6Setup, type Da6View } from '$features/calendar';
+	import { getAppShellContext } from '$features/app-shell';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceAccessRestricted from '../../../WorkspaceAccessRestricted.svelte';
 	import WorkspaceLoadError from '../../../WorkspaceLoadError.svelte';
 
 	let { data } = $props();
+	const org = getAppShellContext();
+	const back = $derived(
+		da6BackLink(
+			data.shell.org.urlSegment,
+			org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments, { kind: 'unscoped' }).allowed
+		)
+	);
 	const source = $derived<Promise<unknown>>(data.setup ? data.setup.data : data.da6.data);
 	let settled = $state.raw<{
 		source: unknown;
@@ -62,6 +71,7 @@
 		orgUrlSegment={data.shell.org.urlSegment}
 		typeId={page.params.typeId ?? ''}
 		month={data.month}
+		{back}
 		view={current?.view ?? null}
 	/>
 {/if}

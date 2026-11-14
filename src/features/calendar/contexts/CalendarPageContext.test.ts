@@ -14,14 +14,18 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
 import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
+import { go, goto, historyLength, page, position, resetHistory } from '$lib/test-support/shallowHistory.svelte';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { StoreRequestError } from '$lib/stores/core';
 
-const appPage = vi.hoisted(() => ({ url: new URL('http://localhost/org/org1/calendar') }));
-vi.mock('$app/state', () => ({ page: appPage }));
+vi.mock('$app/state', async () => ({ page: (await import('$lib/test-support/shallowHistory.svelte')).page }));
+vi.mock('$app/navigation', async () => ({
+	goto: (await import('$lib/test-support/shallowHistory.svelte')).goto,
+	invalidate: vi.fn()
+}));
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
 }));
@@ -71,7 +75,8 @@ const syncedPreferences: CalendarDisplayPreferences = {
 	showEventLanes: true,
 	showAssignmentLanes: true,
 	groupFilter: null,
-	lastStatusTypeId: null
+	lastStatusTypeId: null,
+	viewMode: null
 };
 
 const mockPersonnel: Personnel[] = [
@@ -146,6 +151,7 @@ describe('CalendarPageContext', () => {
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
 		savePreferences.mockClear();
+		resetHistory();
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
 		vi.mocked(availabilityStore.add).mockReset();
@@ -249,7 +255,8 @@ describe('CalendarPageContext', () => {
 				showEventLanes: true,
 				showAssignmentLanes: true,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			});
 
 			expect(ctx.showStatusText).toBe(true);
@@ -267,7 +274,8 @@ describe('CalendarPageContext', () => {
 				showEventLanes: true,
 				showAssignmentLanes: false,
 				groupFilter: null,
-				lastStatusTypeId: null
+				lastStatusTypeId: null,
+				viewMode: null
 			});
 
 			expect([ctx.showDaysLane, ctx.showEventLanes, ctx.showAssignmentLanes]).toEqual([false, true, false]);
@@ -313,14 +321,41 @@ describe('CalendarPageContext', () => {
 			expect(opened.viewMode).toBe('agenda');
 		});
 
-		it('setViewMode shows the chosen view', () => {
+		it('setViewMode shows the chosen view and saves it once', () => {
 			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
+			ctx.setViewMode('3-month');
 			ctx.setViewMode('month');
 			expect(ctx.viewMode).toBe('month');
+
+			expect(savePreferences.mock.calls).toEqual([[{ viewMode: '3-month' }], [{ viewMode: 'month' }]]);
 		});
 
-		it('navigateToMonth switches to month view and navigates calendarStore', () => {
+		it('shows the saved view over the width’s view', () => {
+			vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) });
+			const opened = makeContext(mockData, org);
+
+			opened.syncUserPreferences({ ...syncedPreferences, viewMode: 'week' });
+
+			expect(opened.viewMode).toBe('week');
+			expect(opened.chosenView).toBe('week');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('keeps the width’s opening view while no view is saved, across a re-sync and a resize', () => {
+			const phone = { matches: true };
+			vi.stubGlobal('window', { matchMedia: () => phone });
+			const opened = makeContext(mockData, org);
+
+			opened.syncUserPreferences(syncedPreferences);
+			phone.matches = false;
+			opened.syncUserPreferences({ ...syncedPreferences, showStatusText: true });
+
+			expect(opened.viewMode).toBe('agenda');
+			expect(opened.chosenView).toBeNull();
+		});
+
+		it('navigateToMonth switches to month view, saves it and navigates calendarStore', () => {
 			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
 
@@ -328,6 +363,7 @@ describe('CalendarPageContext', () => {
 			ctx.navigateToMonth(targetDate);
 
 			expect(ctx.viewMode).toBe('month');
+			expect(savePreferences).toHaveBeenLastCalledWith({ viewMode: 'month' });
 			expect(calendarStore.month).toBe(5);
 			expect(calendarStore.year).toBe(2026);
 		});
@@ -470,6 +506,100 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	describe('status dialog history', () => {
+		const operator = () => makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
+
+		it('shows the dialog on one shallow history entry, however many times it is retargeted', () => {
+			const operatorCtx = operator();
+
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+			operatorCtx.handleCellClick(mockPersonnel[1], new Date(2026, 2, 16));
+
+			expect(operatorCtx.editor).toMatchObject({ kind: 'create', person: mockPersonnel[1], startDate: '2026-03-16' });
+			expect(historyLength()).toBe(2);
+		});
+
+		it('hides the dialog when the reader presses Back', () => {
+			const operatorCtx = operator();
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+
+			go(-1);
+
+			expect(operatorCtx.editor).toBeNull();
+		});
+
+		it('hides the dialog and steps back one entry, once, when the dialog closes', async () => {
+			await goto('/org/org1/calendar', { shallow: true });
+			const operatorCtx = operator();
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+			expect(position()).toBe(2);
+
+			operatorCtx.closeEditor();
+			operatorCtx.closeEditor();
+
+			expect(operatorCtx.editor).toBeNull();
+			expect(position()).toBe(1);
+		});
+
+		it('does not bring back a dialog closed while Back had hidden it', () => {
+			const operatorCtx = operator();
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+			go(-1);
+
+			operatorCtx.closeEditor();
+			go(1);
+
+			expect(operatorCtx.editor).toBeNull();
+			expect(position()).toBe(1);
+		});
+
+		it('adds no history entry when the reader may not edit that person', () => {
+			const noEditCtx = makeContext(mockData, makeMockOrg());
+
+			noEditCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+
+			expect(historyLength()).toBe(1);
+		});
+	});
+
+	describe('adding a status from a day', () => {
+		it('offers it to a reader who can manage availability and not to one who cannot', () => {
+			expect(makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities })).canAddStatus).toBe(true);
+			expect(makeContext(mockData, makeMockOrg()).canAddStatus).toBe(false);
+		});
+
+		it('opens the dialog on that day with everyone the reader may manage and no one chosen', () => {
+			const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
+
+			operatorCtx.openAddStatus(new Date(2026, 2, 15));
+
+			expect(operatorCtx.editor).toMatchObject({ kind: 'pick', date: '2026-03-15' });
+			const people = operatorCtx.editor?.kind === 'pick' ? operatorCtx.editor.people.map((p) => p.id) : [];
+			expect(people).toEqual(['p1', 'p2']);
+		});
+
+		it('offers a Group-scoped manager only the people in their Group', () => {
+			const scopedCtx = makeContext(
+				mockData,
+				makeMockOrg({ capabilityMap: operateCapabilities, scopeSet: { kind: 'groups', groupIds: ['g2'] } })
+			);
+
+			scopedCtx.openAddStatus(new Date(2026, 2, 15));
+
+			const people = scopedCtx.editor?.kind === 'pick' ? scopedCtx.editor.people.map((p) => p.id) : [];
+			expect(people).toEqual(['p2']);
+		});
+
+		it('opens nothing for a reader who cannot manage availability', () => {
+			const viewerCtx = makeContext(mockData, makeMockOrg());
+
+			viewerCtx.openAddStatus(new Date(2026, 2, 15));
+
+			expect(viewerCtx.editor).toBeNull();
+			expect(historyLength()).toBe(1);
+		});
+	});
+
 	it('closes an open popover when the editor opens', () => {
 		const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
 		operatorCtx.openEntry(mockPersonnel[0], 'entry-1', {} as HTMLElement);
@@ -568,7 +698,8 @@ describe('CalendarPageContext', () => {
 			showEventLanes: true,
 			showAssignmentLanes: true,
 			groupFilter: null,
-			lastStatusTypeId
+			lastStatusTypeId,
+			viewMode: null
 		});
 
 		beforeEach(() => {
@@ -608,9 +739,9 @@ describe('CalendarPageContext', () => {
 
 			await ctx.saveAvailability({ kind: 'create', record });
 			const undo = success.mock.calls[0][2];
-			appPage.url = new URL('http://localhost/org/org1/personnel');
+			page.url = new URL('http://localhost/org/org1/personnel');
 			undo?.onClick();
-			appPage.url = new URL('http://localhost/org/org1/calendar');
+			page.url = new URL('http://localhost/org/org1/calendar');
 
 			expect(undo?.label).toBe('Undo');
 			expect(fetchMock).not.toHaveBeenCalled();

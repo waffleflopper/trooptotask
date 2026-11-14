@@ -219,7 +219,8 @@ describe('organization layout scope lifetime', () => {
 					showEventLanes: true,
 					showAssignmentLanes: true,
 					groupFilter: null,
-					lastStatusTypeId: null
+					lastStatusTypeId: null,
+					viewMode: null
 				},
 				training: {
 					selectedGroupId: null,
@@ -260,7 +261,8 @@ describe('organization layout scope lifetime', () => {
 					showEventLanes: true,
 					showAssignmentLanes: true,
 					groupFilter: null,
-					lastStatusTypeId: null
+					lastStatusTypeId: null,
+					viewMode: null
 				},
 				training: {
 					selectedGroupId: null,

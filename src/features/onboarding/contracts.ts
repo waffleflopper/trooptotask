@@ -95,6 +95,8 @@ export interface OnboardingTemplatesWorkspaceHydrationTarget {
 }
 export interface OnboardingWorkspaceHydration {
 	orgId: string;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab?: Record<string, number>;
 	personnel: OnboardingWorkspaceHydrationTarget<Personnel>;
 	groups: OnboardingWorkspaceHydrationTarget<Group>;
 	trainingTypes: OnboardingWorkspaceHydrationTarget<TrainingTypeLabel>;

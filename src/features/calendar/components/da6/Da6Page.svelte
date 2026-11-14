@@ -29,11 +29,13 @@
 		orgUrlSegment: string;
 		typeId: string;
 		month: string;
+		/** Where Back goes, which depends on what the reader may open. */
+		back: { href: string; label: string };
 		/** Null while the month loads. */
 		view: Da6View | null;
 	}
 
-	let { orgName, orgUrlSegment, typeId, month, view }: Props = $props();
+	let { orgName, orgUrlSegment, typeId, month, back, view }: Props = $props();
 
 	let picked = $state.raw<{ view: Da6View; day: Da6DayRef } | null>(null);
 	const day = $derived(view && (picked?.view === view ? picked.day : defaultDay(view.sheets, view.today)));
@@ -79,9 +81,9 @@
 							{@render next()}
 						</ButtonGroup.Root>
 					</div>
-					<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar/assignments`}>
+					<Button variant="outline" size="sm" href={back.href}>
 						<ArrowLeftIcon aria-hidden="true" />
-						Back to planner
+						{back.label}
 					</Button>
 					<Button size="sm" disabled={!view?.sheets.some((sheet) => sheet.segment)} onclick={() => window.print()}>
 						<PrinterIcon aria-hidden="true" />

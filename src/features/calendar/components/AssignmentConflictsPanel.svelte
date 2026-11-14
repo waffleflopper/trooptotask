@@ -2,14 +2,17 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { PlannerConflict } from '$features/calendar/utils/assignmentPlanner';
 	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		conflicts: readonly PlannerConflict[];
+		/** The month is still loading, so its conflicts are not known yet. */
+		loading?: boolean;
 		busy: boolean;
 		onFindReplacement: (typeId: string, dateKey: string, anchor: HTMLElement) => void;
 	}
 
-	let { conflicts, busy, onFindReplacement }: Props = $props();
+	let { conflicts, loading = false, busy, onFindReplacement }: Props = $props();
 </script>
 
 <section class="rounded-lg border bg-card" aria-labelledby="planner-conflicts-title">
@@ -18,16 +21,20 @@
 			id="planner-conflicts-title"
 			class={[
 				'font-mono text-xs font-semibold tracking-widest uppercase',
-				conflicts.length > 0 ? 'text-destructive-text' : 'text-muted-foreground'
+				!loading && conflicts.length > 0 ? 'text-destructive-text' : 'text-muted-foreground'
 			]}
 		>
 			Conflicts
 		</h2>
-		<span class="font-mono text-xs font-semibold text-destructive-text" aria-label={`${conflicts.length} conflicts`}
-			>{conflicts.length}</span
-		>
+		{#if !loading}
+			<span class="font-mono text-xs font-semibold text-destructive-text" aria-label={`${conflicts.length} conflicts`}
+				>{conflicts.length}</span
+			>
+		{/if}
 	</header>
-	{#if conflicts.length === 0}
+	{#if loading}
+		<div class="px-4 py-3" aria-hidden="true"><Skeleton class="h-5 w-full" /></div>
+	{:else if conflicts.length === 0}
 		<p class="px-4 py-3 text-sm text-muted-foreground">No one is assigned on a day they are unavailable.</p>
 	{:else}
 		<ul class="divide-y">

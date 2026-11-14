@@ -19,9 +19,10 @@ export function requestCriticalTasksWorkspaceRefresh(): void {
 	criticalTasksWorkspaceStatus.refreshRequested = true;
 }
 
+// A refresh of the same Organization keeps its settings, so the matrix it still shows keeps its thresholds.
 export function markCriticalTasksWorkspacePending(orgId: string | null | undefined): void {
+	if (criticalTasksWorkspaceStatus.orgId !== (orgId ?? null)) criticalTasksWorkspaceStatus.settings = null;
 	criticalTasksWorkspaceStatus.orgId = orgId ?? null;
-	criticalTasksWorkspaceStatus.settings = null;
 	criticalTasksWorkspaceStatus.pending = true;
 	criticalTasksWorkspaceStatus.error = null;
 	criticalTasksWorkspaceStatus.refreshRequested = false;

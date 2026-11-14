@@ -1049,6 +1049,67 @@ describe('ictReports', () => {
 	});
 });
 
+describe('ictReports readiness tiers at a rounding edge', () => {
+	const settings = { defaultExpirationMonths: 12, expiringSoonWarningDays: 60 };
+	const asOf = '2026-04-15';
+	const numberedTasks = (prefix: string, count: number, mos: string[]): IctTask[] =>
+		Array.from({ length: count }, (_, index) => ({
+			...commonTask,
+			id: `${prefix}-${index}`,
+			taskCode: `${prefix}-${index}`,
+			mos
+		}));
+	const completionsFor = (personnelId: string, tasks: IctTask[]) =>
+		tasks.map((task) => completion({ id: `${personnelId}:${task.id}`, personnelId, ictTaskId: task.id }));
+
+	// 16 of 23 is 69.57%, shown as 70%; 35 of 44 is 79.55%, shown as 80%.
+	const allMosTasks = numberedTasks('all', 23, []);
+	const infantryTasks = numberedTasks('11b', 21, ['11B']);
+	const soldierInput = {
+		personnel: [medic, infantry],
+		tasks: [...allMosTasks, ...infantryTasks],
+		completions: [
+			...completionsFor(medic.id, allMosTasks.slice(0, 16)),
+			...completionsFor(infantry.id, [...allMosTasks, ...infantryTasks].slice(0, 35))
+		],
+		settings,
+		asOf
+	};
+
+	it('counts a Soldier at 16 of 23 below the threshold', () => {
+		expect(buildIctReportDashboard(soldierInput).kpis.soldiersBelow70.count).toBe(1);
+		expect(buildIctReportDashboardSummary(soldierInput).kpis.soldiersBelow70.count).toBe(1);
+	});
+
+	it('bands the heat map and the distribution from the exact ratio', () => {
+		const dashboard = buildIctReportDashboard(soldierInput);
+		const tierByMos = new Map(dashboard.readinessMatrix.rows.map((row) => [row.mos, row.averageTier]));
+		expect(tierByMos.get('68W')).toBe('warn');
+		expect(tierByMos.get('11B')).toBe('caution');
+
+		const binWith = (mos: string) =>
+			dashboard.readinessDistribution.series
+				.find((series) => series.mos === mos)
+				?.bins.find((bin) => bin.soldierCount > 0)?.key;
+		expect(binWith('68W')).toBe('60-80');
+		expect(binWith('11B')).toBe('60-80');
+	});
+
+	it('lists a task 16 of 23 Soldiers hold as below the threshold', () => {
+		const people = Array.from({ length: 23 }, (_, index) => ({ ...medic, id: `medic-${index}` }));
+		const input = {
+			personnel: people,
+			tasks: [commonTask],
+			completions: people.slice(0, 16).flatMap((person) => completionsFor(person.id, [commonTask])),
+			settings,
+			asOf
+		};
+
+		expect(buildIctReportDashboard(input).kpis.tasksBelowThreshold.count).toBe(1);
+		expect(buildIctReportDashboardSummary(input).kpis.tasksBelowThreshold.count).toBe(1);
+	});
+});
+
 describe('filterIctReportPersonnel on nested Groups', () => {
 	const tree = buildGroupTree(NESTED_GROUPS);
 	const people = ['platoon', 'squad', 'alpha', 'other-squad', 'other-platoon'].map(

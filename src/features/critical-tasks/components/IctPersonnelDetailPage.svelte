@@ -31,7 +31,11 @@
 		PersonnelIctCompletion
 	} from '$features/critical-tasks/criticalTasks.types';
 	import { parseDate } from '$lib/utils/dates';
-	import { compareIctCompletionRecency } from '../utils/ictReadinessSnapshot';
+	import {
+		compareIctCompletionRecency,
+		criticalTaskReadinessTier,
+		type CriticalTaskReadinessTier
+	} from '../utils/ictReadinessSnapshot';
 
 	interface Props {
 		org: CriticalTasksPageAccess;
@@ -99,6 +103,13 @@
 	): number {
 		return a.sortOrder - b.sortOrder || a.taskCode.localeCompare(b.taskCode);
 	}
+
+	const readinessTones: Record<CriticalTaskReadinessTier, { text: string; fill: string }> = {
+		below: { text: 'text-danger', fill: 'bg-danger' },
+		near: { text: 'text-warning', fill: 'bg-warning' },
+		goal: { text: 'text-success', fill: 'bg-success' },
+		none: { text: 'text-muted-foreground', fill: 'bg-muted-foreground' }
+	};
 
 	const activeRows = $derived.by<ActiveTaskRow[]>(() =>
 		getActiveIctTasksForLibrary(ictTasksStore.items)
@@ -221,6 +232,7 @@
 
 		const ready = current + expiringSoon;
 		const readinessPercent = activeRows.length === 0 ? 0 : Math.round((ready / activeRows.length) * 100);
+		const readinessTone = readinessTones[criticalTaskReadinessTier(ready, activeRows.length)];
 
 		return {
 			current,
@@ -228,6 +240,7 @@
 			expired,
 			notRecorded,
 			readinessPercent,
+			readinessTone,
 			lastCompletion,
 			nextExpiring,
 			oldestExpired,
@@ -562,13 +575,13 @@
 			<div
 				class="mb-2 flex items-center gap-2 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
 			>
-				<span class="size-2 rounded-sm bg-warning"></span>Individual Readiness
+				<span class={`size-2 rounded-sm ${summary.readinessTone.fill}`}></span>Individual Readiness
 			</div>
-			<div class="font-mono text-3xl font-semibold text-warning">
+			<div class={`font-mono text-3xl font-semibold ${summary.readinessTone.text}`}>
 				{summary.readinessPercent}<span class="text-xl">%</span>
 			</div>
 			<div class="mt-3 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-				<div class="h-full bg-warning" style={`width: ${summary.readinessPercent}%`}></div>
+				<div class={`h-full ${summary.readinessTone.fill}`} style={`width: ${summary.readinessPercent}%`}></div>
 			</div>
 			<div class="mt-3 flex flex-wrap gap-3 font-mono text-xs tracking-[0.04em] text-muted-foreground">
 				<span class="inline-flex items-center gap-1"

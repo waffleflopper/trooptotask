@@ -11,7 +11,7 @@
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
+	import { HeldWorkspace, workspaceScope } from '$lib/utils/heldWorkspace.svelte';
 
 	let { data } = $props();
 
@@ -24,50 +24,17 @@
 		modalOrgId = orgId;
 	});
 	const loadingSkeletonItems = [0, 1, 2, 3];
-	let onboardingBootstrap = $state<OnboardingWorkspaceResult | null>(null);
 	let OnboardingModals = $state<Awaited<ReturnType<typeof loadOnboardingModals>>['default'] | null>(null);
-	let loadError = $state<Error | null>(null);
-
-	$effect(() => {
-		let cancelled = false;
-		const streamedOnboarding = data.onboarding?.data;
-
-		onboardingBootstrap = null;
-		loadError = null;
-
-		if (!streamedOnboarding) {
-			return;
-		}
-
-		if (!isPromiseLike(streamedOnboarding)) {
-			onboardingBootstrap = streamedOnboarding as OnboardingWorkspaceResult;
-			return;
-		}
-
-		// The layout also observes this promise to hydrate shared stores; the page separately
-		// materializes the resolved bootstrap so it can construct the local page context.
-		void observeDeferred(streamedOnboarding, {
-			fallbackMessage: 'Failed to load onboarding workspace',
-			onResolve: (onboarding) => {
-				onboardingBootstrap = onboarding;
-			},
-			onReject: (error) => {
-				loadError = error;
-			},
-			isCancelled: () => cancelled
-		});
-
-		return () => {
-			cancelled = true;
-		};
+	const held = new HeldWorkspace<OnboardingWorkspaceResult>({
+		source: () => data.onboarding?.data,
+		scope: () => workspaceScope(data.shell),
+		fallbackMessage: 'Failed to load onboarding workspace'
 	});
-
-	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
-	const ctx = $derived(
-		onboardingBootstrap
-			? new OnboardingPageContext(modals, org, noteAuthorLookup(onboardingBootstrap.data.noteAuthors, org.userId))
-			: null
-	);
+	const onboardingBootstrap = $derived(held.value ?? null);
+	const noteAuthorName = $derived(noteAuthorLookup(onboardingBootstrap?.data.noteAuthors ?? {}, org.userId));
+	// One context serves an Organization across its refreshes, so what it has open outlives them.
+	const loaded = $derived(onboardingBootstrap !== null);
+	const ctx = $derived(loaded ? new OnboardingPageContext(modals, org, (userId) => noteAuthorName(userId)) : null);
 	$effect(() => {
 		const context = ctx;
 		return () => context?.dispose();
@@ -101,7 +68,7 @@
 	<title>Onboarding - Troop to Task</title>
 </svelte:head>
 
-{#if workspacePending}
+{#if held.current.status === 'pending'}
 	<section class="grid gap-6 p-3 md:p-6" aria-live="polite" role="status" aria-label="Loading onboarding">
 		<div class="grid gap-2">
 			<Skeleton class="h-8 w-40" />

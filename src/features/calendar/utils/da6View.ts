@@ -13,7 +13,7 @@ import type {
 	TrackId,
 	WeekendMode
 } from '../roster/rosterTypes';
-import type { StartingNumberInput, StartingNumbersState } from '../contracts';
+import type { AssignmentType, StartingNumberInput, StartingNumbersState } from '../contracts';
 
 export interface Da6Roster {
 	readonly id: string;
@@ -88,6 +88,31 @@ export const DA6_DEPENDENCY = 'app:da6';
 export function da6Href(orgUrlSegment: string, typeId: string, month?: MonthKey): string {
 	const path = `/org/${orgUrlSegment}/calendar/rosters/${typeId}`;
 	return month ? `${path}?month=${month}` : path;
+}
+
+/** The DA 6 for the first person-assigned, unarchived duty type by sortOrder, in the month the Calendar shows; null when none. */
+export function calendarDa6Href(
+	orgUrlSegment: string,
+	types: readonly Pick<AssignmentType, 'id' | 'assignTo' | 'archivedAt' | 'sortOrder'>[],
+	focusDay: Date
+): string | null {
+	let first: (typeof types)[number] | undefined;
+	for (const type of types) {
+		if (type.assignTo !== 'personnel' || type.archivedAt) continue;
+		if (!first || type.sortOrder < first.sortOrder) first = type;
+	}
+	return first ? da6Href(orgUrlSegment, first.id, monthOfAnchor(focusDay)) : null;
+}
+
+/** A reader who cannot manage assignments returns to the Calendar, since the planner refuses them. */
+export function da6BackLink(
+	orgUrlSegment: string,
+	canManageAssignments: boolean
+): { href: string; label: 'Back to planner' | 'Back to calendar' } {
+	const calendar = `/org/${orgUrlSegment}/calendar`;
+	return canManageAssignments
+		? { href: `${calendar}/assignments`, label: 'Back to planner' }
+		: { href: calendar, label: 'Back to calendar' };
 }
 
 /** The DA 6 page in setup mode, where a unit copies in the last numbers from its paper DA 6. */

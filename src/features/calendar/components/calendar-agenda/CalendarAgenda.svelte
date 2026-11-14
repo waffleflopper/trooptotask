@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -6,7 +7,7 @@
 	import type { CalendarSpan } from '$features/calendar/utils/calendarBars';
 	import { availabilityEntryLabel } from '$features/calendar/utils/availabilityLabels';
 	import { CALENDAR_DATE_LABEL } from '$features/calendar/utils/calendarRenderState';
-	import { formatWeekdayDayMonth } from '$lib/utils/dates';
+	import { formatDayMonth, formatWeekdayDayMonth } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { RosterEmpty } from '$features/calendar/contexts/CalendarPageContext.svelte';
@@ -22,6 +23,8 @@
 		personnelHref?: string;
 		/** Without it, a duty is plain text, as a row marker is for a reader who cannot edit assignments. */
 		onDutyClick?: (date: Date) => void;
+		/** Offers each day an Add status row, for a reader who can mark someone out; the day is the one tapped. */
+		onAddStatus?: (date: Date) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		popoverEntry?: { personId: string; entryId: string } | null;
 	}
@@ -32,6 +35,7 @@
 		onClearFilters,
 		personnelHref,
 		onDutyClick,
+		onAddStatus,
 		onOpenEntry,
 		popoverEntry = null
 	}: Props = $props();
@@ -151,6 +155,19 @@
 									</li>
 								{/each}
 							</ul>
+						{/if}
+						{#if onAddStatus}
+							<div class="border-t">
+								<Button
+									variant="ghost"
+									class="h-11 w-full justify-start rounded-none px-3 text-muted-foreground"
+									aria-label={`Add status for ${formatDayMonth(day.dateKey)}`}
+									onclick={() => onAddStatus(day.date)}
+								>
+									<PlusIcon data-icon="inline-start" aria-hidden="true" />
+									Add status
+								</Button>
+							</div>
 						{/if}
 					</AgendaDayCard>
 				</li>

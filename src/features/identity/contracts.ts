@@ -14,6 +14,7 @@ export interface IdentityViewer {
 }
 
 export {
+	CalendarViewPreferenceSchema,
 	getDefaultUserOrgPreferences,
 	mergeUserOrgPreferences,
 	normalizeUserOrgPreferences,
@@ -21,6 +22,7 @@ export {
 	TrainingMatrixViewModeSchema,
 	UserOrgPreferencesPatchSchema,
 	UserOrgPreferencesSchema,
+	type CalendarViewPreference,
 	type RosterViewMode,
 	type TrainingMatrixViewMode,
 	type UserOrgPreferences,

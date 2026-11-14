@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { resetHistory } from '$lib/test-support/shallowHistory.svelte';
 import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
@@ -30,10 +31,15 @@ const exportMocks = vi.hoisted(() => ({
 
 vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
 vi.mock('$features/calendar/utils/calendarPrint', () => exportMocks);
-vi.mock('$app/navigation', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: gotoMock
-}));
+vi.mock('$app/state', async () => ({ page: (await import('$lib/test-support/shallowHistory.svelte')).page }));
+vi.mock('$app/navigation', async (importOriginal) => {
+	const history = await import('$lib/test-support/shallowHistory.svelte');
+	return {
+		...(await importOriginal<typeof import('$app/navigation')>()),
+		goto: (href: string, options?: Parameters<typeof history.goto>[1]) =>
+			options?.shallow ? history.goto(href, options) : gotoMock(href, options)
+	};
+});
 
 vi.mock('$features/calendar/taskings/taskingRequests', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/calendar/taskings/taskingRequests')>()),
@@ -63,6 +69,8 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
+
+beforeEach(resetHistory);
 
 afterEach(() => {
 	cleanup();
@@ -1006,6 +1014,60 @@ describe('CalendarPageView', () => {
 			'/org/org1/calendar/reports',
 			'/org/org1/calendar/settings'
 		]);
+	});
+
+	describe('DA 6 link', () => {
+		const assignmentTypes = dailyAssignmentsStore as unknown as { types: unknown[] };
+		const duty = (id: string, overrides: Record<string, unknown> = {}) => ({
+			id,
+			name: id,
+			shortName: id.toUpperCase(),
+			assignTo: 'personnel',
+			archivedAt: null,
+			sortOrder: 0,
+			...overrides
+		});
+
+		afterEach(() => {
+			assignmentTypes.types = [];
+		});
+
+		async function renderWith(org: ReturnType<typeof makeMockOrg>) {
+			mutableAvailabilityStore.loading = false;
+			const { layOut } = stubToolbarWidths();
+			calendarStore.goToMonth(2026, 10);
+			const ctx = makeContext(mockData, org);
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+			await layOut(4000);
+		}
+
+		it('opens the first person-assigned duty roster in the month shown, for a viewer', async () => {
+			assignmentTypes.types = [
+				duty('archived', { archivedAt: '2026-01-01', sortOrder: 0 }),
+				duty('group', { assignTo: 'group', sortOrder: 1 }),
+				duty('later', { sortOrder: 3 }),
+				duty('sd', { sortOrder: 2 })
+			];
+			await renderWith(makeMockOrg());
+
+			expect(within(toolbar()).getByRole('link', { name: 'DA 6' }).getAttribute('href')).toBe(
+				'/org/org1/calendar/rosters/sd?month=2026-11'
+			);
+		});
+
+		it('is not offered without a person-assigned duty type', async () => {
+			assignmentTypes.types = [duty('group', { assignTo: 'group' }), duty('archived', { archivedAt: '2026-01-01' })];
+			await renderWith(makeMockOrg());
+
+			expect(within(toolbar()).queryByRole('link', { name: 'DA 6' })).toBeNull();
+		});
+
+		it('is not offered to a Group-scoped reader, whom the DA 6 would refuse', async () => {
+			assignmentTypes.types = [duty('sd')];
+			await renderWith(makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g1'] } }));
+
+			expect(within(toolbar()).queryByRole('link', { name: 'DA 6' })).toBeNull();
+		});
 	});
 
 	describe('Group bands', () => {

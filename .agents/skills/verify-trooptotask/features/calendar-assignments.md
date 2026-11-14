@@ -273,7 +273,11 @@ Verification Leave 14–16 Sept.` with `Back` focused and `Assign anyway`, and `
    (`Verification Staff Duty, Tue 15 Sept: SPC Unassigned…`), not on the removed `Find replacement` button. Restore Able
    through the same cell's picker and read back the seeded rows. For loading, arm
    `$V network arm-hold $PAGE calendar-range`, click `Next month` until an uncovered month requests a range, capture
-   `Loading assignments for this month...` with its bounds and no cells, then release and restore. Repeat step 4 at both
+   the loading month: the same table stays mounted with `aria-busy="true"`, its header, toolbar, `Conflicts` and roster
+   panels in place, every day cell a skeleton with no `Assign` or assignee button, each column's count line reading
+   `Loading`, `Copy` and the column actions disabled, and `Loading assignments for this month...` in a `role="status"`
+   region for screen readers. The table's top and height match the loaded month before and after. Then release and
+   restore. Repeat step 4 at both
    combinations and record the failure region and Retry bounds against the viewport. For a failed save, see step 8. For
    keyboard, Tab from `Today` through the navigation, `Back to calendar`, each column's actions button and the first
    rows' cells, recording each stop's name and visible ring. Open one cell with the keyboard, press Escape and record

@@ -118,7 +118,8 @@ const defaults = {
 		showEventLanes: true,
 		showAssignmentLanes: true,
 		groupFilter: null,
-		lastStatusTypeId: null
+		lastStatusTypeId: null,
+		viewMode: null
 	},
 	training: {
 		selectedGroupId: null,
@@ -169,6 +170,30 @@ describe('Identity account/Organization preferences', () => {
 		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({
 			calendar: { showDaysLane: true, showEventLanes: false, showAssignmentLanes: true }
 		});
+	});
+
+	it('loads a row saved before the Calendar view as no chosen view, then saves one and clears it', async () => {
+		const beforeView = { ...defaults.calendar, viewMode: undefined };
+		const p = provider([row({ preferences: { calendar: beforeView, training: defaults.training } })]);
+
+		const loaded = await loadUserOrgPreferences(p, scope);
+		expect(loaded.calendar.viewMode).toBeNull();
+
+		const saved = await patchUserOrgPreferences(writer(p.supabase), { calendar: { viewMode: 'week' } });
+		expect(saved.calendar.viewMode).toBe('week');
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({ calendar: { viewMode: 'week' } });
+
+		await patchUserOrgPreferences(writer(p.supabase), { calendar: { viewMode: null } });
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({ calendar: { viewMode: null } });
+	});
+
+	it('rejects a Calendar view that is not a known view', async () => {
+		const p = provider([row({ preferences: defaults })]);
+
+		await expect(
+			patchUserOrgPreferences(writer(p.supabase), { calendar: { viewMode: 'sideways' } })
+		).rejects.toMatchObject({ status: 400 });
+		expect(p.state.rows[0].preferences).toEqual(defaults);
 	});
 
 	it('loads a row saved before the roster view mode as Group, then saves A-Z over it', async () => {
@@ -264,7 +289,8 @@ describe('Identity account/Organization preferences', () => {
 						showEventLanes: true,
 						showAssignmentLanes: true,
 						groupFilter: null,
-						lastStatusTypeId: null
+						lastStatusTypeId: null,
+						viewMode: null
 					},
 					training: {
 						selectedGroupId: 'group-1',

@@ -13,6 +13,22 @@ import { formatDate, localDateIn, parseDate } from '$lib/utils/dates';
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export const CRITICAL_TASK_READINESS_THRESHOLD_PERCENT = 70;
+const CRITICAL_TASK_READINESS_GOAL_PERCENT = CRITICAL_TASK_READINESS_THRESHOLD_PERCENT + 10;
+
+/** Red below the threshold, amber up to the goal, green from the goal. */
+export type CriticalTaskReadinessTier = 'below' | 'near' | 'goal' | 'none';
+
+/** Compares the exact ratio, so 16 of 23 (shown as 70%) still falls below 70. */
+export function isCriticalTaskReadinessAtLeast(ready: number, applicable: number, percent: number): boolean {
+	return ready * 100 >= percent * applicable;
+}
+
+export function criticalTaskReadinessTier(ready: number, applicable: number): CriticalTaskReadinessTier {
+	if (applicable === 0) return 'none';
+	if (!isCriticalTaskReadinessAtLeast(ready, applicable, CRITICAL_TASK_READINESS_THRESHOLD_PERCENT)) return 'below';
+	if (!isCriticalTaskReadinessAtLeast(ready, applicable, CRITICAL_TASK_READINESS_GOAL_PERCENT)) return 'near';
+	return 'goal';
+}
 
 /** The one home for Critical Tasks' "ready" definition. */
 export const ICT_READY_STATES = ['current', 'expiring-soon'] as const satisfies readonly IctStatus[];
@@ -315,7 +331,7 @@ export function buildCriticalTasksReadinessSnapshot(input: {
 			lastIctUpdateAt: lastUpdate?.createdAt ?? null
 		});
 
-		if (tally.percent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+		if (criticalTaskReadinessTier(tally.ready, tally.applicable) === 'below') {
 			soldiersBelowThresholdCount += 1;
 		}
 	}
@@ -323,7 +339,7 @@ export function buildCriticalTasksReadinessSnapshot(input: {
 
 	const tasksBelowThresholdRows: IctTaskBelowThresholdRow[] = [];
 	for (const [taskId, tally] of byTask) {
-		if (tally.applicable === 0 || tally.percent >= CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
+		if (criticalTaskReadinessTier(tally.ready, tally.applicable) !== 'below') {
 			continue;
 		}
 

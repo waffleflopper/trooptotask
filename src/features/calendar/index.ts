@@ -46,7 +46,7 @@ export { statusTypesStore } from './stores/statusTypes.svelte';
 export { calendarSettingsSaving } from './stores/calendarSettingsSaving';
 export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
-export { da6Href, da6SetupHref } from './utils/da6View';
+export { calendarDa6Href, da6BackLink, da6Href, da6SetupHref } from './utils/da6View';
 export type { Da6Setup, Da6View } from './utils/da6View';
 export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from './utils/calendarIndexes';
 export { calendarLaneTypes } from './utils/calendarLanes';

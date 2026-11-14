@@ -1016,6 +1016,60 @@ describe('CalendarPageView', () => {
 		]);
 	});
 
+	describe('DA 6 link', () => {
+		const assignmentTypes = dailyAssignmentsStore as unknown as { types: unknown[] };
+		const duty = (id: string, overrides: Record<string, unknown> = {}) => ({
+			id,
+			name: id,
+			shortName: id.toUpperCase(),
+			assignTo: 'personnel',
+			archivedAt: null,
+			sortOrder: 0,
+			...overrides
+		});
+
+		afterEach(() => {
+			assignmentTypes.types = [];
+		});
+
+		async function renderWith(org: ReturnType<typeof makeMockOrg>) {
+			mutableAvailabilityStore.loading = false;
+			const { layOut } = stubToolbarWidths();
+			calendarStore.goToMonth(2026, 10);
+			const ctx = makeContext(mockData, org);
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+			await layOut(4000);
+		}
+
+		it('opens the first person-assigned duty roster in the month shown, for a viewer', async () => {
+			assignmentTypes.types = [
+				duty('archived', { archivedAt: '2026-01-01', sortOrder: 0 }),
+				duty('group', { assignTo: 'group', sortOrder: 1 }),
+				duty('later', { sortOrder: 3 }),
+				duty('sd', { sortOrder: 2 })
+			];
+			await renderWith(makeMockOrg());
+
+			expect(within(toolbar()).getByRole('link', { name: 'DA 6' }).getAttribute('href')).toBe(
+				'/org/org1/calendar/rosters/sd?month=2026-11'
+			);
+		});
+
+		it('is not offered without a person-assigned duty type', async () => {
+			assignmentTypes.types = [duty('group', { assignTo: 'group' }), duty('archived', { archivedAt: '2026-01-01' })];
+			await renderWith(makeMockOrg());
+
+			expect(within(toolbar()).queryByRole('link', { name: 'DA 6' })).toBeNull();
+		});
+
+		it('is not offered to a Group-scoped reader, whom the DA 6 would refuse', async () => {
+			assignmentTypes.types = [duty('sd')];
+			await renderWith(makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g1'] } }));
+
+			expect(within(toolbar()).queryByRole('link', { name: 'DA 6' })).toBeNull();
+		});
+	});
+
 	describe('Group bands', () => {
 		const catalog = (groups: { id: string; name: string; parentId?: string }[]) => {
 			(groupsStore as unknown as { items: unknown[] }).items = groups.map((group, index) => ({

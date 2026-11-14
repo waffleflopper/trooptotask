@@ -20,6 +20,7 @@
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { buildCalendarAgenda, rosterPeople } from '$features/calendar/utils/calendarAgenda';
 	import { longRangeDates } from '$features/calendar/utils/calendarRange';
+	import { calendarDa6Href } from '$features/calendar/utils/da6View';
 	import {
 		EMPTY_TASKING_FACTS,
 		type CalendarProjection,
@@ -152,6 +153,9 @@
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
 			showEvents: ctx.showEvents,
+			da6Href: ctx.canReadDa6
+				? calendarDa6Href(data.orgUrlSegment ?? data.orgId, dailyAssignmentsStore.types, calendarStore.focusDay)
+				: null,
 			taskingsNeedingAction: projectionStatus === 'ready' ? taskingFacts.needAction : 0,
 			groupOptions: ctx.groupFilterOptions.map((option) => ({
 				value: option.value,

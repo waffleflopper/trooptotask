@@ -215,6 +215,13 @@ export class CalendarPageContext {
 		).allowed;
 	}
 
+	/** The DA 6 read needs Calendar view across the Organization, so a Group-scoped reader is not offered it. */
+	get canReadDa6(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability, {
+			kind: 'organization'
+		}).allowed;
+	}
+
 	get canManageAssignments(): boolean {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.calendar.manageAssignments,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
+import { personnelRosterHydration, personnelStore } from '$features/personnel';
 import type { TrainingType } from '$features/training/contracts';
 import type {
 	OnboardingTemplate,
@@ -149,5 +150,32 @@ describe('Onboarding workspace hydration adapter', () => {
 
 		expect(stores.onboardingTemplateStore.loadCount).toBe(0);
 		expect(stores.onboardingTemplateStore.templates).toEqual([]);
+	});
+
+	it('keeps a person added while a refresh streams when the older roster lands', async () => {
+		const stores = { ...createStores(), personnelStore: personnelRosterHydration };
+		const hydrator = createOnboardingWorkspaceHydrator();
+		const shown = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
+		const added = { id: 'p2', firstName: 'Ada', lastName: 'Jones' } as Personnel;
+		const hydrationWith = (snapshotKey: string, items: Personnel[] | Promise<Personnel[]>) =>
+			({
+				orgId: 'org-1',
+				personnel: { mode: 'replace', snapshotKey, items },
+				groups: { mode: 'preserve-client' },
+				trainingTypes: { mode: 'preserve-client' },
+				onboardingTemplates: { mode: 'preserve-client' },
+				onboardings: { mode: 'preserve-client' }
+			}) as OnboardingWorkspaceHydration;
+		await hydrator.hydrate(hydrationWith('roster:1', [shown]), stores);
+
+		let land!: (items: Personnel[]) => void;
+		const refresh = new Promise<Personnel[]>((resolve) => (land = resolve));
+		const pending = hydrator.hydrate(hydrationWith('roster:2', refresh), stores, { keepRows: true });
+		personnelStore.mergeBatchResults([added]);
+		land([shown]);
+		await pending;
+
+		expect(personnelStore.items.map((person) => person.id).sort()).toEqual(['p1', 'p2']);
+		personnelStore.load([], '');
 	});
 });

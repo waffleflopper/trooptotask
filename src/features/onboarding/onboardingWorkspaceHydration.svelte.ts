@@ -122,7 +122,13 @@ export function createOnboardingWorkspaceHydrator(): OnboardingWorkspaceHydrator
 			if (!hydration) return;
 			const { orgId } = hydration;
 			const descriptors = [
-				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
+				// Add Person in Start onboarding writes the shared roster while this page stays up.
+				reconcileOnLoad(
+					createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
+					stores.personnelStore,
+					orgId,
+					hydration.confirmedChangesByTab
+				),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
 				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				createTemplatesTargetDescriptor(

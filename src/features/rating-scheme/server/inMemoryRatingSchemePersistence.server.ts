@@ -233,7 +233,7 @@ export function createInMemoryRatingSchemePersistence(
 			const signed = isEvaluationCompleted(to)
 				? snapshotValues(evaluation.signedChain ?? scheme)
 				: isEvaluationCompleted(from)
-					? snapshotValues(null)
+					? { ...snapshotValues(null), eval_type: scheme.evalType }
 					: {};
 			const row = await store.update<EvaluationRow>(EVALUATIONS, orgId, id, { workflow_status: to, ...signed });
 			return { evaluation: mapEvaluation(row), moved: true };

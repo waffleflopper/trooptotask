@@ -498,6 +498,16 @@ describe('Evaluation — workflow', () => {
 		expect(await storedEvaluation(ctx)).toMatchObject({ snapshot_rater_name: 'SSG Current' });
 	});
 
+	it('gives a reopened Evaluation the type its scheme has now', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { workflow_status: 'completed', chain_snapshot_at: '2026-06-01T00:00:00Z' });
+		await updateRatingScheme(ctx, { id: SCHEME, evalType: 'OER' });
+		expect((await storedEvaluation(ctx))?.eval_type).toBe('NCOER');
+
+		await transitionEvaluation(ctx, EVALUATION, { from: 'completed', to: 'sm-signed' });
+		expect((await storedEvaluation(ctx))?.eval_type).toBe('OER');
+	});
+
 	it('reopens a completed Evaluation only while no other one is open', async () => {
 		const ctx = buildContext();
 		seedAll(ctx, { workflow_status: 'completed', chain_snapshot_at: '2026-06-01T00:00:00Z' });

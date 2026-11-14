@@ -3504,6 +3504,25 @@ $$;
 ALTER FUNCTION organization_private.file_key_retired(p_bucket_id text, p_object_name text) OWNER TO postgres;
 
 --
+-- Name: follow_scheme_eval_type(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.follow_scheme_eval_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  UPDATE public.evaluations AS e SET eval_type = NEW.eval_type
+  WHERE e.rating_scheme_id = NEW.id AND e.eval_type <> NEW.eval_type
+    AND e.workflow_status IS DISTINCT FROM 'completed';
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.follow_scheme_eval_type() OWNER TO postgres;
+
+--
 -- Name: group_within(uuid, uuid, uuid); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -3578,6 +3597,9 @@ CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS tr
     AS $$
 BEGIN
   IF NEW.workflow_status = 'completed' THEN
+    IF TG_OP = 'UPDATE' AND OLD.workflow_status IS DISTINCT FROM 'completed' THEN
+      SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
+    END IF;
     IF NEW.chain_snapshot_at IS NULL THEN
       SELECT pg_catalog.now(), s.rater_person_id, s.rater_name, s.intermediate_rater_person_id,
         s.intermediate_rater_name, s.senior_rater_person_id, s.senior_rater_name, s.reviewer_person_id, s.reviewer_name
@@ -19191,6 +19213,13 @@ CREATE TRIGGER flag_calendar_tasking_picks_on_change AFTER UPDATE OF responsible
 
 
 --
+-- Name: rating_schemes follow_scheme_eval_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER follow_scheme_eval_type AFTER UPDATE OF eval_type ON public.rating_schemes FOR EACH ROW WHEN ((new.eval_type IS DISTINCT FROM old.eval_type)) EXECUTE FUNCTION organization_private.follow_scheme_eval_type();
+
+
+--
 -- Name: personnel forget_deleted_personnel_undo; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -23522,6 +23551,13 @@ REVOKE ALL ON FUNCTION organization_private.file_key_retired(p_bucket_id text, p
 
 
 --
+-- Name: FUNCTION follow_scheme_eval_type(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.follow_scheme_eval_type() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -26606,13 +26642,6 @@ GRANT ALL ON TABLE public.durable_rate_limits TO service_role;
 GRANT SELECT,DELETE,MAINTAIN ON TABLE public.evaluations TO authenticated;
 GRANT ALL ON TABLE public.evaluations TO service_role;
 GRANT SELECT ON TABLE public.evaluations TO anon;
-
-
---
--- Name: COLUMN evaluations.eval_type; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT UPDATE(eval_type) ON TABLE public.evaluations TO authenticated;
 
 
 --

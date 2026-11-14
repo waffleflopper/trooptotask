@@ -415,9 +415,26 @@ describe('Evaluation — start and update', () => {
 		expect(result).toMatchObject({ ratingPeriodEnd: '2026-11-30', notes: 'Counseling' });
 	});
 
+	it('gives an unfinished Evaluation its scheme’s new type and keeps a completed one as rated', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { workflow_status: 'with-rater' });
+		ctx.store.seed('evaluations', [
+			{
+				...(await storedEvaluation(ctx)),
+				id: '00000000-0000-4000-8000-0000000000e2',
+				workflow_status: 'completed'
+			}
+		]);
+
+		await updateRatingScheme(ctx, { id: SCHEME, evalType: 'OER' });
+		expect((await storedEvaluation(ctx))?.eval_type).toBe('OER');
+		expect((await storedEvaluation(ctx, '00000000-0000-4000-8000-0000000000e2'))?.eval_type).toBe('NCOER');
+	});
+
 	it.each([
 		['workflowStatus', 'completed'],
 		['ratingSchemeId', SCHEME],
+		['evalType', 'OER'],
 		['signedChain', { raterName: 'Forged' }]
 	])('refuses a save that carries %s and keeps the stored Evaluation', async (field, value) => {
 		const ctx = buildContext();
@@ -479,6 +496,16 @@ describe('Evaluation — workflow', () => {
 		expect(evaluation.signedChain).toMatchObject({ raterName: 'SSG Current', seniorRaterName: 'MSG Senior' });
 		await updateRatingScheme(ctx, { id: SCHEME, raterName: 'SSG Later' });
 		expect(await storedEvaluation(ctx)).toMatchObject({ snapshot_rater_name: 'SSG Current' });
+	});
+
+	it('gives a reopened Evaluation the type its scheme has now', async () => {
+		const ctx = buildContext();
+		seedAll(ctx, { workflow_status: 'completed', chain_snapshot_at: '2026-06-01T00:00:00Z' });
+		await updateRatingScheme(ctx, { id: SCHEME, evalType: 'OER' });
+		expect((await storedEvaluation(ctx))?.eval_type).toBe('NCOER');
+
+		await transitionEvaluation(ctx, EVALUATION, { from: 'completed', to: 'sm-signed' });
+		expect((await storedEvaluation(ctx))?.eval_type).toBe('OER');
 	});
 
 	it('reopens a completed Evaluation only while no other one is open', async () => {

@@ -9,7 +9,6 @@ import { ratingDueCounts } from '../utils/ratingScheme';
 import { countChainRoles, type SchemeSort } from '../utils/ratingSchemeLineGroups';
 import type { RatingSchemeLine } from '../utils/ratingSchemeLines';
 import { createChainSearch } from '../utils/ratingSchemeSearch';
-import type { RatingSchemeListingFilter } from './RatingSchemePageContext.svelte';
 
 export interface RatingSchemeLinesData {
 	orgId: string;
@@ -26,7 +25,18 @@ interface PastThruAccessor {
 }
 
 export const LINE_SHEET_MODAL = 'rating-scheme-line';
+/** `?line=<scheme id>` opens that line's sheet, as the links on an Evaluation do. */
+export const LINE_PARAM = 'line';
+
+/** `fromUrl` marks a sheet the address names, so Back closes it. */
+export interface LineSheetPayload {
+	lineId: string | null;
+	fromUrl?: boolean;
+}
 export const CHANGE_RATER_MODAL = 'rating-scheme-change-rater';
+
+/** Which lines the Rating Scheme lists: those on it, those archived, or both. */
+export type RatingSchemeListingFilter = 'on-scheme' | 'archived' | 'all';
 
 /** How the Rating Scheme page is viewed, sorted, searched and filtered. The page keeps one per Organization, so a reload of its data leaves these choices alone. */
 export class RatingSchemeLinesViewState {
@@ -134,7 +144,7 @@ export class RatingSchemeLinesContext {
 	}
 
 	get editingLineId(): string | null {
-		return this.#modals.payload<{ lineId: string | null }>(LINE_SHEET_MODAL)?.lineId ?? null;
+		return this.#modals.payload<LineSheetPayload>(LINE_SHEET_MODAL)?.lineId ?? null;
 	}
 
 	get sheetOpen(): boolean {
@@ -146,6 +156,16 @@ export class RatingSchemeLinesContext {
 	}
 
 	openLine(line: RatingSchemeLine): void {
-		this.#modals.open(LINE_SHEET_MODAL, { lineId: line.id });
+		this.#modals.open(LINE_SHEET_MODAL, { lineId: line.id } satisfies LineSheetPayload);
+	}
+
+	/** Opens the line an address names for a viewer who may edit it, and closes it once Back leaves that address. */
+	followAddress(url: { readonly searchParams: Pick<URLSearchParams, 'get'> }): void {
+		const lineId = url.searchParams.get(LINE_PARAM);
+		if (lineId && this.writeAffordance.allowed && this.#lines.items.some((line) => line.id === lineId)) {
+			this.#modals.open(LINE_SHEET_MODAL, { lineId, fromUrl: true } satisfies LineSheetPayload);
+		} else if (this.#modals.payload<LineSheetPayload>(LINE_SHEET_MODAL)?.fromUrl) {
+			this.#modals.close(LINE_SHEET_MODAL);
+		}
 	}
 }

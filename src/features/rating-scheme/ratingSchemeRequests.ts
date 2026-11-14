@@ -14,8 +14,6 @@ import type {
 	RatingSchemeRaterChange,
 	RatingSchemeRaterChangeResult
 } from './contracts';
-import { planRatingSchemeEntrySave, type RatingSchemeEntrySaveData } from './utils/ratingSchemeEntryDraft';
-import { toRatingSchemeEntry } from './utils/ratingSchemeEntries';
 
 async function send<T>(orgId: string, method: string, path: string, body?: unknown): Promise<T> {
 	const response = await fetch(`/org/${orgId}/api/${path}`, {
@@ -70,20 +68,4 @@ export function changeEvaluationRater(
 	change: RatingSchemeRaterChange
 ): Promise<RatingSchemeRaterChangeResult> {
 	return send(orgId, 'POST', `evaluations/${id}/change-rater`, change);
-}
-
-/** Saves an edited Evaluation row: the chain and type on its scheme unless a chain signed it, then its own fields. */
-export async function saveRatingSchemeEntry(
-	orgId: string,
-	current: Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'>,
-	data: RatingSchemeEntrySaveData,
-	isCurrent: () => boolean
-): Promise<Pick<RatingSchemeEntryEditorData, 'ratingScheme' | 'evaluation'> | undefined> {
-	const plan = planRatingSchemeEntrySave(toRatingSchemeEntry(current.ratingScheme, current.evaluation), data);
-	const ratingScheme = plan.scheme
-		? await saveRatingScheme(orgId, current.ratingScheme.id, plan.scheme)
-		: current.ratingScheme;
-	if (!isCurrent()) return undefined;
-	const evaluation = await saveEvaluation(orgId, current.evaluation.id, plan.evaluation);
-	return { ratingScheme, evaluation };
 }

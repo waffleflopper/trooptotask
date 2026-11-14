@@ -227,18 +227,14 @@ export async function startEvaluation(
 	return ctx.ratingScheme.startEvaluation(ratingSchemeId, start);
 }
 
-/** Saves an Evaluation's type, report, period and notes; its step and chain move through their own actions. */
+/** Saves an Evaluation's report, period and notes. Its type follows its scheme; its step and chain move through their own actions. */
 export async function updateEvaluation(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
 ): Promise<Evaluation> {
-	const { id, evalType, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(
-		evaluationUpdateSchema,
-		data
-	);
+	const { id, reportType, ratingPeriodStart, ratingPeriodEnd, notes } = parseEntryInput(evaluationUpdateSchema, data);
 	await requireRatedPersonUpdatePolicy(ctx, (await findEvaluation(ctx, id)).ratedPersonId, id);
 	const evaluation = await ctx.ratingScheme.updateEvaluation(id, {
-		evalType,
 		reportType: reportType as Evaluation['reportType'] | undefined,
 		ratingPeriodStart,
 		ratingPeriodEnd,

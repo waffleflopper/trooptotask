@@ -112,7 +112,12 @@ export interface Evaluation {
 	workflowStatus: WorkflowStatus | null;
 	notes: string | null;
 	/** The chain that signed it; null while it follows its scheme's current chain. */
-	signedChain: EvaluatorChain | null;
+	signedChain: SignedChain | null;
+}
+
+/** The chain an Evaluation kept when it completed, and when it kept it. */
+export interface SignedChain extends EvaluatorChain {
+	signedAt: string;
 }
 
 /** One Evaluation as the Evals page lists it, with the chain it shows and its scheme's listing. */

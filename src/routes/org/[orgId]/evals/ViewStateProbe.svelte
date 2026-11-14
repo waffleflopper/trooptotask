@@ -1,7 +1,5 @@
 <script lang="ts">
-	import type { RatingSchemeLinesContext } from '$features/rating-scheme';
-
-	let { ctx }: { ctx: RatingSchemeLinesContext } = $props();
+	let { ctx }: { ctx: { view: { searchQuery: string } } } = $props();
 </script>
 
 <div data-testid="visible-stub">

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import EvaluatorField from './EvaluatorField.svelte';
-import type { EvaluatorDraft } from '../utils/ratingSchemeEntryDraft';
+import type { EvaluatorDraft } from '../utils/evaluatorDraft';
 
 const people = [
 	{ value: 'p-1', label: 'SSG Rater, Robin' },

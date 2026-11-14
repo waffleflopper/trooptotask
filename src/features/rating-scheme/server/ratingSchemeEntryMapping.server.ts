@@ -110,7 +110,7 @@ export const evaluationStartSchema = z
 
 export const evaluationUpdateSchema = z.object({
 	id: uuidSchema,
-	evalType: evalTypeSchema.optional(),
+	evalType: notAField('An evaluation takes its type from its rating scheme'),
 	reportType: reportTypeSchema,
 	ratingPeriodStart: dateOnlySchema.optional(),
 	ratingPeriodEnd: dateOnlySchema.optional(),
@@ -173,6 +173,7 @@ export function mapEvaluation(row: EvaluationRow): Evaluation {
 		notes: row.notes,
 		signedChain: row.chain_snapshot_at
 			? {
+					signedAt: row.chain_snapshot_at,
 					raterPersonId: row.snapshot_rater_person_id,
 					raterName: row.snapshot_rater_name,
 					seniorRaterPersonId: row.snapshot_senior_rater_person_id,
@@ -229,7 +230,6 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 
 export function evaluationPatchValues(input: EvaluationPatchValues) {
 	return definedOnly({
-		eval_type: input.evalType,
 		report_type: emptyToNull(input.reportType),
 		rating_period_start: input.ratingPeriodStart,
 		rating_period_end: input.ratingPeriodEnd,

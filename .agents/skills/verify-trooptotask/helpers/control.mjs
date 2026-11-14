@@ -1015,7 +1015,7 @@ async function main() {
 																		? ['Create Organization', 'Confirm your email first']
 																		: [
 																				'Calendar',
-																				'Evaluation controls',
+																				'Eval Tracker controls',
 																				'Training',
 																				'Able, Synthetic',
 																				'Foreign, Synthetic',

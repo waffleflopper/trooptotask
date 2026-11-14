@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Command from '$lib/components/ui/command';
-	import { setEvaluatorFromPicker, type EvaluatorDraft } from '../utils/ratingSchemeEntryDraft';
+	import { setEvaluatorFromPicker, type EvaluatorDraft } from '../utils/evaluatorDraft';
 
 	interface Props {
 		id: string;

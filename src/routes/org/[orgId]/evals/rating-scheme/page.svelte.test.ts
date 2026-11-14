@@ -5,7 +5,7 @@ import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
 vi.mock('$features/rating-scheme/components/RatingSchemeLinesView.svelte', async () => ({
-	default: (await import('./ViewStateProbe.svelte')).default
+	default: (await import('../ViewStateProbe.svelte')).default
 }));
 
 vi.mock('$features/rating-scheme/components/RatingSchemeLinesModals.svelte', () => ({

@@ -113,6 +113,10 @@ function provider(initial: { rating_schemes?: Row[]; evaluations?: Row[] } = {})
 				let affected = rows.filter((row) => {
 					for (const [column, filter] of url.searchParams) {
 						if (['select', 'order', 'offset', 'limit'].includes(column)) continue;
+						if (column === 'or') {
+							if (!matchesAny(row, filter)) return false;
+							continue;
+						}
 						if (!filter.startsWith('eq.')) throw new Error('Unexpected Rating predicate');
 						if (String(row[column]) !== filter.slice(3)) return false;
 					}
@@ -155,6 +159,19 @@ function provider(initial: { rating_schemes?: Row[]; evaluations?: Row[] } = {})
 		}
 	});
 	return { tables, state, ratingScheme: createSupabaseRatingSchemePersistence(client, 'org-a') };
+}
+
+/** An `or=(column.is.null,column.neq.value)` filter, the only alternatives the provider sends. */
+function matchesAny(row: Row, filter: string): boolean {
+	return filter
+		.slice(1, -1)
+		.split(',')
+		.some((term) => {
+			const [column, operator, value] = term.split('.');
+			if (operator === 'is' && value === 'null') return row[column] === null;
+			if (operator === 'neq') return row[column] !== null && String(row[column]) !== value;
+			throw new Error('Unexpected Rating predicate');
+		});
 }
 
 /** Selected columns, and the one embed the provider reads: an Evaluation's scheme. */
@@ -201,6 +218,7 @@ describe('owned Rating Scheme provider', () => {
 				...evaluation,
 				workflowStatus: 'completed',
 				signedChain: {
+					signedAt: '2026-10-05T12:00:00+00:00',
 					raterPersonId: null,
 					raterName: 'SSG Signed Rater',
 					seniorRaterPersonId: 'senior-a',
@@ -318,6 +336,25 @@ describe('owned Rating Scheme provider', () => {
 		expect(state.requests[1].body).toEqual({ report_type: null, notes: 'Next' });
 		expect(await ratingScheme.updateEvaluation('missing', { notes: 'x' })).toBeNull();
 		expect(tables.rating_schemes[0].archived_by).toBe('who-archived');
+	});
+
+	it('carries a scheme’s new type to its unfinished Evaluations and leaves completed ones as rated', async () => {
+		const { ratingScheme, tables } = provider({
+			rating_schemes: [schemeRow],
+			evaluations: [
+				evaluationRow,
+				{ ...evaluationRow, id: 'untracked', workflow_status: null },
+				{ ...evaluationRow, id: 'completed', workflow_status: 'completed' },
+				{ ...evaluationRow, id: 'other-scheme', rating_scheme_id: 'scheme-b' }
+			]
+		});
+		await ratingScheme.updateRatingScheme('scheme-a', { evalType: 'WOER' });
+		expect(Object.fromEntries(tables.evaluations.map((row) => [row.id, row.eval_type]))).toEqual({
+			'evaluation-a': 'WOER',
+			untracked: 'WOER',
+			completed: 'OER',
+			'other-scheme': 'OER'
+		});
 	});
 
 	it('deletes only this unit’s Evaluation and reports a failed delete', async () => {

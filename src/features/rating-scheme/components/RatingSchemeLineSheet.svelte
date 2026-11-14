@@ -19,7 +19,7 @@
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
 		type EvaluatorDraft
-	} from '../utils/ratingSchemeEntryDraft';
+	} from '../utils/evaluatorDraft';
 	import EvalStatusBadge from './EvalStatusBadge.svelte';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -36,6 +36,8 @@
 		orgId: string;
 		/** The line as the stores hold it now; null adds a new line. */
 		line: RatingSchemeLine | null;
+		/** The line's Not tracked Evaluation, which the Eval Tracker holds in place of a new start. */
+		notTrackedId?: string | null;
 		personnel: PersonnelLookup[];
 		/** People who already have a listed scheme; a new line is for someone else. */
 		listedPersonIds: ReadonlySet<string>;
@@ -50,6 +52,7 @@
 	let {
 		orgId,
 		line,
+		notTrackedId = null,
 		personnel,
 		listedPersonIds,
 		isCurrentWorkspace,
@@ -228,8 +231,24 @@
 					>
 						Open in Eval Tracker ›
 					</a>
+				{:else if line && archived}
+					Archived. Off the rating scheme.
+				{:else if line && notTrackedId}
+					Not tracked.
+					<a
+						href="/org/{orgId}/evals?entry={notTrackedId}"
+						class="rounded-sm text-[13px] underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					>
+						Open in Eval Tracker ›
+					</a>
 				{:else if line}
-					{archived ? 'Archived. Off the rating scheme.' : 'No open evaluation.'}
+					No open evaluation.
+					<a
+						href="/org/{orgId}/evals?start={line.id}"
+						class="rounded-sm text-[13px] underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					>
+						Start evaluation ›
+					</a>
 				{:else}
 					Pick the Soldier first. Eval type comes from their rank.
 				{/if}

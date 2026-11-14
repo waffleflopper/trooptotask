@@ -258,7 +258,7 @@ CREATE TRIGGER require_one_open_evaluation BEFORE INSERT OR UPDATE OF workflow_s
   FOR EACH ROW EXECUTE FUNCTION organization_private.require_one_open_evaluation();
 
 -- Completing an Evaluation keeps the chain that signed it: its own snapshot when it has one, else its scheme's
--- current chain. Reopening it clears the snapshot, so it follows its scheme again.
+-- current chain. Reopening it clears the snapshot and takes the scheme's eval type, so it follows its scheme again.
 CREATE FUNCTION organization_private.keep_evaluation_chain_snapshot() RETURNS trigger
   LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
@@ -273,6 +273,7 @@ BEGIN
       FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
     END IF;
   ELSIF TG_OP = 'UPDATE' AND OLD.workflow_status = 'completed' THEN
+    SELECT s.eval_type INTO NEW.eval_type FROM public.rating_schemes AS s WHERE s.id = NEW.rating_scheme_id;
     NEW.chain_snapshot_at := NULL;
     NEW.snapshot_rater_person_id := NULL;
     NEW.snapshot_rater_name := NULL;

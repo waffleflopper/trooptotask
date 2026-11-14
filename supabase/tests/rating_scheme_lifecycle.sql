@@ -251,10 +251,13 @@ SELECT results_eq(
   $$ SELECT snapshot_rater_person_id, snapshot_rater_name, snapshot_senior_rater_name FROM public.evaluations WHERE id = pg_temp.f('signed') $$,
   $$ VALUES (pg_temp.id('302'), NULL::text, 'COL Senior'::text) $$,
   'a later change to the scheme leaves the signed chain as it was');
+UPDATE public.rating_schemes SET eval_type = 'OER' WHERE id = pg_temp.scheme(pg_temp.f('signed'));
 SELECT public.transition_evaluation(pg_temp.id('101'), pg_temp.f('signed'), 'completed', 'with-rater');
 SELECT ok((SELECT chain_snapshot_at IS NULL AND snapshot_rater_person_id IS NULL AND snapshot_senior_rater_name IS NULL
     FROM public.evaluations WHERE id = pg_temp.f('signed')),
   'reopening an Evaluation clears its signed chain, so it reads the scheme again');
+SELECT is((SELECT eval_type FROM public.evaluations WHERE id = pg_temp.f('signed')), 'OER',
+  'reopening an Evaluation takes the eval type its scheme has now');
 
 -- A scheme holds one open Evaluation, and its rater changes only by Change of rater while one is open.
 SELECT throws_ok(format($$ UPDATE public.rating_schemes SET rater_name = 'SSG Sneaky' WHERE id = %L $$,

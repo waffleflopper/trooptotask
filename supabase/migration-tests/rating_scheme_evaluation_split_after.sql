@@ -72,5 +72,9 @@ SELECT is_empty(
   $$SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.rating_scheme_entries'::regclass AND NOT tgisinternal
     AND tgfoid = 'audit_private.audit_rating_scheme()'::regprocedure$$,
   'no audit trigger reads a frozen entry as a rating scheme');
+SELECT is_empty(
+  $$SELECT conname FROM pg_constraint WHERE conrelid = 'public.rating_scheme_entries'::regclass AND contype = 'f'
+    AND confrelid = 'public.personnel'::regclass AND confdeltype NOT IN ('c', 'n')$$,
+  'no frozen entry can block a Person''s deletion');
 SELECT * FROM finish();
 ROLLBACK;

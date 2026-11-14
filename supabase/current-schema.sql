@@ -21044,14 +21044,6 @@ ALTER TABLE ONLY public.platform_operators
 
 
 --
--- Name: rating_scheme_entries rating_scheme_entries_intermediate_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_intermediate_rater_person_id_fkey FOREIGN KEY (intermediate_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
-
-
---
 -- Name: rating_scheme_entries rating_scheme_entries_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -21097,30 +21089,6 @@ ALTER TABLE ONLY public.rating_scheme_entries
 
 ALTER TABLE ONLY public.rating_scheme_entries
     ADD CONSTRAINT rating_scheme_entries_rated_person_id_fkey FOREIGN KEY (rated_person_id) REFERENCES public.personnel(id) ON DELETE CASCADE;
-
-
---
--- Name: rating_scheme_entries rating_scheme_entries_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_rater_person_id_fkey FOREIGN KEY (rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
-
-
---
--- Name: rating_scheme_entries rating_scheme_entries_reviewer_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_reviewer_person_id_fkey FOREIGN KEY (reviewer_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
-
-
---
--- Name: rating_scheme_entries rating_scheme_entries_senior_rater_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.rating_scheme_entries
-    ADD CONSTRAINT rating_scheme_entries_senior_rater_person_id_fkey FOREIGN KEY (senior_rater_person_id) REFERENCES public.personnel(id) DEFERRABLE INITIALLY DEFERRED NOT VALID;
 
 
 --

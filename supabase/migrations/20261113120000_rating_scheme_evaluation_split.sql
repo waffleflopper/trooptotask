@@ -192,6 +192,13 @@ DROP FUNCTION public.change_rating_scheme_rater(uuid, uuid, date, uuid, text);
 DROP FUNCTION public.set_rating_scheme_entry_archived(uuid, uuid, boolean);
 DROP TRIGGER audit_rating_scheme ON public.rating_scheme_entries;
 REVOKE ALL ON public.rating_scheme_entries FROM anon, authenticated, service_role;
+-- A frozen row cannot be corrected, so a legacy link in one to another Organization's Person must not block that
+-- Person's deletion. The unscoped evaluator keys go; the Organization-scoped ones still clear a deleted evaluator.
+ALTER TABLE public.rating_scheme_entries
+  DROP CONSTRAINT rating_scheme_entries_rater_person_id_fkey,
+  DROP CONSTRAINT rating_scheme_entries_intermediate_rater_person_id_fkey,
+  DROP CONSTRAINT rating_scheme_entries_senior_rater_person_id_fkey,
+  DROP CONSTRAINT rating_scheme_entries_reviewer_person_id_fkey;
 
 ALTER TABLE public.rating_schemes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.evaluations ENABLE ROW LEVEL SECURITY;

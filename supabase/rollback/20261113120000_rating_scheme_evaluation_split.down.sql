@@ -123,15 +123,12 @@ JOIN public.rating_schemes AS s ON s.id = r.rating_scheme_id;
 
 -- Main's evaluator keys skip legacy rows, such as a cross-Organization rater, and the split carried those links over
 -- for separate review. Rebuilt rows would be checked again, so the keys come back as main had them after the rebuild.
+-- The split already dropped the unscoped ones from the frozen table.
 ALTER TABLE public.rating_scheme_entries
   DROP CONSTRAINT rating_scheme_entries_organization_rater_fkey,
   DROP CONSTRAINT rating_scheme_entries_organization_intermediate_rater_fkey,
   DROP CONSTRAINT rating_scheme_entries_organization_senior_rater_fkey,
-  DROP CONSTRAINT rating_scheme_entries_organization_reviewer_fkey,
-  DROP CONSTRAINT rating_scheme_entries_rater_person_id_fkey,
-  DROP CONSTRAINT rating_scheme_entries_intermediate_rater_person_id_fkey,
-  DROP CONSTRAINT rating_scheme_entries_senior_rater_person_id_fkey,
-  DROP CONSTRAINT rating_scheme_entries_reviewer_person_id_fkey;
+  DROP CONSTRAINT rating_scheme_entries_organization_reviewer_fkey;
 DELETE FROM public.rating_scheme_entries;
 INSERT INTO public.rating_scheme_entries (
   id, organization_id, rated_person_id, eval_type, rater_person_id, rater_name, senior_rater_person_id,

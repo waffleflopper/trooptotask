@@ -3144,13 +3144,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "rating_scheme_entries_intermediate_rater_person_id_fkey"
-            columns: ["intermediate_rater_person_id"]
-            isOneToOne: false
-            referencedRelation: "personnel"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "rating_scheme_entries_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -3188,27 +3181,6 @@ export type Database = {
           {
             foreignKeyName: "rating_scheme_entries_rated_person_id_fkey"
             columns: ["rated_person_id"]
-            isOneToOne: false
-            referencedRelation: "personnel"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rating_scheme_entries_rater_person_id_fkey"
-            columns: ["rater_person_id"]
-            isOneToOne: false
-            referencedRelation: "personnel"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rating_scheme_entries_reviewer_person_id_fkey"
-            columns: ["reviewer_person_id"]
-            isOneToOne: false
-            referencedRelation: "personnel"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rating_scheme_entries_senior_rater_person_id_fkey"
-            columns: ["senior_rater_person_id"]
             isOneToOne: false
             referencedRelation: "personnel"
             referencedColumns: ["id"]
